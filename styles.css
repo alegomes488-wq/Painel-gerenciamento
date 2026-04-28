@@ -7,7 +7,95 @@
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --border-glass: rgba(255, 255, 255, 0.08);
-    --success: #10b981;
+}
+
+/* ============ CYBER-LOGO ANIMATIONS ============ */
+.cyber-logo-large {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cyber-logo-small {
+    width: 45px;
+    height: 45px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.core-svg-main {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 15px rgba(124, 58, 237, 0.5));
+}
+
+.core-svg {
+    width: 100%;
+    height: 100%;
+}
+
+.premium-sidebar {
+    position: relative;
+    width: 280px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-sidebar.collapsed {
+    width: 85px;
+}
+
+.premium-sidebar.collapsed .brand-text,
+.premium-sidebar.collapsed .nav-text,
+.premium-sidebar.collapsed .nav-label {
+    display: none;
+}
+
+.collapse-sidebar-btn {
+    position: absolute;
+    right: -15px;
+    top: 45px;
+    width: 30px;
+    height: 30px;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-glass);
+    border-radius: 50%;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 100;
+    transition: 0.3s;
+    box-shadow: 10px 0 20px rgba(0,0,0,0.5);
+}
+
+.collapse-sidebar-btn:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    transform: scale(1.1);
+}
+
+.premium-sidebar.collapsed .collapse-sidebar-btn {
+    transform: rotate(180deg);
+}
+
+#collapse-icon {
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.brand-box {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    overflow: hidden;
 }
 
 * {
@@ -361,6 +449,15 @@ body.premium-theme {
     }
 }
 
+/* ============ LAYOUT DASHBOARD ============ */
+.premium-layout {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    background: var(--bg-deep);
+    overflow: hidden;
+}
+
 .nav-btn:hover {
     color: var(--text-primary);
     background: rgba(255,255,255,0.03);
@@ -375,8 +472,18 @@ body.premium-theme {
 /* ============ MAIN CONTENT ============ */
 .premium-main {
     flex: 1;
-    padding: 50px 60px;
+    padding: 30px 40px;
     overflow-y: auto;
+    height: 100vh;
+}
+
+.panel-view {
+    display: none;
+}
+
+.panel-view.active {
+    display: block !important;
+    animation: fadeIn 0.4s forwards;
 }
 
 .workspace-header {
@@ -751,7 +858,137 @@ input:checked + .slider:before { transform: translateX(24px); }
 }
 
 .toast.show { transform: translateY(0); }
-.panel-view { display: none; }
-.panel-view.active { display: block; animation: fadeIn 0.5s ease; }
+/* ============ CYBERCORE IA - AGENT MATRIX UI ============ */
+.agent-matrix {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 25px;
+    height: calc(100vh - 250px);
+    margin-bottom: 20px;
+}
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.agent-terminal {
+    background: rgba(6, 8, 15, 0.5);
+    border: 1px solid var(--border-glass);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(30px);
+    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.agent-terminal:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(6, 8, 15, 0.7);
+}
+
+.agent-header {
+    padding: 20px 25px;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--border-glass);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.agent-orb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    box-shadow: 0 0 15px currentColor;
+    animation: blink 2s infinite;
+}
+
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+.agent-header h3 {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Cores dos Agentes */
+.agent-sentinel { border-top: 4px solid #f87171; }
+.agent-sentinel .agent-orb { background: #f87171; color: #f87171; }
+.agent-sentinel h3 { color: #f87171; }
+
+.agent-nexus { border-top: 4px solid #60a5fa; }
+.agent-nexus .agent-orb { background: #60a5fa; color: #60a5fa; }
+.agent-nexus h3 { color: #60a5fa; }
+
+.agent-auditor { border-top: 4px solid #4ade80; }
+.agent-auditor .agent-orb { background: #4ade80; color: #4ade80; }
+.agent-auditor h3 { color: #4ade80; }
+
+.agent-body {
+    flex: 1;
+    padding: 25px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.agent-body::-webkit-scrollbar { width: 5px; }
+.agent-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+
+.agent-line {
+    padding: 12px 18px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-left: 4px solid transparent;
+    animation: slideIn 0.4s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.agent-sentinel .agent-line { border-left-color: #f87171; }
+.agent-nexus .agent-line { border-left-color: #60a5fa; }
+.agent-auditor .agent-line { border-left-color: #4ade80; }
+
+.agent-matrix-footer {
+    grid-column: span 3;
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 24px;
+    padding: 25px 40px;
+    display: flex;
+    align-items: center;
+    gap: 25px;
+    box-shadow: 0 0 40px rgba(99, 102, 241, 0.1);
+}
+
+#terminal-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 18px;
+    font-weight: 300;
+    outline: none;
+    font-family: 'Sora', sans-serif;
+    letter-spacing: 1px;
+}
+
+/* Scrollbar Custom */
+.terminal-body::-webkit-scrollbar { width: 6px; }
+.terminal-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+/* Status do Agente */
+#ai-status-bar {
+    transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#ai-status-bar:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--accent);
+}

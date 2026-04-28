@@ -1,347 +1,147 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hub CyberCore IA | Gestão Premium</title>
+    <title>HUB MASTER | Gerenciamento CineCash</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-functions.js"></script>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100;300;400;600;800&display=swap" rel="stylesheet">
-    <!-- Firebase Compat SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="premium-theme">
-
-    <!-- Loader de Elite -->
-    <div id="loader" class="elite-loader">
-        <div class="loader-circle"></div>
-        <p class="loader-brand">CYBERCORE <span>IA</span></p>
+<body>
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="login-container">
+        <div class="login-box glass">
+            <h2>HUB MASTER LOGIN</h2>
+            <input type="email" id="login-email" placeholder="E-mail Admin">
+            <div style="position:relative; width:100%;">
+                <input type="password" id="login-pass" placeholder="Senha">
+                <span id="toggle-password" style="position:absolute; right:15px; top:12px; cursor:pointer;">👁️</span>
+            </div>
+            <button id="btn-login">ACESSAR NÚCLEO</button>
+        </div>
     </div>
 
-    <!-- Interface Premium -->
-    <div id="hub-app" class="premium-layout" style="display:none;">
-
-        <!-- Botão Menu Mobile (Flutuante) -->
-        <button id="mobile-menu-btn" class="mobile-only-btn" onclick="toggleSidebar()">
-            <span>☰</span>
-        </button>
-
-        <!-- Sidebar Flutuante -->
-        <aside id="sidebar" class="premium-sidebar">
-            <div class="sidebar-top">
-                <div class="brand-box">
-                    <div class="brand-orb"></div>
-                    <h2 class="brand-text">CYBERCORE</h2>
-                </div>
-                <!-- Botão Minimizar (Desktop) -->
-                <button class="collapse-btn" onclick="toggleCollapseSidebar()">
-                    <span id="collapse-icon">◀</span>
-                </button>
+    <!-- APP PRINCIPAL -->
+    <div id="hub-app" class="app-container" style="display:none;">
+        <nav class="sidebar glass">
+            <div class="logo">💠 HUB MASTER</div>
+            <div class="nav-links">
+                <button class="nav-item active" onclick="showPanel('dashboard')">📊 Dashboard</button>
+                <button class="nav-item" onclick="showPanel('saques')">💸 Saques</button>
+                <button class="nav-item" onclick="showPanel('usuarios')">👥 Usuários</button>
+                <button class="nav-item" onclick="showPanel('seguranca')">🛡️ Segurança</button>
+                <button class="nav-item" onclick="showPanel('terminal')">⌨️ Terminal IA</button>
             </div>
-
-            <nav class="premium-nav">
-                <div class="nav-label">Controle Global</div>
-                <button class="nav-btn active" onclick="showPanel('overview')">
-                    <span class="btn-icon">📊</span> <span class="nav-text">Visão Geral</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('projects')">
-                    <span class="btn-icon">🛰️</span> <span class="nav-text">Sistemas</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('users')">
-                    <span class="btn-icon">👥</span> <span class="nav-text">Usuários</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('security')">
-                    <span class="btn-icon">🛡️</span> <span class="nav-text">Segurança</span>
-                </button>
-
-                <div class="nav-label">Financeiro</div>
-                <button class="nav-btn" onclick="showPanel('saques')">
-                    <span class="btn-icon">💸</span> <span class="nav-text">Saques PIX</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('audit')">
-                    <span class="btn-icon">📈</span> <span class="nav-text">Auditoria</span>
-                </button>
-            </nav>
-
-            <div class="sidebar-bottom">
-                <button class="btn-logout-minimal" onclick="logout()">
-                    <span class="btn-icon">📤</span> <span class="nav-text">SAIR</span>
-                </button>
+            <div class="user-pill glass">
+                <span id="user-display-name">ADMIN</span>
+                <button onclick="logout()">Sair</button>
             </div>
-        </aside>
+        </nav>
 
-        <!-- Main Workspace -->
-        <main class="premium-main">
-            <header class="workspace-header">
-                <div class="header-left">
-                    <h1 id="current-panel-name">Painel de Controle</h1>
-                    <p class="sub-header">Monitoramento de infraestrutura em tempo real</p>
-                </div>
-                <div class="header-right">
-                    <div class="admin-badge">
-                        <div class="badge-avatar">CC</div>
-                        <div class="badge-info">
-                            <span id="user-display-name">Administrador</span>
-                            <small>Acesso Master</small>
-                        </div>
-                    </div>
+        <main class="content">
+            <header class="top-bar">
+                <h1 id="current-panel-name">DASHBOARD</h1>
+                <div class="global-stats">
+                    <div class="mini-stat">Users: <span id="stat-users">0</span></div>
+                    <div class="mini-stat">Saldo: <span id="stat-balance">R$ 0,00</span></div>
                 </div>
             </header>
 
-            <div class="workspace-content">
-                <!-- Visão Geral -->
-                <div id="panel-overview" class="panel-view active">
-                    <div class="premium-grid">
-                        <div class="p-card">
-                            <div class="p-card-header">
-                                <span class="p-icon">👥</span>
-                                <span class="p-label">Usuários Ativos</span>
-                            </div>
-                            <div class="p-value" id="stat-users">0</div>
-                            <div class="p-trend positive">+12% esta semana</div>
+            <!-- PAINEL: DASHBOARD -->
+            <div id="panel-dashboard" class="panel-view active">
+                <div id="projects-container" class="projects-grid">
+                    <!-- Cards de Apps injetados pelo app.js -->
+                </div>
+            </div>
+
+            <!-- PAINEL: SAQUES -->
+            <div id="panel-saques" class="panel-view">
+                <div class="premium-glass panel-card">
+                    <div class="card-header">
+                        <h3>Pedidos Pendentes</h3>
+                        <span id="total-pendente-display">R$ 0,00</span>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Chave PIX</th>
+                                <th>Valor</th>
+                                <th>Atividade</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="withdrawals-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PAINEL: TERMINAL IA -->
+            <div id="panel-terminal" class="panel-view">
+                <div class="terminal-container premium-glass">
+                    <div class="terminal-header">CYBERCORE IA - INTERFACE NEURAL</div>
+                    <div id="terminal-body" class="terminal-content">
+                        <div class="agent-box">
+                            <label>Nexus (Geral)</label>
+                            <div id="agent-nexus-body" class="agent-log"></div>
                         </div>
-                        <div class="p-card">
-                            <div class="p-card-header">
-                                <span class="p-icon">📈</span>
-                                <span class="p-label">Lucro Monetag (Estimado)</span>
-                            </div>
-                            <div id="stat-profit-usd" class="p-value" style="color: #4ade80;">$ 0.00</div>
-                            <div class="p-trend" id="stat-profit-brl">R$ 0,00</div>
+                        <div class="agent-box">
+                            <label>Sentinel (Segurança)</label>
+                            <div id="agent-sentinel-body" class="agent-log"></div>
                         </div>
-                        <div class="p-card highlight">
-                            <div class="p-card-header">
-                                <span class="p-icon">💰</span>
-                                <span class="p-label">Total a Pagar (Usuários)</span>
-                            </div>
-                            <div class="p-value" id="stat-balance">R$ 0,00</div>
-                            <div class="p-trend">Dívida Total</div>
+                        <div class="agent-box">
+                            <label>Auditor (Financeiro)</label>
+                            <div id="agent-auditor-body" class="agent-log"></div>
                         </div>
-                        <div class="p-card">
-                            <div class="p-card-header">
-                                <span class="p-icon">⚡</span>
-                                <span class="p-label">Acessos CineCash</span>
-                            </div>
-                            <div class="p-value" id="stat-hits">0</div>
-                            <div class="p-trend positive">Tráfego Global</div>
-                        </div>
+                    </div>
+                    <div class="terminal-input-area">
+                        <input type="text" id="terminal-input" placeholder="Digite um comando para a CyberCore IA...">
                     </div>
                 </div>
+            </div>
 
-                <!-- Painel: Sistemas & Nós -->
-                <div id="panel-projects" class="panel-view">
-                    <div class="system-card premium-glass">
-                        <div class="system-header">
-                            <div class="sys-info">
-                                <h3>CineCash IA</h3>
-                                <span id="cinecash-badge" class="sys-badge active">NODE ATIVO</span>
-                            </div>
-                            <div class="sys-toggle">
-                                <label class="switch">
-                                    <input type="checkbox" id="cinecash-status" checked onchange="toggleSystem('cinecash', this.checked)">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="system-controls">
-                            <!-- Modo Manutenção -->
-                            <div class="control-item maintenance-box">
-                                <div class="control-row">
-                                    <label>🛠️ MODO MANUTENÇÃO</label>
-                                    <label class="switch">
-                                        <input type="checkbox" id="cinecash-maintenance" onchange="updateSystemConfig('cinecash', 'maintenance', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <small style="color: var(--text-secondary); font-size: 10px;">Ativa a tela de bloqueio com aviso de manutenção para todos.</small>
-                            </div>
-
-                            <!-- Segurança Anti-Fraude -->
-                            <div class="control-item">
-                                <div class="control-row">
-                                    <label>🛡️ SEGURANÇA DE ID ÚNICO</label>
-                                    <label class="switch">
-                                        <input type="checkbox" id="security-device-lock" checked onchange="updateSystemConfig('global', 'deviceLock', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <small style="color: var(--text-secondary); font-size: 10px;">Bloqueia múltiplas contas detectadas no mesmo hardware.</small>
-                            </div>
-                        </div>
-                    </div>
+            <!-- PAINEL: SEGURANÇA -->
+            <div id="panel-seguranca" class="panel-view">
+                <div class="premium-glass panel-card">
+                    <h3>Logs de Atividades Suspeitas</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>UID</th>
+                                <th>Evento</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="security-logs-table-body"></tbody>
+                    </table>
+                    <button onclick="simulateFraud()" style="margin-top:20px;">Simular Detecção</button>
                 </div>
+            </div>
 
-                <!-- Painel: Banco de Dados (Usuários) -->
-                <div id="panel-users" class="panel-view">
-                    <div class="premium-table-container premium-glass">
-                        <div class="table-header">
-                            <h3>Registros de Usuários</h3>
-                            <div class="table-actions">
-                                <input type="text" id="user-search" placeholder="Buscar por UID ou E-mail..." oninput="filterUsers(this.value)">
-                            </div>
-                        </div>
-                        <table class="premium-table">
-                            <thead>
-                                <tr>
-                                    <th>Identificador (UID)</th>
-                                    <th>E-mail</th>
-                                    <th>Saldo</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="users-table-body">
-                                <!-- Preenchido via JS -->
-                                <tr>
-                                    <td colspan="4" style="text-align:center; padding: 40px; color: var(--text-secondary);">Sincronizando registros...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Painel: Saques PIX -->
-                <div id="panel-saques" class="panel-view">
-                    <div class="premium-table-container premium-glass">
-                        <div class="table-header">
-                            <div>
-                                <h3>Solicitações de Saque PIX</h3>
-                                <p class="sub-header">Gerencie os pagamentos pendentes dos usuários</p>
-                            </div>
-                            <div class="stat-mini-card">
-                                <small>Total Pendente</small>
-                                <strong id="total-pending-payout" style="color: var(--primary);">R$ 0,00</strong>
-                            </div>
-                        </div>
-                        <table class="premium-table">
-                            <thead>
-                                <tr>
-                                    <th>Usuário</th>
-                                    <th>Chave PIX</th>
-                                    <th>Valor</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="withdrawals-table-body">
-                                <tr>
-                                    <td colspan="5" style="text-align:center; padding: 40px; color: var(--text-secondary);">Nenhuma solicitação pendente no momento.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Painel: Auditoria -->
-                <div id="panel-audit" class="panel-view">
-                    <div class="premium-grid" style="margin-bottom: 20px;">
-                        <div class="p-card highlight" style="grid-column: span 3;">
-                            <div class="p-card-header">
-                                <span class="p-icon">📊</span>
-                                <span class="p-label">Performance de Lucros (7 Dias)</span>
-                            </div>
-                            <div class="chart-container" style="height: 200px; margin-top: 20px;">
-                                <canvas id="profitChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="system-card premium-glass">
-                        <div class="system-header">
-                            <div class="sys-info">
-                                <h3>Configurações de Auditoria</h3>
-                                <p class="sub-header">Ajuste os valores para bater com o Monetag</p>
-                            </div>
-                        </div>
-                        <div class="system-controls">
-                            <div class="control-item">
-                                <label>Saldo Já Acumulado no Monetag (USD)</label>
-                                <input type="number" id="audit-base-profit" step="0.01" placeholder="Ex: 0.03"
-                                       onchange="updateSystemConfig('global', 'baseProfit', this.value)">
-                                <small style="color: var(--text-secondary); font-size: 10px;">Insira o valor que já aparece no topo do seu Monetag.</small>
-                            </div>
-                            <div class="control-item">
-                                <label>Valor do CPM Atual (USD)</label>
-                                <input type="number" id="audit-cpm" step="0.01" placeholder="Ex: 0.23"
-                                       onchange="updateSystemConfig('global', 'cpm', this.value)">
-                            </div>
-                            <div class="control-item">
-                                <label>📱 WhatsApp para Notificações</label>
-                                <input type="text" id="audit-whatsapp" placeholder="Ex: 5511999999999"
-                                       onchange="updateSystemConfig('global', 'adminPhone', this.value)">
-                                <small style="color: var(--text-secondary); font-size: 10px;">Número que receberá alertas de saques.</small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Painel: Segurança (Logs) -->
-                <div id="panel-security" class="panel-view">
-                    <div class="premium-table-container premium-glass">
-                        <div class="table-header">
-                            <div>
-                                <h3>Registros de Segurança (Anti-Fraude)</h3>
-                                <p class="sub-header">Monitoramento de tentativas de violação</p>
-                            </div>
-                        </div>
-                        <table class="premium-table">
-                            <thead>
-                                <tr>
-                                    <th>Horário</th>
-                                    <th>Usuário / ID</th>
-                                    <th>Tipo de Evento</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="logs-table-body">
-                                <tr>
-                                    <td colspan="4" style="text-align:center; padding: 40px; color: var(--text-secondary);">Nenhuma atividade suspeita detectada.</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div id="panel-placeholder" class="panel-view">
-                    <div class="premium-empty">
-                        <div class="empty-loader"></div>
-                        <h3>Inicializando Módulo</h3>
-                        <p>Acessando dados criptografados do nó...</p>
-                    </div>
+            <!-- PAINEL: USUÁRIOS -->
+            <div id="panel-usuarios" class="panel-view">
+                <div class="premium-glass panel-card">
+                    <h3>Base de Usuários</h3>
+                    <input type="text" placeholder="Filtrar por Email ou UID..." oninput="renderUsersTable(this.value)" style="margin-bottom:15px; width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>UID</th>
+                                <th>Email</th>
+                                <th>Saldo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
                 </div>
             </div>
         </main>
-    </div>
-
-    <!-- Login de Luxo -->
-    <div id="login-screen" class="premium-login-overlay" style="display:none;">
-        <div class="login-bg-light"></div>
-        <div class="login-window glass">
-            <div class="login-header">
-                <div class="brand-orb large"></div>
-                <h1 class="brand-title">CYBERCORE <span>IA</span></h1>
-                <p>Insira suas credenciais para acessar o hub</p>
-            </div>
-
-            <div class="login-body">
-                <div class="p-input-group">
-                    <label>E-MAIL DE ACESSO</label>
-                    <input type="email" id="login-email" placeholder="admin@cybercore.io">
-                </div>
-                <div class="p-input-group">
-                    <label>CHAVE DE SEGURANÇA</label>
-                    <input type="password" id="login-pass" placeholder="••••••••">
-                </div>
-                <button id="btn-login" class="btn-premium">
-                    ESTABELECER CONEXÃO
-                </button>
-            </div>
-
-            <div class="login-footer">
-                <small>Conexão Segura com Criptografia RSA 2048-bit</small>
-            </div>
-        </div>
     </div>
 
     <div id="toast" class="toast"></div>
