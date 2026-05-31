@@ -1,0 +1,996 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciamento Hub com tecnológia | CyberCore IA</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100;300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDKs (LOCAL - sem bloqueio de tracking) -->
+    <script src="lib/firebase-app-compat.js"></script>
+    <script src="lib/firebase-auth-compat.js"></script>
+    <script src="lib/firebase-database-compat.js"></script>
+    <script src="lib/firebase-messaging-compat.js"></script>
+    <!-- Chart.js local -->
+    <script src="lib/chart.js"></script>
+</head>
+<body class="premium-theme">
+    <!-- Definições Globais de Design -->
+    <svg style="width:0; height:0; position:absolute;" aria-hidden="true">
+        <defs>
+            <linearGradient id="grad-master" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#E8B830" />
+                <stop offset="100%" style="stop-color:#1E9EBB" />
+            </linearGradient>
+            <filter id="glow-master">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- Loader CineCash VIP -->
+    <div id="loader" class="elite-loader">
+        <div class="loader-star-container">
+            <svg viewBox="0 0 100 100" class="loader-star-svg">
+                <path d="M50 15 L62 38 L88 38 L67 55 L75 80 L50 65 L25 80 L33 55 L12 38 L38 38 Z" fill="url(#grad-master)" filter="url(#glow-master)"/>
+            </svg>
+        </div>
+        <p class="loader-brand"><span class="gradient-star" style="-webkit-text-fill-color: transparent;">PAINEL</span><span>HUB |</span> <span style="color:var(--primary)">ADMIN</span></p>
+    </div>
+
+    <!-- Interface Premium -->
+    <div id="hub-app" class="premium-layout" style="display:none;">
+
+<!-- Sidebar Icon-Only -->
+        <aside id="sidebar" class="premium-sidebar collapsed icon-only">
+            <div class="sidebar-top">
+                <div class="brand-box">
+                    <div class="cyber-mini-logo" style="margin:0 auto;">
+                        <svg viewBox="0 0 100 100" style="width:32px;height:32px;">
+                            <defs>
+                                <linearGradient id="grad-brand" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#E8B830" />
+                                    <stop offset="100%" style="stop-color:#1E9EBB" />
+                                </linearGradient>
+                            </defs>
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="url(#grad-brand)" stroke-width="4" stroke-dasharray="15 10" class="rotating-ring"/>
+                            <path d="M50 30 L55 45 L70 45 L58 55 L63 70 L50 60 L37 70 L42 55 L30 45 L45 45 Z" fill="url(#grad-brand)" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="premium-nav">
+                <button class="nav-btn active" onclick="showPanel('overview')" title="Visão Geral">
+                    <span class="btn-icon">📊</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('projects')" title="Sistemas">
+                    <span class="btn-icon">🛰️</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('users')" title="Usuários">
+                    <span class="btn-icon">👥</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('memory')" title="Memória Neural">
+                    <span class="btn-icon">🧠</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('warroom')" title="Sala de Guerra" style="color:#ef4444;">
+                    <span class="btn-icon">⚔️</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('security')" title="Segurança">
+                    <span class="btn-icon">🛡️</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('settings')" title="Configurações">
+                    <span class="btn-icon">⚙️</span>
+                </button>
+
+                <div style="height:1px;background:rgba(232,184,48,0.1);margin:8px 12px;"></div>
+
+                <button class="nav-btn" onclick="showPanel('saques')" title="Saques PIX">
+                    <span class="btn-icon">💸</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('audit')" title="Auditoria">
+                    <span class="btn-icon">📈</span>
+                </button>
+                <button class="nav-btn" onclick="showPanel('terminal')" title="CyberCore IA" style="border:1px solid rgba(232,184,48,0.3);">
+                    <span class="btn-icon">🤖</span>
+                </button>
+
+                <div class="sidebar-core-status" style="margin-top:auto;padding:15px 0;border-top:1px solid rgba(232,184,48,0.1);text-align:center;">
+                    <div id="python-core-ping" class="ai-pulse-orb" style="width:6px;height:6px;margin:0 auto 6px;background:#52525b;"></div>
+                    <small style="font-size:7px;font-weight:700;color:#52525b;letter-spacing:0.5px;display:block;">PYTHON <span id="python-core-status">OFF</span></small>
+                </div>
+            </nav>
+
+            <div class="sidebar-bottom" style="padding:10px 0;text-align:center;">
+                <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="justify-content:center;padding:10px;">
+                    <span class="btn-icon" style="margin:0;">📤</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main class="premium-main">
+            <header class="workspace-header">
+                <div class="header-left">
+                    <div style="margin-left: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="data-dot gold" style="margin-right: 0;"></span>
+                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: #00f3ff; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);">[SYS_TERMINAL] // CYBERCORE IA</h1>
+                            <span id="system-health-badge" class="badge-ia" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); font-family: 'Fira Code', monospace;">NÚCLEO ESTÁVEL</span>
+                            <div class="data-flow cyan" style="width:40px;height:1.5px;margin:0;"></div>
+                        </div>
+                        <p class="sub-header"><span class="status-ring" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;"></span>Monitoramento de infraestrutura em tempo real</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="admin-badge tech-corner">
+                        <div class="badge-avatar">CC</div>
+                        <div class="badge-info">
+                            <span id="user-display-name" class="glow-text">Alegomes488</span>
+                            <small>Acesso Master</small>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="workspace-content">
+                
+                <!-- Painel: Overview -->
+                <div id="panel-overview" class="panel-view active">
+                    <div class="panel-scanner"></div>
+                    <div class="dashboard-container">
+
+                        <!-- Linha 1: Cards Superiores -->
+                        <div class="card telemetry-card card-tech holo-shimmer">
+                            <span class="tech-corner" style="position:absolute;top:0;right:0;width:100%;height:100%;pointer-events:none;"></span>
+                            <div class="card-header">
+                                <span class="icon-pulse">📡</span> PING DA REDE
+                            </div>
+                            <div class="value ping-value glow-text-cyan" id="tele-ping">8ms</div>
+                            <div class="progress-bar"><div class="progress-fill ping-fill" style="width: 20%;"></div></div>
+                        </div>
+
+                        <div class="card telemetry-card card-tech holo-shimmer">
+                            <div class="card-header">
+                                <span class="icon-pulse">🧠</span> CARGA CYBERCORE IA
+                            </div>
+                            <div class="value cpu-value glow-text-cyan" id="tele-cpu">3.9%</div>
+                            <div class="progress-bar"><div class="progress-fill cpu-fill" style="width: 3.9%;"></div></div>
+                        </div>
+
+                        <div class="card telemetry-card card-tech holo-shimmer">
+                            <div class="card-header">
+                                <span class="icon-pulse">💾</span> CACHE SENTINEL
+                            </div>
+                            <div class="value ram-value glow-text-cyan" id="tele-ram">131MB</div>
+                            <div class="progress-bar"><div class="progress-fill ram-fill" style="width: 60%;"></div></div>
+                        </div>
+
+                        <!-- Linha 2: Banner de Monitoramento -->
+                        <div class="card full-width-card holo-shimmer" style="background: linear-gradient(135deg, rgba(232,184,48,0.08), rgba(30,158,187,0.05), transparent);">
+                            <div>
+                                <div class="card-header"><span class="data-dot gold" style="margin-right:6px;"></span> AGENTE CYBERCORE IA MONITORANDO</div>
+                                <p style="font-size: 12px; color: #9ca3af; margin: 5px 0 0 0;">Analisando tráfego e requisições de PIX em tempo real...</p>
+                            </div>
+                            <button class="btn-report" onclick="generateAIReport()">RELATÓRIO IA</button>
+                        </div>
+
+                        <!-- Linha 2.5: ROI Por Canal IA -->
+                        <div class="roi-grid">
+                            <div class="system-card premium-glass tech-border" style="padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 10px; font-weight: 800; color: #E8B830; letter-spacing: 1px;">AFILIADOS</span>
+                                    <span class="roi-roi" id="roi-afiliados-pct" style="font-size: 10px; opacity: 0.6;">0% ROI</span>
+                                </div>
+                                <div style="height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; margin-bottom: 8px;">
+                                    <div class="roi-bar" id="roi-afiliados-bar" style="width: 0%; height: 100%; background: #E8B830;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono';">
+                                    <small class="roi-revenue glow-value" id="roi-afiliados-rev" style="font-size: 11px;">R$ 0</small>
+                                    <small class="roi-change" id="roi-afiliados-chg" style="color: #10b981; font-size: 9px;">0%</small>
+                                </div>
+                            </div>
+
+                            <div class="system-card premium-glass tech-border" style="padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 10px; font-weight: 800; color: #fbbf24; letter-spacing: 1px;">CYBER ADS</span>
+                                    <span class="roi-roi" id="roi-ads-pct" style="font-size: 10px; opacity: 0.6;">0% ROI</span>
+                                </div>
+                                <div style="height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; margin-bottom: 8px;">
+                                    <div class="roi-bar" id="roi-ads-bar" style="width: 0%; height: 100%; background: #fbbf24;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono';">
+                                    <small class="roi-revenue glow-value" id="roi-ads-rev" style="font-size: 11px;">R$ 0</small>
+                                    <small class="roi-change" id="roi-ads-chg" style="color: #10b981; font-size: 9px;">0%</small>
+                                </div>
+                            </div>
+
+                            <div class="system-card premium-glass tech-border" style="padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 10px; font-weight: 800; color: #3b82f6; letter-spacing: 1px;">ORGÂNICO</span>
+                                    <span class="roi-roi" id="roi-organico-pct" style="font-size: 10px; opacity: 0.6;">0% ROI</span>
+                                </div>
+                                <div style="height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; margin-bottom: 8px;">
+                                    <div class="roi-bar" id="roi-organico-bar" style="width: 0%; height: 100%; background: #3b82f6;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono';">
+                                    <small class="roi-revenue glow-value" id="roi-organico-rev" style="font-size: 11px;">R$ 0</small>
+                                    <small class="roi-change" id="roi-organico-chg" style="color: #ef4444; font-size: 9px;">0%</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Linha 3: Métricas Financeiras e Gráfico -->
+                        <div style="grid-column: span 3; display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+                            <div class="card card-tech holo-shimmer" style="height: 100%;">
+                                <div class="card-header">💰 TOTAL EM BANCA (ESTIMADO)</div>
+                                <div class="value glow-value" id="stat-profit-brl-total">R$ 0,00</div>
+                                <div style="margin-top: 10px; font-size: 11px; color: #10b981; font-weight: 800;">+ R$ 1.250,20 HOJE</div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding: 20px; height: 300px;">
+                                <div class="system-header" style="margin-bottom: 10px;">
+                                    <h3 style="font-size: 14px; letter-spacing: 1px;">📈 EVOLUÇÃO DE LUCROS (7 DIAS)</h3>
+                                </div>
+                                <canvas id="profitChart" style="max-height: 220px;"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="card card-tech holo-shimmer">
+                            <div class="card-header">👥 USUÁRIOS ATIVOS</div>
+                            <div class="value glow-text" id="stat-users">0</div>
+                            <div class="sub-value" style="color: #10b981;">+12% esta semana</div>
+                        </div>
+
+                        <div class="card card-tech holo-shimmer">
+                            <div class="card-header">💰 LUCRO MONETAG (BRUTO)</div>
+                            <div class="value glow-text" id="stat-profit-usd" style="color: #10b981;">$ 0.00</div>
+                            <div class="sub-value" id="stat-profit-brl">R$ 0,00</div>
+                        </div>
+
+                        <div class="card card-tech holo-shimmer">
+                            <div class="card-header">💹 LUCRO LÍQUIDO REAL</div>
+                            <div class="value glow-text" id="stat-net-profit" style="color: #f43f5e;">R$ -0,99</div>
+                            <div class="sub-value">Descontando Taxas Asaas</div>
+                        </div>
+
+                        <!-- Linha 4: Dívida + Agent Status + Log -->
+                        <div class="card card-tech holo-shimmer">
+                            <div class="card-header">💰 DÍVIDA ACUMULADA</div>
+                            <div class="value glow-value" id="stat-balance">R$ 0,00</div>
+                            <div class="sub-value">Total em Contas</div>
+                        </div>
+
+                        <div class="card card-tech holo-shimmer" style="grid-column: span 2;">
+                            <div class="agent-status" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center;">
+                                    <span id="python-core-ping" class="data-dot gold" style="margin-right:8px;"></span>
+                                    <span id="python-core-status" style="color: #10b981; font-weight: 700;">ONLINE</span>
+                                    <span style="opacity: 0.6; margin-left: 8px;">AGENTE CYBERCORE IA MONITORANDO</span>
+                                </div>
+                                <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 700; color: var(--primary);">
+                                    <span>LATÊNCIA: <span id="stat-latency">--ms</span></span>
+                                    <span>ANOMALIAS: <span id="stat-anomalies" style="color:var(--danger)">0</span></span>
+                                </div>
+                            </div>
+                            <div id="analysisLog"></div>
+                        </div>
+
+                        <!-- Linha 5: Fluxo de Caixa & Performance -->
+                        <div class="card full-width-card-chart card-tech holo-shimmer">
+                            <div class="card-header" style="justify-content: space-between; width: 100%;">
+                                <span>📈 Fluxo de Caixa & Performance</span>
+                                <span class="badge-ia">PREVISÃO IA ATIVA</span>
+                            </div>
+                            <div style="height: 250px; padding: 10px 0;">
+                                <canvas id="performanceChart"></canvas>
+                            </div>
+                        </div>
+
+
+                    </div>
+                </div>
+
+                <!-- Painel: Sistemas -->
+                <div id="panel-projects" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position:relative;z-index:1;">
+                        <div>
+                            <h2 style="font-size: 28px; font-weight: 800; display:flex;align-items:center;gap:10px;"><span class="data-dot gold"></span> Sistemas & Nós</h2>
+                            <p class="sub-header">Gerencie as instâncias conectadas ao Hub</p>
+                        </div>
+                        <button class="btn-premium holo-shimmer" onclick="showAddProjectModal()" style="width: auto; padding: 12px 25px;">+ NOVO PROJETO</button>
+                    </div>
+                    
+                    <div id="projects-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; position:relative;z-index:1;">
+                        <!-- CyberCore IA (Sempre presente) -->
+                        <div class="system-card premium-glass tech-border holo-shimmer">
+                            <div class="system-header">
+                                <div>
+                                    <h3 style="font-size: 20px;">CYBERCORE IA</h3>
+                                    <div class="sys-badge" id="cinecash-status-badge">NODE ATIVO</div>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="toggle-cinecash-node" checked onchange="toggleSystem('active', this.checked)">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div class="neural-bg" style="border-radius: 20px; padding: 20px; margin-bottom: 25px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-size: 18px;">🛠️</span>
+                                        <div>
+                                            <span style="font-weight: 800; font-size: 14px; text-transform: uppercase; display: block;">Modo Manutenção</span>
+                                            <small id="maint-firebase-status" style="color: var(--text-secondary); font-size: 11px;">Verificando Firebase...</small>
+                                        </div>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggle-cinecash-maint" onchange="toggleSystem('maintenance', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 10px;">Ativa a tela de bloqueio com aviso de manutenção para este app.</p>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="control-item">
+                                    <label>Versão do APK</label>
+                                    <input type="text" id="conf-version" placeholder="Ex: 1.0.4" onchange="updateConfig('version', this.value)">
+                                </div>
+                                <div class="control-item" style="grid-column: span 2;">
+                                    <label>Token do Bot Telegram (Alertas IA)</label>
+                                    <input type="password" id="conf-telegram-token" placeholder="000000000:AA..." onchange="updateConfig('telegramToken', this.value)">
+                                </div>
+                                <div class="control-item">
+                                    <label>Chat ID</label>
+                                    <input type="text" id="conf-telegram-chatid" placeholder="Ex: -100123456" onchange="updateConfig('telegramChatId', this.value)">
+                                </div>
+                                <div class="control-item">
+                                    <label>Nível de Alerta (Risco %)</label>
+                                    <input type="number" id="conf-alert-level" value="50" onchange="updateConfig('alertLevel', this.value)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hub Global Settings (Mocked in image) -->
+                        <div class="system-card premium-glass tech-border holo-shimmer">
+                            <div class="system-header">
+                                <h3 style="font-size: 20px;">Hub Global Settings</h3>
+                                <p class="sub-header" style="margin:0">Configurações compartilhadas</p>
+                            </div>
+                            
+                            <div style="display: flex; flex-direction: column; gap: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-size: 18px;">🛡️</span>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Segurança de ID Único</span>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" checked onchange="updateConfig('deviceIdSecurity', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-size: 18px;">🚀</span>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Ambiente de Produção</span>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="toggle-production" onchange="updateConfig('production', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-glass);">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-size: 18px;">⚡</span>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Gateway Asaas (API Key)</span>
+                                    </div>
+                                    <div class="sys-badge" id="asaas-status" style="background: rgba(74, 222, 128, 0.1); color: var(--success);">CONECTADO</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Usuários -->
+                <div id="panel-users" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="premium-table-container premium-glass tech-border holo-shimmer" style="position:relative;z-index:1;">
+                        <div class="table-header">
+                            <h3><span class="data-dot gold"></span> Registros de Usuários</h3>
+                            <div class="table-actions" style="display:flex; gap:15px; align-items:center;">
+                                <input type="text" id="user-search" placeholder="Buscar por UID ou E-mail..." oninput="filterUsers(this.value)" style="width: 250px;">
+                            </div>
+                        </div>
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>ID (UID)</th>
+                                    <th>Usuário / E-mail</th>
+                                    <th>IP / Localização</th>
+                                    <th>Status Auditoria</th>
+                                    <th>Saldo Atual</th>
+                                    <th>Performance (ROI)</th>
+                                    <th>Gestão Master</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Painel: Memória Neural -->
+                <div id="panel-memory" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; position:relative;z-index:1;">
+                        <div>
+                            <h2 style="font-size: 28px; font-weight: 800; display:flex;align-items:center;gap:10px;"><span class="data-dot teal"></span> Memory Bank IA</h2>
+                            <p class="sub-header">Dados persistentes e padrões de comportamento aprendidos</p>
+                        </div>
+                        <div class="sys-badge" style="background: rgba(30, 158, 187, 0.1); color: var(--teal); border:1px solid rgba(30,158,187,0.15);">NÚCLEO SINÁPTICO ATIVO</div>
+                    </div>
+
+                    <div class="premium-grid" style="position:relative;z-index:1;">
+                        <div class="p-card highlight tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">📝</span>
+                                <span class="p-label">Preferências Aprendidas</span>
+                            </div>
+                            <div class="p-value glow-text" id="memory-prefs">1.2k</div>
+                            <div class="p-trend">Score de aprendizado contínuo</div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">🎯</span>
+                                <span class="p-label">Taxa de Conversão IA</span>
+                            </div>
+                            <div class="p-value glow-text" id="memory-conversion">—</div>
+                            <div class="p-trend" id="memory-conv-trend">Aguardando dados...</div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">👁️</span>
+                                <span class="p-label">Hits dos Agentes</span>
+                            </div>
+                            <div class="p-value glow-text" id="memory-hits">0</div>
+                            <div class="p-trend" id="memory-hits-trend">Impressões rastreadas</div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">💰</span>
+                                <span class="p-label">Receita / RPM</span>
+                            </div>
+                            <div class="p-value glow-value" id="memory-revenue">R$ 0,00</div>
+                            <div class="p-trend" id="memory-rpm">RPM: 0,0000</div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">🌍</span>
+                                <span class="p-label">Top Fonte / País</span>
+                            </div>
+                            <div class="p-value glow-text" id="memory-top-source">—</div>
+                            <div class="p-trend" id="memory-top-country">País: —</div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">⏱️</span>
+                                <span class="p-label">Hits/min (real-time)</span>
+                            </div>
+                            <div class="p-value glow-text" id="memory-hits-per-min">0</div>
+                            <div class="p-trend">Velocidade dos agentes</div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <!-- Painel: Sala de Guerra -->
+                <div id="panel-warroom" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="warroom-container" style="position:relative;z-index:1;">
+                        <div class="warroom-grid">
+                            <!-- Mapa de Atividade Global -->
+                            <div class="system-card premium-glass tech-border holo-shimmer warroom-map">
+                                <div class="system-header">
+                                    <h3><span class="data-dot cyan" style="margin-right:8px;"></span> REDE DE AGENTES NEXUS</h3>
+                                    <div class="ai-pulse-orb" style="background: #ef4444;"></div>
+                                </div>
+                                <div id="warroom-visual" class="warroom-visualizer">
+                                    <div class="node central-ia">CyberCore</div>
+                                    <div class="node agent-node sentinel">Sentinel</div>
+                                    <div class="node agent-node auditor">Auditor</div>
+                                    <div class="node agent-node nexus">Nexus</div>
+                                    <svg class="war-links">
+                                        <line id="link-sentinel" class="link-line" x1="50%" y1="50%" x2="20%" y2="20%"></line>
+                                        <line id="link-auditor" class="link-line" x1="50%" y1="50%" x2="80%" y2="20%"></line>
+                                        <line id="link-nexus" class="link-line" x1="50%" y1="50%" x2="50%" y2="80%"></line>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Feed de Decisões Estratégicas -->
+                            <div class="system-card premium-glass tech-border holo-shimmer warroom-feed">
+                                <div class="system-header">
+                                    <h3><span class="data-dot gold" style="margin-right:8px;"></span> ESTRATÉGIAS EM EXECUÇÃO</h3>
+                                </div>
+                                <div id="warroom-strategies" class="strategy-list">
+                                    <!-- Injetado via JS -->
+                                    <div class="strategy-card active">
+                                        <div class="strategy-icon">🚀</div>
+                                        <div class="strategy-info">
+                                            <h4>Otimização de ROI v4</h4>
+                                            <p>Ajustando CPM baseado em hits/hora</p>
+                                            <div class="strategy-progress"><div class="progress-fill" style="width: 85%;"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Comandos em Tempo Real -->
+                            <div class="system-card premium-glass tech-border holo-shimmer warroom-terminal">
+                                <div class="system-header">
+                                    <h3><span class="data-dot teal" style="margin-right:8px;"></span> COMANDOS DISPARADOS</h3>
+                                </div>
+                                <div id="warroom-commands" class="command-stream">
+                                    <!-- Injetado via JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Segurança -->
+                <div id="panel-security" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; position:relative;z-index:1;">
+                        <div>
+                            <h2 style="font-size: 28px; font-weight: 800; display:flex;align-items:center;gap:10px;"><span class="data-dot gold"></span> Protocolos de Proteção</h2>
+                            <p class="sub-header">Gerencie as barreiras de segurança e detecção de fraudes</p>
+                        </div>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div id="sentinel-monitor" class="premium-glass holo-shimmer" style="padding: 15px 25px; border-radius: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid rgba(232,184,48,0.15);">
+                                <div class="ai-pulse-orb" id="sentinel-orb"></div>
+                                <div>
+                                    <small style="display: block; font-size: 10px; font-weight: 800; color: var(--gold);">SENTINEL ATIVO</small>
+                                    <span id="sentinel-status-text" style="font-size: 12px; font-weight: 600;">ESCANEANDO NÓS...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 30px; position:relative;z-index:1;">
+                        <!-- Antifraude -->
+                        <div class="system-card premium-glass tech-border holo-shimmer">
+                            <div class="system-header">
+                                <h3 style="font-size: 18px;">🛡️ Blindagem de Rede</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Bloquear Proxy/VPN</span>
+                                        <p style="font-size: 11px; color: var(--text-secondary);">Impede acessos via redes mascaradas.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="security-vpn" onchange="updateConfig('blockVPN', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Detecção de Root/Jailbreak</span>
+                                        <p style="font-size: 11px; color: var(--text-secondary);">Bloqueia dispositivos modificados.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="security-root" onchange="updateConfig('blockRoot', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ID Único -->
+                        <div class="system-card premium-glass tech-border holo-shimmer">
+                            <div class="system-header">
+                                <h3 style="font-size: 18px;">🆔 Controle de Hardware</h3>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Vincular ID Único</span>
+                                        <p style="font-size: 11px; color: var(--text-secondary);">Um usuário por dispositivo físico.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="security-device-lock" onchange="updateConfig('deviceLock', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Auto-Ban (Múltiplas Contas)</span>
+                                        <p style="font-size: 11px; color: var(--text-secondary);">Bane automaticamente se detectar clones.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="security-autoban" onchange="updateConfig('autoBan', this.checked)">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Saques PIX -->
+                <div id="panel-saques" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="premium-table-container premium-glass tech-border holo-shimmer" style="position:relative;z-index:1;">
+                        <div class="table-header">
+                            <div>
+                                <h3><span class="data-dot gold"></span> Solicitações de Saque PIX</h3>
+                                <p class="sub-header">Gerencie os pagamentos pendentes dos usuários</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 20px;">
+                                <div class="filter-group" style="display: flex; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; border: 1px solid var(--border-glass);">
+                                    <button class="filter-btn active" onclick="setWithdrawalFilter('pending', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 11px; font-weight: 800;">PENDENTES</button>
+                                    <button class="filter-btn" onclick="setWithdrawalFilter('paid', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; font-weight: 800;">PAGOS</button>
+                                    <button class="filter-btn" onclick="setWithdrawalFilter('rejected', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; font-weight: 800;">RECUSADOS</button>
+                                </div>
+                                <div style="text-align: right; display: flex; align-items: center; gap: 20px;">
+                                    <button id="btn-approve-all" class="btn-primary" style="background: linear-gradient(90deg, #f59e0b, #d97706); font-size: 10px; padding: 10px 15px; display: none;" onclick="approveAllWithdrawals()">⚡ PAGAR TUDO (IA)</button>
+                                    <div>
+                                        <small style="color: var(--text-secondary); font-weight: 800; text-transform: uppercase; font-size: 11px;">Total na Categoria</small>
+                                        <h2 id="total-pendente-display" style="color: var(--primary); font-weight: 800;">R$ 0,00</h2>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Chave PIX</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdrawals-table-body">
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Painel: Auditoria -->
+                <div id="panel-audit" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="premium-grid" style="margin-bottom: 30px; position:relative;z-index:1;">
+                        <div class="p-card highlight tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">🏦</span>
+                                <span class="p-label">Banca (Pagamentos)</span>
+                            </div>
+                            <div id="stat-banca-real" class="p-value glow-value">R$ 0,00</div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-table-action" style="flex: 1; border-color: var(--success); color: var(--success);" onclick="addBancaPrompt()">+ ADICIONAR</button>
+                                <button class="btn-table-action" style="flex: 1; border-color: var(--danger); color: var(--danger);" onclick="resetBancaPrompt()">ZERAR</button>
+                            </div>
+                        </div>
+                        <div class="p-card tech-border">
+                            <div class="p-card-header">
+                                <span class="p-icon">💹</span>
+                                <span class="p-label">Reserva Monetag</span>
+                            </div>
+                            <div id="stat-reserva-monetag" class="p-value" style="color: var(--success);">R$ 0,00</div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-table-action" style="flex: 1;" onclick="addReservaPrompt()">+ LANÇAR</button>
+                                <button class="btn-table-action" style="flex: 1;" onclick="resetReservaPrompt()">ZERAR</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: Configurações (NEW Centralizado) -->
+                <div id="panel-settings" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="system-card premium-glass tech-border holo-shimmer" style="position:relative;z-index:1;">
+                        <div class="system-header">
+                            <h3 style="font-size: 20px;"><span class="data-dot gold" style="margin-right:8px;"></span> Configurações de Conexão & Núcleo</h3>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px;">
+                            <div class="control-item">
+                                <label>Ganhos Monetag (USD)</label>
+                                <input type="number" id="audit-base-profit" step="0.01">
+                            </div>
+                            <div class="control-item">
+                                <label>Valor CPM (USD)</label>
+                                <input type="number" id="audit-cpm" step="0.01">
+                            </div>
+                            <div class="control-item">
+                                <label>Monetag Zone ID (Anúncios)</label>
+                                <input type="text" id="audit-monetag-id" placeholder="Ex: 7894561">
+                            </div>
+                            <div class="control-item">
+                                <label>Chave Gemini AI (Cérebro)</label>
+                                <input type="password" id="audit-gemini-key" placeholder="AIzaSy...">
+                            </div>
+                            <div class="control-item">
+                                <label>Chave Groq AI (Prioritário)</label>
+                                <input type="password" id="audit-groq-key" placeholder="gsk_...">
+                            </div>
+                            <div class="control-item">
+                                <label>Telegram Bot Token</label>
+                                <input type="password" id="audit-telegram-token" placeholder="7123456:ABC...">
+                            </div>
+                            <div class="control-item">
+                                <label>Telegram Chat ID</label>
+                                <input type="text" id="audit-telegram-chatid" placeholder="123456789">
+                            </div>
+                            <div class="control-item">
+                                <label>WhatsApp Admin (Notificações)</label>
+                                <input type="text" id="audit-whatsapp" placeholder="5585991623168">
+                            </div>
+                            <div class="control-item">
+                                <label>Chave API Asaas (Pagamento)</label>
+                                <input type="password" id="audit-asaas-key" placeholder="3867c0bd...">
+                            </div>
+                            <div class="control-item">
+                                <label>VAPID Key (Web Push)</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="audit-vapid-key" placeholder="B... (Firebase Console)" style="flex: 1;">
+                                    <button class="btn-minimal" onclick="testPushNotification()" style="white-space: nowrap; border-color: var(--primary); color: var(--primary);">🔔 Testar Push</button>
+                                </div>
+                            </div>
+                            <div class="control-item">
+                                <label>Backend URL (Hugging Face/FastAPI)</label>
+                                <input type="text" id="audit-backend-url" placeholder="https://user-space.hf.space">
+                            </div>
+                            <div style="display: flex; align-items: flex-end;">
+                                <button id="btn-save-config" class="btn-premium" onclick="saveAuditParameters()">SALVAR CONFIGURAÇÕES</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: CyberCore IA (Terminal + Agentes) -->
+                <div id="panel-terminal" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="neural-grid-bg"></div>
+                    <div class="system-header" style="margin-bottom: 20px; position: relative; z-index: 2; display: flex; align-items: center; gap: 15px;">
+                        <div class="cyber-avatar-ia">
+                            <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&h=200&auto=format&fit=crop" alt="CyberCore IA" style="width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary); box-shadow: 0 0 15px var(--primary-glow);">
+                        </div>
+                        <div>
+                            <h3 style="font-size: 18px; display:flex;align-items:center;gap:10px; margin:0;"><span class="data-dot cyan"></span> Núcleo de Comando CyberCore IA</h3>
+                            <div class="sys-badge" style="background: rgba(30, 158, 187, 0.15); color: var(--teal); border: 1px solid rgba(30, 158, 187, 0.2); font-size: 10px;">INTELIGÊNCIA EXECUTIVA ATIVA</div>
+                        </div>
+                    </div>
+                    <div class="agent-matrix">
+                        <!-- Coluna 1: Auditor Financeiro -->
+                        <div class="agent-column">
+                            <div class="agent-profile-card premium-glass" id="agent-cfo">
+                                <div class="avatar-ring ring-gold">
+                                    <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&h=200&auto=format&fit=crop" alt="Auditor" class="agent-avatar">
+                                </div>
+                                <h3 class="role-title">AUDITOR FINANCEIRO</h3>
+                                <p class="role-subtitle">CHIEF FINANCIAL OFFICER</p>
+                                <div class="agent-status-badge status-active">
+                                    <span class="status-dot dot-gold"></span> <span class="status-text">ACTIVE</span>
+                                </div>
+                            </div>
+                            <div class="mini-terminal-agent premium-glass" id="logs-auditor">
+                                <div class="log-line"><span>[09:18]</span> Auditando fluxo de caixa...</div>
+                                <div class="log-line"><span>[09:34]</span> Verificando integridade PIX...</div>
+                            </div>
+                        </div>
+
+                        <!-- Coluna 2: Diretor de Operações (Sentinel) -->
+                        <div class="agent-column">
+                            <div class="agent-profile-card premium-glass" id="agent-coo">
+                                <div class="avatar-ring ring-purple">
+                                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=200&h=200&auto=format&fit=crop" alt="Sentinel" class="agent-avatar">
+                                </div>
+                                <h3 class="role-title">DIRETOR DE OPERAÇÕES</h3>
+                                <p class="role-subtitle">CHIEF OPERATING OFFICER</p>
+                                <div class="agent-status-badge status-analyzing">
+                                    <span class="status-dot dot-teal"></span> <span class="status-text">ANALYZING</span>
+                                </div>
+                            </div>
+                            <div class="mini-terminal-agent premium-glass" id="logs-sentinel">
+                                <div class="log-line"><span>[21:07]</span> Heurística ativada em tempo real...</div>
+                                <div class="log-line"><span>[21:14]</span> Assinatura digital validada: [OK]</div>
+                            </div>
+                        </div>
+
+                        <!-- Coluna 3: Nexus (Gestor de Growth) -->
+                        <div class="agent-column">
+                            <div class="agent-profile-card premium-glass" id="agent-cmo">
+                                <div class="avatar-ring ring-cyan">
+                                    <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=200&h=200&auto=format&fit=crop" alt="Nexus" class="agent-avatar">
+                                </div>
+                                <h3 class="role-title">NEXUS</h3>
+                                <p class="role-subtitle">CHIEF GROWTH OFFICER</p>
+                                <div class="agent-status-badge status-active">
+                                    <span class="status-dot dot-ocean"></span> <span class="status-text">ACTIVE</span>
+                                </div>
+                            </div>
+                            <div class="mini-terminal-agent premium-glass" id="logs-nexus">
+                                <div class="log-line"><span>[21:35]</span> Sincronização de eventos: 100%</div>
+                                <div class="log-line"><span>[21:42]</span> Escaneando pacotes de rede...</div>
+                            </div>
+                        </div>
+
+                        <!-- Terminal Central IA Insight (Base) -->
+                        <div class="terminal-output premium-glass" id="cybercore-terminal-output" style="grid-column: 1 / span 3; min-height: 250px;">
+                            <div class="chat-bubble ia">
+                                <div style="color:var(--primary); font-family: 'JetBrains Mono'; font-size: 11px;">
+                                    [SISTEMA] Núcleo CyberCore IA online. Aguardando diretivas de comando...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sentinel&backgroundColor=ffd5dc" class="chat-avatar-mini">
+                                    <strong style="font-size:11px; color:var(--primary)">SISTEMA</strong>
+                                </div>
+                                <span>Núcleo CyberCore IA online. Aguardando diretivas de comando...</span>
+                            </div>
+                        </div>
+
+                        <div class="agent-matrix-footer">
+                            <span class="t-cursor">></span>
+                            <input type="text" id="terminal-input" placeholder="Comande a IA (ex: 'status', 'limpar logs', 'ver saques', 'Analisar Rede')..." autocomplete="off">
+                            <button id="mic-btn" onclick="toggleMic()" class="terminal-mic-btn" title="Falar com a IA">🎤</button>
+                            <button id="terminal-exec-btn" onclick="sendIACommand()" class="terminal-exec-btn">EXECUTAR</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Tela de Login Premium CyberCore -->
+    <div id="login-screen" class="premium-login-overlay">
+        <div class="login-bg-particles" id="login-particles"></div>
+        <div class="login-bg-orb"></div>
+        <div class="login-bg-orb orb-2"></div>
+        <div class="login-window premium-glass login-glass-premium">
+            <div class="login-glass-border"></div>
+            <div class="login-content">
+                <div class="login-header">
+                    <div class="login-icon-wrap">
+                        <div class="login-icon-ring"></div>
+                        <div class="login-icon-ring ring-2"></div>
+                        <div class="login-icon-ring ring-3"></div>
+                        <svg viewBox="0 0 100 100" class="login-core-svg">
+                            <defs>
+                                <linearGradient id="lg-login-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#E8B830"/>
+                                    <stop offset="100%" stop-color="#1E9EBB"/>
+                                </linearGradient>
+                                <linearGradient id="lg-scan" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="rgba(232,184,48,0.6)"/>
+                                    <stop offset="50%" stop-color="rgba(232,184,48,0.1)"/>
+                                    <stop offset="100%" stop-color="rgba(232,184,48,0)"/>
+                                </linearGradient>
+                                <filter id="lg-glow">
+                                    <feGaussianBlur stdDeviation="2" result="blur"/>
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+                                </filter>
+                            </defs>
+                            <!-- Anéis orbitais -->
+                            <ellipse cx="50" cy="50" rx="45" ry="16" fill="none" stroke="url(#lg-login-gold)" stroke-width="0.8" opacity="0.3" transform="rotate(-30 50 50)" class="orbit-ring orbit-1"/>
+                            <ellipse cx="50" cy="50" rx="45" ry="16" fill="none" stroke="url(#lg-login-gold)" stroke-width="0.8" opacity="0.15" transform="rotate(30 50 50)" class="orbit-ring orbit-2"/>
+                            <!-- Scanner horizontal -->
+                            <rect x="15" y="0" width="70" height="30" fill="url(#lg-scan)" class="scan-beam"/>
+                            <!-- Hexágono externo -->
+                            <polygon points="50 12 75 27 75 57 50 73 25 57 25 27" fill="none" stroke="url(#lg-login-gold)" stroke-width="1.5" opacity="0.5" class="hex-outer"/>
+                            <!-- Hexágono interno -->
+                            <polygon points="50 22 66 32 66 52 50 62 34 52 34 32" fill="none" stroke="url(#lg-login-gold)" stroke-width="1" opacity="0.35" class="hex-inner"/>
+                            <!-- Circuito neural esquerdo -->
+                            <path d="M34 42 L28 35 L22 38 L18 30" fill="none" stroke="#E8B830" stroke-width="1" opacity="0.6" class="circuit left-circuit"/>
+                            <circle cx="18" cy="30" r="1.5" fill="#E8B830" opacity="0.8" class="node node-1"/>
+                            <!-- Circuito neural direito -->
+                            <path d="M66 42 L72 35 L78 38 L82 30" fill="none" stroke="#1E9EBB" stroke-width="1" opacity="0.6" class="circuit right-circuit"/>
+                            <circle cx="82" cy="30" r="1.5" fill="#1E9EBB" opacity="0.8" class="node node-2"/>
+                            <!-- Circuito inferior -->
+                            <path d="M42 62 L38 70 L32 68 L28 75" fill="none" stroke="#1E9EBB" stroke-width="1" opacity="0.4" class="circuit bottom-circuit"/>
+                            <circle cx="28" cy="75" r="1.5" fill="#1E9EBB" opacity="0.6" class="node node-3"/>
+                            <!-- Núcleo central - olho tech -->
+                            <circle cx="50" cy="42" r="8" fill="none" stroke="url(#lg-login-gold)" stroke-width="1.5" opacity="0.7" class="core-ring"/>
+                            <circle cx="50" cy="42" r="4" fill="url(#lg-login-gold)" opacity="0.25" class="core-dot"/>
+                            <circle cx="50" cy="42" r="1.5" fill="#E8B830" filter="url(#lg-glow)" class="core-pulse"/>
+                            <!-- Dados binários -->
+                            <text x="42" y="82" fill="#1E9EBB" font-size="4" font-family="monospace" opacity="0.3" class="binary-data">01</text>
+                            <text x="58" y="86" fill="#E8B830" font-size="4" font-family="monospace" opacity="0.25" class="binary-data data-2">10</text>
+                        </svg>
+                    </div>
+                    <h1 class="login-title"><span class="login-cyber">CyberCore</span> <span class="login-admin">Admin</span></h1>
+                    <div class="login-badge">CONEXÃO SEGURA</div>
+                </div>
+
+                <div class="login-body">
+                    <div class="p-input-group login-input-group">
+                        <label><span class="input-icon">✉</span> E-MAIL DE ACESSO</label>
+                        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+                        <div class="input-line"></div>
+                    </div>
+
+                    <div class="p-input-group login-input-group">
+                        <label><span class="input-icon">🔑</span> CHAVE DE ACESSO</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+                            <span class="toggle-pass" onclick="togglePass('login-pass')">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </span>
+                        </div>
+                        <div class="input-line"></div>
+                    </div>
+
+                    <button id="btn-login" class="login-btn" onclick="login()">
+                        <span class="btn-text">AUTENTICAR NO HUB</span>
+                        <span class="btn-shimmer"></span>
+                        <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    </button>
+                </div>
+
+                <div class="login-footer">
+                    <div class="login-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">AGUARDANDO AUTENTICAÇÃO</span>
+                    </div>
+                    <div class="login-version">v3.0 · CyberCore IA</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="toast-container"></div>
+    <div id="global-scanner" class="scanner-overlay"></div>
+    <div id="env-banner" class="env-banner" style="display:none;">⚠️ AMBIENTE DE TESTE — Saques bloqueados</div>
+
+    <!-- Sistema de Áudio CyberCore IA -->
+    <audio id="audio-alert" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
+    <audio id="audio-error" src="https://assets.mixkit.co/active_storage/sfx/2361/2361-preview.mp3" preload="auto"></audio>
+
+    <!-- Modal de Edição de Usuário -->
+    <div id="modal-edit-user" class="premium-modal-overlay" style="display:none;">
+        <div class="modal-window premium-glass">
+            <div class="modal-header">
+                <h3>Edição de Núcleo Neural</h3>
+                <button class="btn-close-modal" onclick="closeUserModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-uid">
+                <div class="p-input-group">
+                    <label>E-MAIL DO USUÁRIO</label>
+                    <input type="text" id="edit-email" readonly style="opacity: 0.6; cursor: not-allowed;">
+                </div>
+                <div class="p-input-group" style="margin-top: 20px;">
+                    <label>SALDO ATUAL (R$)</label>
+                    <input type="number" id="edit-balance" step="0.01" placeholder="0.00">
+                    <small style="color: var(--primary); font-size: 10px; margin-top: 5px; display: block;">* Alteração refletida instantaneamente no App CineCash.</small>
+                </div>
+            </div>
+            <div class="modal-footer" style="margin-top: 30px;">
+                <button class="btn-premium" onclick="saveUserBalance()" style="width: 100%;">SALVAR ALTERAÇÕES</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de Notificações Flutuantes -->
+    <div id="notification-panel"></div>
+
+    <script src="app.js?v=3.1.6"></script>
+</body>
+</html>

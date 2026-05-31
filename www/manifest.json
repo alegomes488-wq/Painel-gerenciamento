@@ -1,0 +1,15 @@
+{
+  "name": "CineCash IA",
+  "short_name": "CineCash",
+  "description": "Assista vídeos e ganhe dinheiro real!",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0c29",
+  "theme_color": "#7c3aed",
+  "categories": ["entertainment", "lifestyle"],
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "scope": "./",
+  "prefer_related_applications": false
+}

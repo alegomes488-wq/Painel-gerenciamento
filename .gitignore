@@ -1,0 +1,29 @@
+# Firebase Secrets
+backend/firebase-adminsdk.json
+firebase-adminsdk*.json
+serviceAccountKey.json
+*.json.bak
+firebase-secrets/
+.env
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# IDEs and Logs
+.idea/
+.vscode/
+*.log
+
+# Media and others
+*.png
+*.apk
+*.ico
+
+# Exception for UI Assets
+!admin/assets/images/
+!admin/assets/images/*.png
+!admin/assets/images/*.jpg
+!admin/assets/images/*.svg
+!admin/assets/images/*.webp

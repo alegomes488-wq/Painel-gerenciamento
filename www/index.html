@@ -1,0 +1,2071 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CineCash Premium - Hub IA</title>
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020205">
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="confetti.js"></script>
+    <style>
+        .hidden { display: none !important; }
+        #splash-screen.fade-out { opacity: 0; pointer-events: none; }
+        #maintenance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 2, 5, 0.95);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        #maintenance-overlay h1 { color: var(--primary); margin-bottom: 10px; }
+        #maintenance-overlay p { color: white; max-width: 400px; }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            background: rgba(124, 58, 237, 0.1);
+            border-radius: 12px;
+            width: fit-content;
+            margin-bottom: 10px;
+        }
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: typingPulse 1.4s infinite ease-in-out;
+            opacity: 0.3;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingPulse {
+            0%, 100% { transform: translateY(0); opacity: 0.3; }
+            50% { transform: translateY(-4px); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="premium-theme">
+    <!-- Tela de Carregamento Inicial -->
+    <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#020205; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition: opacity 0.4s ease; pointer-events: none;">
+        <div class="avatar" style="width:80px; height:80px; font-size:2rem; margin-bottom:20px; animation: pulse-green 1.5s infinite;">C</div>
+        <div class="glitch-text" data-text="CineCash" style="font-size:2rem; font-weight:900;">CineCash</div>
+        <div style="margin-top:10px; color:var(--primary); font-size:0.7rem; letter-spacing:2px; font-weight:800;">INICIALIZANDO IA...</div>
+    </div>
+
+    <script>
+        // GARANTIA DE CARREGAMENTO: Se nada acontecer em 2s, remove o splash à força
+        setTimeout(() => {
+            const s = document.getElementById('splash-screen');
+            if(s) { s.style.opacity = '0'; setTimeout(() => s.remove(), 500); }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }, 2000);
+    </script>
+    <div class="projector-glow"></div>
+    <div class="cyber-grid"></div>
+    <div class="cyber-scanlines"></div>
+
+    <div id="toast">Operação realizada com sucesso!</div>
+
+    <!-- MODAL DE BANIMENTO (SENTINEL 2.0) -->
+    <div id="ban-overlay" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(2,2,5,0.98); z-index:300000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(20px);">
+        <div class="login-box glass-premium" style="max-width:400px; border: 2px solid #ef4444; text-align: center;">
+            <div style="margin-bottom:20px;">
+                <i data-lucide="shield-alert" style="width:60px; height:60px; color:#ef4444; filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.4));"></i>
+            </div>
+            <h2 style="color:#fff; margin-bottom:15px; font-size:1.5rem; letter-spacing: 1px;">ACESSO BLOQUEADO</h2>
+            <p style="color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:25px; line-height:1.5;">
+                O sistema <strong>Sentinel 2.0</strong> detectou uma violação dos termos de uso ou atividade inconsistente vinculada a esta conta.
+            </p>
+
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 25px; text-align: left;">
+                <span style="font-size: 0.65rem; color: #ef4444; font-weight: 800; text-transform: uppercase;">Motivo da Restrição:</span>
+                <p id="ban-reason-text" style="font-size: 0.8rem; color: #fff; margin-top: 5px; font-weight: 600;">Violação de Protocolo de Segurança Neural.</p>
+            </div>
+
+            <button onclick="window.location.href='https://t.me/cinecash_suporte'" style="width:100%; background:#ef4444; color:white; border:none; padding:15px; border-radius:12px; font-weight:800; cursor:pointer; margin-bottom:10px;">CONTESTAR VIA TELEGRAM</button>
+            <button onclick="logout()" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); padding:10px; border-radius:8px; cursor:pointer; font-size:0.7rem;">Sair da Conta</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE ACEITE OBRIGATÓRIO (PARA USUÁRIOS LOGADOS SEM ACEITE) -->
+    <div id="terms-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(2,2,5,0.98); z-index:200000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(15px);">
+        <div class="login-box glass-premium" style="max-width:450px; border: 2px solid #7c3aed;">
+            <div style="text-align:center; margin-bottom:20px;">
+                <i data-lucide="shield-check" style="width:50px; height:50px; color:#7c3aed;"></i>
+            </div>
+            <h2 style="color:#fff; text-align:center; margin-bottom:15px; font-size:1.4rem;">Atualização de Segurança Jurídica</h2>
+            <p style="color:rgba(255,255,255,0.7); font-size:0.85rem; text-align:center; margin-bottom:20px; line-height:1.4;">
+                Para continuar utilizando o CineCash e garantir a conformidade com as normas da <strong>Receita Federal</strong> e leis vigentes, você precisa confirmar a ciência dos novos termos.
+            </p>
+
+            <div class="terms-group" style="display:flex; align-items:center; gap:10px; margin: 20px 0; background: rgba(124,58,237,0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(124,58,237,0.3);">
+                <input type="checkbox" id="modal-terms-check" style="width:25px; height:25px; accent-color: #7c3aed; cursor:pointer;">
+                <label for="modal-terms-check" style="font-size: 0.75rem; color: #fff; cursor:pointer; line-height:1.2; font-weight:600;">
+                    Eu li e concordo com os <a href="termos.html" target="_blank" style="color: #7c3aed; text-decoration: underline;">termos de uso e obrigações fiscais</a> perante a Receita Federal e Justiça Brasileira.
+                </label>
+            </div>
+
+            <button class="btn-primary" onclick="confirmTermsInModal()" style="width:100%; margin-bottom:10px;">CONFIRMAR E ACESSAR PAINEL</button>
+            <button onclick="logout()" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); padding:10px; border-radius:8px; cursor:pointer; font-size:0.7rem;">Não concordo, desejo sair</button>
+        </div>
+    </div>
+
+    <!-- TELA DE LOGIN GLASS -->
+    <div id="page-login">
+        <div class="login-box glass-premium">
+            <div class="login-logo">
+                <i data-lucide="clapperboard" class="login-logo-lucide"></i>
+            </div>
+            <h1 class="glitch-text" data-text="CineCash">CineCash</h1>
+            <p class="login-subtitle">Sua jornada premium no cinema digital</p>
+
+            <div class="input-group">
+                <label>E-mail de Acesso</label>
+                <input type="email" id="email" placeholder="nome@exemplo.com">
+            </div>
+
+            <div class="input-group">
+                <label>Sua Senha Secreta</label>
+                <div class="password-box">
+                    <input type="password" id="password" placeholder="••••••••">
+                    <span class="password-toggle" onclick="togglePassword('password')">
+                        <i data-lucide="eye" class="password-icon-lucide" style="width:20px; height:20px;"></i>
+                    </span>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="handleLogin()">ENTRAR NA PLATAFORMA</button>
+
+            <p class="register-text">
+                Novo por aqui? <a href="javascript:void(0)" onclick="switchAuthMode('register')">Criar conta VIP</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- TELA DE CADASTRO VIP -->
+    <div id="page-register" class="hidden">
+        <div class="login-box glass-premium">
+            <div class="login-logo">
+                <i data-lucide="sparkles" class="login-logo-lucide" style="color: #fbbf24;"></i>
+            </div>
+            <h1 class="glitch-text" data-text="Conta VIP">Conta VIP</h1>
+            <p class="login-subtitle">Comece sua jornada de ganhos agora</p>
+
+            <div style="display: flex; gap: 10px;">
+                <div class="input-group" style="flex: 1;">
+                    <label>Nome</label>
+                    <input type="text" id="reg-fname" placeholder="Ex: João">
+                </div>
+                <div class="input-group" style="flex: 1;">
+                    <label>Sobrenome</label>
+                    <input type="text" id="reg-lname" placeholder="Ex: Silva">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>E-mail para Acesso</label>
+                <input type="email" id="reg-email" placeholder="seu@email.com">
+            </div>
+
+            <div class="input-group">
+                <label>Defina sua Senha</label>
+                <div class="password-box">
+                    <input type="password" id="reg-password" placeholder="Ex: Cine2024" oninput="checkPasswordStrength(this.value)">
+                    <span class="password-toggle" onclick="togglePassword('reg-password')">
+                        <i data-lucide="eye" class="password-icon-lucide" style="width:20px; height:20px;"></i>
+                    </span>
+                </div>
+                <!-- Medidor de Força Inteligente -->
+                <div id="password-strength-meter" style="display: flex; gap: 4px; margin-top: 8px; height: 4px;">
+                    <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
+                    <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
+                    <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
+                </div>
+                <p id="password-hint" style="font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 600;">
+                    🛡️ Use 8 caracteres: [A-Z], [a-z] e [0-9].
+                </p>
+            </div>
+
+            <div class="input-group">
+                <label>Confirme sua Senha</label>
+                <div class="password-box">
+                    <input type="password" id="reg-confirm-password" placeholder="Repita a senha">
+                    <span class="password-toggle" onclick="togglePassword('reg-confirm-password')">
+                        <i data-lucide="eye" class="password-icon-lucide" style="width:20px; height:20px;"></i>
+                    </span>
+                </div>
+            </div>
+
+            <div class="terms-group" style="display:flex; align-items:center; gap:10px; margin: 20px 0; background: rgba(124,58,237,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(124,58,237,0.1);">
+                <input type="checkbox" id="reg-terms" style="width:20px; height:20px; accent-color: #7c3aed; cursor:pointer;">
+                <label for="reg-terms" style="font-size: 0.75rem; color: rgba(255,255,255,0.7); cursor:pointer; line-height:1.2;">
+                    Confirmo ciência dos <a href="termos.html" style="color: #7c3aed; text-decoration: underline; font-weight: 800;">termos legais e responsabilidades fiscais</a> perante a Receita Federal.
+                </label>
+            </div>
+
+            <button class="btn-primary" onclick="handleRegister()" style="background: linear-gradient(135deg, #7c3aed, #db2777);">CRIAR MINHA CONTA VIP</button>
+
+            <p class="register-text">
+                Já tem conta? <a href="javascript:void(0)" onclick="switchAuthMode('login')">Fazer Login</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPAL DASHBOARD -->
+    <div id="app-container" class="hidden">
+        <nav class="navbar glass-premium">
+            <div class="user-badge">
+                <div class="avatar" id="user-avatar">U</div>
+                <span id="user-name-display">Carregando...</span>
+            </div>
+            <div class="menu">
+                <button class="nav-item active" onclick="switchTab('dashboard', this)">Início</button>
+                <button class="nav-item" onclick="switchTab('withdraw', this)">Intercâmbio</button>
+                <button class="nav-item" onclick="switchTab('referrals', this)">Convites</button>
+            </div>
+            <div class="logout" onclick="logout()">
+                <i data-lucide="log-out" style="width:18px; height:18px;"></i>
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- ABA INÍCIO -->
+            <div id="tab-dashboard" class="tab-content">
+                <div class="welcome-text">
+                    <p>Status: Operador de Rede</p>
+                    <h1 id="welcome-name">---</h1>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-card glass-premium">
+                        <i data-lucide="wallet" class="stat-icon-lucide"></i>
+                        <span class="stat-label">Saldo Atual</span>
+                        <div class="stat-value" id="balance-txt">R$ 0,00</div>
+                    </div>
+                    <div class="stat-card glass-premium">
+                        <i data-lucide="film" class="stat-icon-lucide"></i>
+                        <span class="stat-label">Processados</span>
+                        <div class="stat-value" id="ads-txt">0/15</div>
+                    </div>
+                    <div class="stat-card glass-premium">
+                        <i data-lucide="target" class="stat-icon-lucide"></i>
+                        <span class="stat-label">Próxima Meta</span>
+                        <div class="stat-value purple" id="goal-txt" style="font-size: 1.2rem;">0/150</div>
+                    </div>
+                </div>
+
+                <div class="ad-banner-placeholder" id="monetag-banner">
+                    <i data-lucide="monitor-play" style="width:1.5rem; height:1.5rem; color:var(--muted-fg); opacity:0.3; margin:0 auto 10px; display:block;"></i>
+                    <span>ANÚNCIO PREMIUM DISPONÍVEL</span>
+                </div>
+
+                <div class="ai-card-premium glass-premium">
+                    <div class="premium-tag-v2" style="background: #10b981;">SISTEMA ATIVO</div>
+                    <div class="brain-glow-premium">
+                        <i data-lucide="brain" class="brain-icon-lucide"></i>
+                        <div class="brain-aura"></div>
+                    </div>
+                    <h2>Processador de Anúncios IA</h2>
+                    <p>Utilize nossa rede neural para validar sessões de mídia e converter processamento em saldo real.</p>
+                    <button class="btn-neon-premium" onclick="startProcess()">INICIAR PROCESSAMENTO ▶</button>
+                    <div class="status-cyber">
+                        SISTEMA CYBERCORE ATIVO
+                    </div>
+
+                    <div class="bonus-bar glass-premium">
+                        <div>
+                            <span style="font-size:0.6rem; font-weight:900; color:var(--text-muted); display:block;">RECOMPENSA DIÁRIA</span>
+                            <span style="font-size:0.9rem; font-weight:800; color:#fff;">BÔNUS DE R$ 0,20</span>
+                        </div>
+                        <button class="btn-claim-small" id="btn-bonus" onclick="claimDailyBonus()" style="background:var(--primary); color:white; opacity:1; cursor:pointer;">RESGATAR</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA INTERCÂMBIO (SAQUE) -->
+            <div id="tab-withdraw" class="tab-content hidden">
+                <div class="withdraw-card glass-premium" style="position: relative; overflow: hidden;">
+                    <!-- Efeito de brilho de fundo -->
+                    <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent); filter: blur(40px); z-index: 0;"></div>
+
+                    <div style="position: relative; z-index: 1;">
+                        <div style="text-align: center; margin-bottom: 25px;">
+                            <i data-lucide="arrow-up-right-from-circle" style="width: 40px; height: 40px; color: var(--primary); margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.4));"></i>
+                            <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 5px;">Solicitar Resgate</h2>
+                            <span class="stat-label" style="text-align: center; display: block; opacity: 0.6;">Disponível para Intercâmbio</span>
+                            <div id="avail-txt" class="stat-value green" style="font-size: 2.2rem; margin-top: 5px;">R$ 0,00</div>
+                        </div>
+
+                        <div class="input-group">
+                            <label style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="banknote" style="width: 14px; height: 14px;"></i>
+                                Valor do Saque (BRL)
+                            </label>
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-weight: 800; color: var(--primary);">R$</span>
+                                <input type="text" id="w-amount-display" readonly value="0,00" style="padding-left: 45px !important; font-size: 1.1rem; font-weight: 800; background: rgba(0,0,0,0.2) !important;">
+                                <input type="hidden" id="w-amount" value="0">
+                                <input type="hidden" id="w-type" value="CPF">
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">
+                                <button onclick="setAmount(0.50)" class="amount-btn">R$ 0,50</button>
+                                <button onclick="setAmount(5.00)" class="amount-btn">R$ 5,00</button>
+                                <button onclick="setAmount(50.00)" class="amount-btn">R$ 50,00</button>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-top: 25px;">
+                            <label style="margin-bottom: 12px; display: block;">Tipo de Chave PIX</label>
+                            <div class="pix-type-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <button class="pix-type-btn active" onclick="selectPixType('CPF', this)">
+                                    <span>CPF</span>
+                                </button>
+                                <button class="pix-type-btn" onclick="selectPixType('EMAIL', this)">
+                                    <span>E-mail</span>
+                                </button>
+                                <button class="pix-type-btn" onclick="selectPixType('PHONE', this)">
+                                    <span>Telefone</span>
+                                </button>
+                                <button class="pix-type-btn" onclick="selectPixType('EVP', this)">
+                                    <span>Aleatória</span>
+                                </button>
+                            </div>
+                            <div class="input-group" style="margin-top: 25px;">
+                            <label style="display: flex; justify-content: space-between;">
+                                <span>Progresso para Próximo Resgate</span>
+                                <span id="progress-percent" style="color: var(--primary); font-weight: 800;">0%</span>
+                            </label>
+                            <div class="progress-container-saque" style="width: 100%; height: 10px; background: rgba(255,255,255,0.05); border-radius: 5px; margin-top: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+                                <div id="progress-bar-saque" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), #10b981); box-shadow: 0 0 10px var(--primary); transition: width 0.5s ease;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--text-muted); margin-top: 5px; font-weight: 800;">
+                                <span>R$ 0,00</span>
+                                <span>META: <span id="next-goal-txt">R$ 0,50</span></span>
+                            </div>
+                        </div>
+
+                        <div class="input-group" style="margin-top: 25px;">
+                        </div>
+
+                        <div class="input-group" style="margin-top: 20px;">
+                            <label style="display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="qr-code" style="width: 14px; height: 14px;"></i>
+                                Chave PIX de Destino
+                            </label>
+                            <input type="text" id="w-key" placeholder="Digite sua chave aqui..." style="font-weight: 600;" oninput="validatePixInput()">
+                            <div id="pix-status" style="font-size: 11px; margin-top: 6px; min-height: 18px; font-weight: 600;"></div>
+                        </div>
+
+                        <button class="btn-primary" id="btn-request-saque" onclick="requestSaque()" disabled style="margin-top: 15px; height: 60px; display: flex; align-items: center; justify-content: center; gap: 10px; opacity: 0.5; cursor: not-allowed;">
+                            <i data-lucide="zap" style="width: 20px; height: 20px;"></i>
+                            AUTORIZAR TRANSFERÊNCIA
+                        </button>
+
+                        <div style="background: rgba(16, 185, 129, 0.05); border-radius: 12px; padding: 12px; margin-top: 20px; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; gap: 10px; align-items: flex-start;">
+                            <div class="dot-green-v2" id="auditor-status-dot" style="margin-top: 4px;"></div>
+                            <p style="font-size: 0.65rem; color: #10b981; line-height: 1.4; font-weight: 700;">
+                                <strong id="auditor-status-text">AGENTE AUDITOR ONLINE:</strong> Monitorando transações em tempo real. Sua solicitação será analisada instantaneamente pela CyberCore IA.
+                            </p>
+                        </div>
+                        <div style="background: rgba(124, 58, 237, 0.05); border-radius: 12px; padding: 12px; margin-top: 10px; border: 1px solid rgba(124, 58, 237, 0.1); display: flex; gap: 10px; align-items: flex-start;">
+                            <i data-lucide="shield-check" style="width: 18px; height: 18px; color: var(--primary); flex-shrink: 0;"></i>
+                            <p style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.4; font-weight: 600;">
+                                <strong>PROTEÇÃO SENTINEL 2.0:</strong> Prazo de liquidação: imediato após auditoria (até 24h).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <!-- Histórico de Saques -->
+                <div class="withdraw-history-card glass-premium" style="margin-top: 25px; padding: 25px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h3 style="font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                            <i data-lucide="history" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                            Histórico
+                        </h3>
+                        <div id="history-count" style="font-size: 0.65rem; font-weight: 800; color: var(--muted-fg); background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px;">0 transações</div>
+                    </div>
+
+                    <div class="history-filters" style="display: flex; gap: 8px; margin-bottom: 20px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 14px;">
+                        <button class="filter-btn active" onclick="filterHistory('all', this)" style="flex:1; padding:8px; border-radius:10px; border:none; background:var(--primary); color:white; font-size:0.7rem; font-weight:800; cursor:pointer; transition: 0.3s;">Todos</button>
+                        <button class="filter-btn" onclick="filterHistory('pending', this)" style="flex:1; padding:8px; border-radius:10px; border:none; background:transparent; color:var(--muted-fg); font-size:0.7rem; font-weight:800; cursor:pointer; transition: 0.3s;">Pendentes</button>
+                        <button class="filter-btn" onclick="filterHistory('paid', this)" style="flex:1; padding:8px; border-radius:10px; border:none; background:transparent; color:var(--muted-fg); font-size:0.7rem; font-weight:800; cursor:pointer; transition: 0.3s;">Pagos</button>
+                    </div>
+
+                    <div id="withdraw-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="text-align:center; padding:40px; color:var(--text-muted); font-size:0.8rem; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <i data-lucide="inbox" style="width: 32px; height: 32px; opacity: 0.2;"></i>
+                            Carregando histórico neural...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA CONVITES (CYBERCORE GROWTH) -->
+            <div id="tab-referrals" class="tab-content hidden">
+                <div class="referral-mission-card glass-premium">
+                    <div class="referral-mission-icon">
+                        <div class="brain-glow-premium" style="width: 50px; height: 50px; background: radial-gradient(circle, #f472b6, #db2777); box-shadow: 0 0 20px rgba(244, 114, 182, 0.4);">
+                             <i data-lucide="rocket" style="width:24px; height:24px; color:white;"></i>
+                        </div>
+                    </div>
+                    <h2 style="letter-spacing: 2px; color: #f472b6;">MISSÃO: EMBAIXADOR VIP</h2>
+                    <p style="font-weight: 600; opacity: 0.8;">Expanda a rede CineCash e seja recompensado pela Agente Nexus.</p>
+
+                    <div class="referral-stats-grid" style="margin-top: 20px;">
+                        <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
+                            <span>INDICADOS ATIVOS</span>
+                            <h3 id="ref-count" style="color: #f472b6;">0</h3>
+                        </div>
+
+                        <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
+                            <span>BÔNUS TOTAL</span>
+                            <h3 id="ref-bonus-txt" style="color: #10b981;">R$ 0,00</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="referral-link-container glass-premium" style="flex-direction: column; gap: 15px; padding: 25px;">
+                    <div style="width: 100%; text-align: left;">
+                        <label style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: block;">Seu Link de Convite Único</label>
+                        <input type="text" id="ref-link" readonly value="Carregando link..." style="width: 100%; background: rgba(0,0,0,0.4) !important; border: 1px solid rgba(124,58,237,0.3) !important; color: #fff !important; font-family: monospace;">
+                    </div>
+                    <button class="btn-primary" onclick="copyLink()" style="margin-top: 0; height: 55px; background: linear-gradient(90deg, #7c3aed, #db2777);">
+                        <i data-lucide="copy" style="width: 18px; height: 18px; margin-right: 8px;"></i>
+                        COPIAR E COMPARTILHAR
+                    </button>
+                </div>
+
+                <div class="referrals-list-section glass-premium" style="padding: 25px; margin-top: 20px;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i data-lucide="users-round" style="color: var(--primary);"></i>
+                        Sua Rede de Afiliados (<span id="ref-total-list">0</span>)
+                    </h3>
+                    <div id="referrals-list" class="referrals-empty-state" style="border: 1px dashed rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);">
+                        <i data-lucide="inbox" style="width:32px; height:32px; opacity:0.3;"></i>
+                        <span>Nenhum operador recrutado ainda.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY DE MANUTENÇÃO -->
+    <div id="maintenance-overlay" class="hidden">
+        <i data-lucide="wrench" style="width: 64px; height: 64px; color: var(--primary); margin-bottom: 20px;"></i>
+        <h1 class="glitch-text" data-text="MANUTENÇÃO">SISTEMA EM MANUTENÇÃO</h1>
+        <p>Estamos realizando atualizações neurais para melhorar sua experiência. Voltaremos em breve!</p>
+    </div>
+
+    <!-- OVERLAY DE VALIDAÇÃO NEURAL (OFFLINE-READY) -->
+    <div id="video-overlay" class="hidden">
+        <div class="timer-badge">
+            SINCRO IA: <span id="timer">30</span>s
+        </div>
+
+        <div class="neural-container">
+            <div class="neural-ring"></div>
+            <div class="neural-ring"></div>
+            <div class="neural-core"></div>
+            <span style="font-size: 5rem; z-index: 3;">🧠</span>
+        </div>
+
+        <div class="neural-status-text">Validando Sessão</div>
+
+        <div style="position: absolute; bottom: 50px; width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
+            <div id="progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: 1s linear;"></div>
+        </div>
+    </div>
+
+    <!-- IA CYBERCORE (CHAT FLUTUANTE PREMIUM - AGENTE NEXUS) -->
+    <div id="cybercore-floating-chat" class="cybercore-chat-container">
+        <div class="cybercore-chat-header">
+            <div class="cybercore-chat-brand">
+                <div class="cybercore-chat-orb"></div>
+                <span class="cybercore-chat-icon">🤖</span>
+                <span class="cybercore-chat-title">Agente Nexus</span>
+            </div>
+            <button class="cybercore-chat-close" onclick="toggleFloatingChat()">×</button>
+        </div>
+        <div id="cybercore-chat-messages" class="cybercore-chat-body">
+            <!-- Injetado via JS (addWelcomeMessage / restoreChatHistory) -->
+        </div>
+
+        <div class="cybercore-chat-suggestions">
+            <button onclick="sendQuickCommand('Sim, me mostre o site')">🚀 Iniciar Tour</button>
+            <button onclick="sendQuickCommand('Dúvidas Frequentes')">❓ Dúvidas</button>
+            <button onclick="sendQuickCommand('Como sacar?')">💰 Como Sacar</button>
+        </div>
+
+        <div class="cybercore-chat-footer">
+            <input type="text" id="cybercore-chat-input" placeholder="Comando Master..." autocomplete="off">
+            <button id="cybercore-chat-mic" onclick="startVoiceInput()" title="Comando de Voz" style="background:none; border:none; cursor:pointer; padding:8px; color:var(--primary);">
+                <i data-lucide="mic" style="width:18px; height:18px;"></i>
+            </button>
+            <button id="cybercore-chat-send" onclick="sendFloatingChatMessage()">
+                <i data-lucide="send" style="width:18px; height:18px;"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="cybercore-chat-trigger" class="cybercore-chat-trigger" onclick="toggleFloatingChat()" style="display: none;">
+        <div class="cybercore-chat-pulse"></div>
+        <div class="cybercore-chat-trigger-icon">🧠</div>
+        <div class="cybercore-online-dot"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "./firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "./firebase-auth.js";
+        import { getDatabase, ref, onValue, query, orderByChild, limitToLast, equalTo, set, update, serverTimestamp } from "./firebase-database.js";
+        import { getMessaging, getToken } from "./firebase-messaging.js";
+
+        const CONFIG = {
+            apiBase: (window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space'))
+                     ? 'https://desenvolvimento-cinecash-ia.hf.space'
+                     : window.location.origin,
+            adminBase: 'https://desenvovimento-cybercore-ia.hf.space',
+            workerBase: 'https://cybercore-api.alegomes488.workers.dev',
+            monetagId: '7654321'
+        };
+
+        // Detecta se está em produção para rotear chat pelo Worker (Groq)
+        const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space');
+        const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
+
+        const NEXUS_KNOWLEDGE = {
+            "sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
+            "como sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
+            "como funciona": "O CineCash utiliza o processamento da IA CyberCore para validar anúncios. Você assiste aos vídeos, nossa IA processa os dados e você recebe uma parte do lucro em saldo real.",
+            "me mostre o site": "Com certeza! Vou te mostrar o site. No topo você vê seu saldo, no meio o botão de processar anúncios e embaixo suas estatísticas de hoje.",
+            "indicacao": "Cada amigo que você convida e fica ativo rende R$ 0,50 de bônus direto no seu saldo!",
+            "dúvidas": "Eu sou o Nexus, seu guia. Posso te ajudar com saques, problemas técnicos ou te mostrar como ganhar mais. O que deseja saber?",
+            "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela."
+        };
+
+        // --- SISTEMA DESPERTADOR (WAKE-UP) ---
+        async function wakeUpCyberCore() {
+            console.log("⚡ Acordando CyberCore IA...");
+            try {
+                // Acorda o motor do Site e o motor do Auditor (Admin)
+                await Promise.all([
+                    fetch(CONFIG.apiBase + '/health', { mode: 'no-cors' }),
+                    fetch(CONFIG.adminBase + '/health', { mode: 'no-cors' })
+                ]);
+            } catch (e) {
+                console.log("Aguardando inicialização do núcleo...");
+            }
+        }
+        wakeUpCyberCore();
+        setInterval(wakeUpCyberCore, 60000); // Mantém acordado enquanto o usuário estiver no site
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDBa-yJArg3bkz9ouwqlNmPXKj_pTsl_1E",
+            authDomain: "playearn-b001b.firebaseapp.com",
+            databaseURL: "https://playearn-b001b-default-rtdb.firebaseio.com",
+            projectId: "playearn-b001b",
+            storageBucket: "playearn-b001b.appspot.com",
+            messagingSenderId: "563829659490",
+            appId: "1:563829659490:web:a2f4a40d4a3d165541fe3b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const messaging = getMessaging(app);
+
+        async function saveFCMToken(uid) {
+            try {
+                // Busca a VAPID Key dinamicamente do Firebase Config
+                const configSnap = await new Promise(resolve => onValue(ref(db, 'config/vapidKey'), resolve, { onlyOnce: true }));
+                const VAPID_KEY = configSnap.val() || "BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4";
+
+                const registration = await navigator.serviceWorker.ready;
+                const token = await getToken(messaging, {
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: registration
+                });
+                if (token) {
+                    await update(ref(db, `users/${uid}`), {
+                        fcm_token: token,
+                        fcmToken: token,
+                        last_token_update: serverTimestamp()
+                    });
+                    console.log("Token FCM sincronizado com Hub IA:", token);
+                }
+            } catch (err) {
+                console.error("Erro ao obter token FCM:", err);
+            }
+        }
+
+        // Monitoramento de Modo Manutenção (Global)
+        onValue(ref(db, 'config/maintenance'), (snapshot) => {
+            const isMaintenance = snapshot.val();
+            const overlay = document.getElementById('maintenance-overlay');
+            if (isMaintenance) {
+                overlay.classList.remove('hidden');
+                lucide.createIcons();
+            } else {
+                overlay.classList.add('hidden');
+            }
+        });
+
+
+        let _user = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        window.confirmTermsInModal = async () => {
+            const checked = document.getElementById('modal-terms-check').checked;
+            if(!checked) return showToast("Você deve marcar o campo de aceite.");
+
+            const uid = auth.currentUser.uid;
+            try {
+                await update(ref(db, `users/${uid}`), {
+                    legal_acceptance: {
+                        accepted: true,
+                        timestamp: serverTimestamp(),
+                        version: "2.0.4",
+                        platform: "CineCash Force Modal",
+                        fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
+                    }
+                });
+                document.getElementById('terms-modal').classList.add('hidden');
+                showToast("Termos aceitos com sucesso!");
+                updateUI();
+            } catch(e) {
+                showToast("Erro ao processar aceite.");
+            }
+        };
+
+        window.switchAuthMode = (mode) => {
+            const loginPage = document.getElementById('page-login');
+            const registerPage = document.getElementById('page-register');
+
+            if(mode === 'register') {
+                loginPage.classList.add('hidden');
+                registerPage.classList.remove('hidden');
+            } else {
+                loginPage.classList.remove('hidden');
+                registerPage.classList.add('hidden');
+            }
+            lucide.createIcons();
+        };
+
+        window.checkPasswordStrength = (pass) => {
+            const bars = document.querySelectorAll('.strength-bar');
+            const hint = document.getElementById('password-hint');
+
+            let strength = 0;
+            if (/[A-Z]/.test(pass)) strength++;
+            if (/[a-z]/.test(pass)) strength++;
+            if (/[0-9]/.test(pass)) strength++;
+            if (pass.length !== 8) strength = Math.min(strength, 2); // Penaliza se não tiver 8 chars
+
+            bars.forEach((bar, i) => {
+                if (i < strength) {
+                    if (strength === 1) bar.style.background = '#ef4444';
+                    if (strength === 2) bar.style.background = '#fbbf24';
+                    if (strength === 3 && pass.length === 8) bar.style.background = '#10b981';
+                    else if (strength === 3) bar.style.background = '#fbbf24';
+                } else {
+                    bar.style.background = 'rgba(255,255,255,0.1)';
+                }
+            });
+
+            if (pass.length === 0) hint.innerText = "🛡️ Use 8 caracteres: [A-Z], [a-z] e [0-9].";
+            else if (pass.length !== 8) hint.innerText = "⚠️ A senha deve ter EXATAMENTE 8 caracteres.";
+            else if (strength < 3) hint.innerText = "❌ Falta misturar letras (A/a) e números.";
+            else hint.innerText = "✅ Senha Militar detectada. Proteção ativa.";
+        };
+
+        // Sistema de Fingerprint Digital (Identificação de Dispositivo)
+        async function getFingerprint() {
+            const data = {
+                ua: navigator.userAgent,
+                screen: `${window.screen.width}x${window.screen.height}`,
+                lang: navigator.language,
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                cores: navigator.hardwareConcurrency || 'unknown',
+                mem: navigator.deviceMemory || 'unknown'
+            };
+            const str = JSON.stringify(data);
+            const msgBuffer = new TextEncoder().encode(str);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        window.handleRegister = async () => {
+            const fname = document.getElementById('reg-fname').value.trim();
+            const lname = document.getElementById('reg-lname').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const pass = document.getElementById('reg-password').value;
+            const confirmPass = document.getElementById('reg-confirm-password').value;
+            const terms = document.getElementById('reg-terms').checked;
+
+            if(!fname || !lname || !email || !pass) return showToast("Preencha todos os campos.");
+
+            // Validação de Senha Forte (Maiúscula, Minúscula, Número e Máx 8 caracteres)
+            const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8}$/;
+            if(!strongPassword.test(pass)) {
+                return showToast("Senha Inválida: Use 8 caracteres com letras (A e a) e números.");
+            }
+
+            if(pass !== confirmPass) return showToast("As senhas não coincidem.");
+            if(!terms) return showToast("Você deve aceitar os termos.");
+
+            const btn = document.querySelector('#page-register .btn-primary');
+            btn.innerText = "CRIANDO CONTA...";
+            btn.disabled = true;
+
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                const uid = userCredential.user.uid;
+
+                // Geração de Username Automático
+                const username = `@${fname.toLowerCase()}_${lname.toLowerCase()}${Math.floor(100 + Math.random() * 900)}`;
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const referredBy = urlParams.get('ref') || null;
+                const fingerprint = await getFingerprint();
+
+                await set(ref(db, `users/${uid}`), {
+                    fullname: `${fname} ${lname}`,
+                    firstname: fname,
+                    lastname: lname,
+                    username: username,
+                    email: email,
+                    balance: 0,
+                    videosWatched: 0,
+                    referralCount: 0,
+                    status: "ativo",
+                    createdAt: serverTimestamp(),
+                    referredBy: referredBy,
+                    security: {
+                        fingerprint: fingerprint,
+                        device_info: navigator.userAgent,
+                        ip_check_required: false
+                    },
+                    legal_acceptance: {
+                        accepted: true,
+                        timestamp: serverTimestamp(),
+                        version: "2.0.4",
+                        platform: "CineCash Web Hub Registration",
+                        fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
+                    }
+                });
+
+                showToast("Conta VIP criada com sucesso!");
+            } catch (err) {
+                console.error(err);
+                if(err.code === 'auth/email-already-in-use') showToast("E-mail já cadastrado.");
+                else showToast("Erro ao criar conta.");
+            } finally {
+                btn.innerText = "CRIAR MINHA CONTA VIP";
+                btn.disabled = false;
+            }
+        };
+
+        window.handleLogin = async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+
+            if(!e || !p) return showToast("Preencha e-mail e senha.");
+
+            const btn = document.querySelector('#page-login .btn-primary');
+            const originalText = btn.innerText;
+            btn.innerText = "AUTENTICANDO...";
+            btn.disabled = true;
+
+            try { 
+                const userCredential = await signInWithEmailAndPassword(auth, e, p);
+                const fingerprint = await getFingerprint();
+
+                // Atualiza o último dispositivo usado no login para auditoria
+                await import('./firebase-database.js').then(({update}) => {
+                    update(ref(db, `users/${userCredential.user.uid}/security`), {
+                        last_login_fingerprint: fingerprint,
+                        last_login_at: serverTimestamp()
+                    });
+                });
+            } catch (err) { 
+                const msg = err.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' : 'Erro no login.';
+                showToast(msg); 
+                console.warn('[Login]', err.code, err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        };
+
+        window.togglePassword = (id) => {
+            const input = document.getElementById(id);
+            if (!input) return;
+            const icon = input.parentElement.querySelector('[data-lucide]');
+            if (!icon) return;
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            icon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.innerText = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        const updateWithdrawProgress = (balance) => {
+            const bar = document.getElementById('progress-bar-saque');
+            const percentTxt = document.getElementById('progress-percent');
+            const nextGoalTxt = document.getElementById('next-goal-txt');
+            if (!bar || !percentTxt || !nextGoalTxt) return;
+
+            let goal = 0.50;
+            if (balance >= 0.50) goal = 5.00;
+            if (balance >= 5.00) goal = 50.00;
+            if (balance >= 50.00) goal = 100.00;
+
+            const percent = Math.min(100, (balance / goal) * 100);
+            bar.style.width = `${percent}%`;
+            percentTxt.innerText = `${Math.floor(percent)}%`;
+            nextGoalTxt.innerText = `R$ ${goal.toFixed(2).replace('.', ',')}`;
+        };
+
+        const updateUI = () => {
+            if (!_user) return;
+            const firstName = _user.firstname || _user.fullname.split(' ')[0];
+
+            // Exibe o @username no topo e o nome completo + e-mail no corpo
+            document.getElementById('user-name-display').innerText = _user.username || `@${firstName.toLowerCase()}`;
+            document.getElementById('welcome-name').innerHTML = `
+                ${_user.fullname}
+                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 400; margin-top: 5px; opacity: 0.8;">
+                    <i data-lucide="mail" style="width:12px; height:12px; vertical-align: middle; margin-right: 4px;"></i>
+                    ${_user.email}
+                </div>
+            `;
+            document.getElementById('user-avatar').innerText = firstName[0].toUpperCase();
+
+            const bal = `R$ ${(_user.balance || 0).toFixed(2).replace('.', ',')}`;
+            document.getElementById('balance-txt').innerText = bal;
+            document.getElementById('avail-txt').innerText = bal;
+            updateWithdrawProgress(_user.balance || 0);
+            document.getElementById('ads-txt').innerText = `${_user.videosWatched || 0}`;
+
+            // Atualiza estado do botão de bônus diário
+            const btnBonus = document.getElementById('btn-bonus');
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (_user.last_daily_bonus_date === todayStr) {
+                btnBonus.innerText = "COLETADO";
+                btnBonus.disabled = true;
+                btnBonus.style.opacity = "0.5";
+                btnBonus.style.cursor = "default";
+            } else {
+                btnBonus.innerText = "RESGATAR";
+                btnBonus.disabled = false;
+                btnBonus.style.opacity = "1";
+                btnBonus.style.cursor = "pointer";
+            }
+
+            const vids = _user.videosWatched || 0;
+            const goals = [150, 1500, 15000];
+            const amounts = [0.5, 5.0, 50.0];
+            let nextGoal = goals.find(g => vids < g) || 15000;
+            let nextAmount = amounts[goals.indexOf(nextGoal)];
+            document.getElementById('goal-txt').innerText = `${vids}/${nextGoal} (R$ ${nextAmount.toFixed(2)})`;
+
+            document.getElementById('ref-count').innerText = _user.validReferrals || 0;
+            document.getElementById('ref-total-list').innerText = _user.referralCount || 0;
+
+            // Exibe o bônus real creditado pelo Sentinel no backend
+            const totalBonus = _user.referralBonus || 0;
+            document.getElementById('ref-bonus-txt').innerText = `R$ ${totalBonus.toFixed(2).replace('.', ',')}`;
+
+            // Link de convite único por UID
+            const uid = auth.currentUser?.uid;
+            if (uid) {
+                document.getElementById('ref-link').value = `https://cinecash.app/?ref=${uid}`;
+            }
+        }; // fim updateUI
+
+        let heartbeatInterval = null;
+
+        // --- REGISTRO DE SERVICE WORKER PARA NOTIFICAÇÕES ---
+        let swRegistration = null;
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js?v=' + Date.now()).then(reg => {
+                    console.log('SW registrado com sucesso:', reg.scope);
+                    swRegistration = reg;
+                }).catch(err => {
+                    console.error('Falha ao registrar SW:', err);
+                });
+            });
+        }
+
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) return;
+            if (!('PushManager' in window)) return;
+            // Aguarda SW ativo antes de pedir permissão push
+            if (!swRegistration) {
+                try { await navigator.serviceWorker.ready; } catch(e) { return; }
+            }
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                console.log('Permissão para notificações concedida.');
+            }
+        }
+
+        onAuthStateChanged(auth, u => {
+            lucide.createIcons();
+
+            const splash = document.getElementById('splash-screen');
+            const hideSplash = () => {
+                if(splash) {
+                    splash.style.opacity = '0';
+                    setTimeout(() => splash.remove(), 600);
+                }
+            };
+
+            if (u) {
+                onValue(ref(db, `users/${u.uid}`), s => {
+                    _user = s.val();
+                    if(_user) {
+                        // 1. VERIFICAÇÃO DE BANIMENTO (SENTINEL 2.0)
+                        if(_user.status === 'banido' || _user.status === 'banned') {
+                            document.getElementById('app-container').classList.add('hidden');
+                            document.getElementById('page-login').classList.add('hidden');
+                            document.getElementById('page-register').classList.add('hidden');
+                            document.getElementById('terms-modal').classList.add('hidden');
+                            document.getElementById('ban-overlay').classList.remove('hidden');
+                            document.getElementById('ban-reason-text').innerText = _user.ban_reason || "Atividade suspeita detectada pelo Sentinel 2.0.";
+                            lucide.createIcons();
+                            hideSplash();
+                            return;
+                        } else {
+                            document.getElementById('ban-overlay').classList.add('hidden');
+                        }
+
+                        // 2. BLOQUEIO JURÍDICO ATIVO: Se não aceitou, mostra o modal e mantém dashboard oculto
+                        if(!_user.legal_acceptance || !_user.legal_acceptance.accepted) {
+                            document.getElementById('page-login').classList.add('hidden');
+                            document.getElementById('page-register').classList.add('hidden');
+                            document.getElementById('app-container').classList.add('hidden');
+                            document.getElementById('terms-modal').classList.remove('hidden');
+                            lucide.createIcons();
+                            hideSplash();
+                            return;
+                        }
+
+                        // SÓ MOSTRA O DASHBOARD SE TIVER ACEITO
+                        document.getElementById('terms-modal').classList.add('hidden');
+                        document.getElementById('page-login').classList.add('hidden');
+                        document.getElementById('page-register').classList.add('hidden');
+                        document.getElementById('app-container').classList.remove('hidden');
+
+                        // Mostra o agente Nexus flutuante
+                        const nexusTrigger = document.getElementById('cybercore-chat-trigger');
+                        if (nexusTrigger) nexusTrigger.style.display = 'flex';
+
+                        // Garante que o link de convite seja preenchido com o UID do usuário
+                        const refLinkEl = document.getElementById('ref-link');
+                        if (refLinkEl) refLinkEl.value = `https://cinecash.app/?ref=${u.uid}`;
+
+                        updateUI();
+                        saveFCMToken(u.uid);
+                        requestNotificationPermission();
+                        hideSplash();
+                    } else {
+                        signOut(auth);
+                        hideSplash();
+                    }
+                });
+
+                // Heartbeat de Status (30s)
+                if (!heartbeatInterval) {
+                    heartbeatInterval = setInterval(() => {
+                        set(ref(db, 'status/site_last_pulse'), serverTimestamp());
+                    }, 30000);
+                    // Pulso inicial imediato
+                    set(ref(db, 'status/site_last_pulse'), serverTimestamp());
+                }
+
+                // Listener do Agente Auditor em Tempo Real
+                onValue(ref(db, 'status/auditor_last_pulse'), snap => {
+                    const lastPulse = snap.val();
+                    const statusText = document.getElementById('auditor-status-text');
+                    const statusDot = document.getElementById('auditor-status-dot');
+                    if (lastPulse && statusText && statusDot) {
+                        const now = Date.now();
+                        const diff = (now - lastPulse) / 1000;
+                        if (diff < 120) { // Considera online se pulsou nos últimos 2 minutos
+                            statusText.innerText = "AGENTE AUDITOR ONLINE:";
+                            statusText.style.color = "#10b981";
+                            statusDot.style.background = "#10b981";
+                            statusDot.style.boxShadow = "0 0 10px rgba(16, 185, 129, 0.6)";
+                        } else {
+                            statusText.innerText = "AGENTE AUDITOR OFFLINE:";
+                            statusText.style.color = "#ef4444";
+                            statusDot.style.background = "#ef4444";
+                            statusDot.style.boxShadow = "0 0 10px rgba(239, 68, 68, 0.6)";
+                        }
+                    }
+                });
+
+
+                try { loadReferrals(); } catch(e) { console.warn('Falha ao carregar indicações'); }
+            } else {
+                document.getElementById('page-login').classList.remove('hidden');
+                document.getElementById('app-container').classList.add('hidden');
+                hideSplash();
+
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+            }
+        });
+
+        let menuClickCount = 0;
+        window.switchTab = (id, el) => {
+            if (typeof triggerStrategicAd === 'function') triggerStrategicAd(true);
+            
+            document.querySelectorAll('.tab-content').forEach(t => {
+                t.classList.add('hidden');
+                t.style.opacity = '0';
+                t.style.transform = 'translateY(10px)';
+            });
+
+            const target = document.getElementById(`tab-${id}`);
+            console.log(`[CineCash] Trocando para aba: ${id}`, target);
+            if (target) {
+                target.classList.remove('hidden');
+                setTimeout(() => {
+                    target.style.opacity = '1';
+                    target.style.transform = 'translateY(0)';
+                }, 50);
+            }
+
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if (el) el.classList.add('active');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (id === 'withdraw' && typeof loadWithdrawHistory === 'function') loadWithdrawHistory();
+            if (id === 'referrals') {
+                console.log("[CineCash] Chamando loadReferrals()...");
+                if (typeof loadReferrals === 'function') loadReferrals();
+                else console.error("[CineCash] Erro: loadReferrals não está definida!");
+            }
+        };
+
+        window.copyLink = () => {
+            const input = document.getElementById('ref-link');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value);
+            showToast("LINK COPIADO!");
+        };
+
+        // --- UTILITÁRIOS DE SEGURANÇA ---
+        const CyberUtils = {
+            escapeHtml: (text = '') => {
+                return String(text)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            },
+            isProcessing: false
+        };
+
+        window.setAmount = (val) => {
+            const display = document.getElementById('w-amount-display');
+            const hidden = document.getElementById('w-amount');
+            if (display) display.value = val.toFixed(2).replace('.', ',');
+            if (hidden) hidden.value = val;
+
+            const buttons = document.querySelectorAll('.amount-btn');
+            buttons.forEach(btn => {
+                const btnVal = parseFloat(btn.dataset.amount || 0);
+                if (btnVal === val) {
+                    btn.classList.add('active');
+                    btn.style.background = 'rgba(124,58,237,0.3)';
+                    btn.style.borderColor = 'var(--primary)';
+                } else {
+                    btn.classList.remove('active');
+                    btn.style.background = 'rgba(255,255,255,0.05)';
+                    btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                }
+            });
+        };
+
+        window.selectPixType = (type, el) => {
+            document.getElementById('w-type').value = type;
+            document.querySelectorAll('.pix-type-btn').forEach(b => b.classList.remove('active'));
+            el.classList.add('active');
+
+            const keyInput = document.getElementById('w-key');
+            keyInput.value = ''; // Limpa ao trocar tipo
+            if (type === 'CPF') {
+                keyInput.placeholder = "000.000.000-00";
+                keyInput.type = "text";
+            }
+            else if (type === 'EMAIL') {
+                keyInput.placeholder = "exemplo@email.com";
+                keyInput.type = "email";
+            }
+            else if (type === 'PHONE') {
+                keyInput.placeholder = "(00) 00000-0000";
+                keyInput.type = "tel";
+            }
+            else if (type === 'EVP') {
+                keyInput.placeholder = "Chave Aleatória (UUID)";
+                keyInput.type = "text";
+            }
+
+            keyInput.focus();
+            window.validatePixInput(); // Atualiza estado do botão ao trocar tipo
+        };
+
+        window.applyMask = (el) => {
+            const type = document.getElementById('w-type').value;
+            if (type === 'CPF') {
+                let val = el.value.replace(/\D/g, '');
+                if (val.length > 11) val = val.slice(0, 11);
+                val = val.replace(/(\d{3})(\d)/, '$1.$2');
+                val = val.replace(/(\d{3})(\d)/, '$1.$2');
+                val = val.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                el.value = val;
+            } else if (type === 'PHONE') {
+                let val = el.value.replace(/\D/g, '');
+                if (val.length > 11) val = val.slice(0, 11);
+                if (val.length > 2) {
+                    val = `(${val.slice(0, 2)}) ${val.slice(2)}`;
+                }
+                if (val.length > 9) {
+                    val = `${val.slice(0, 10)}-${val.slice(10)}`;
+                }
+                el.value = val;
+            }
+        };
+
+        // Validação de Chave PIX em tempo real
+        window.validatePixKey = (t, k) => {
+            if (!k) return false;
+            if (t === 'CPF') {
+                const cpf = k.replace(/\D/g, '');
+                if (cpf.length !== 11) return false;
+                if (/^(\d)\1+$/.test(cpf)) return false;
+                let sum = 0, rest;
+                for (let i = 1; i <= 9; i++) sum = sum + parseInt(cpf.substring(i-1, i)) * (11 - i);
+                rest = (sum * 10) % 11;
+                if ((rest == 10) || (rest == 11)) rest = 0;
+                if (rest != parseInt(cpf.substring(9, 10))) return false;
+                sum = 0;
+                for (let i = 1; i <= 10; i++) sum = sum + parseInt(cpf.substring(i-1, i)) * (12 - i);
+                rest = (sum * 10) % 11;
+                if ((rest == 10) || (rest == 11)) rest = 0;
+                if (rest != parseInt(cpf.substring(10, 11))) return false;
+                return true;
+            }
+            if (t === 'EMAIL') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(k);
+            if (t === 'PHONE') {
+                const phone = k.replace(/\D/g, '');
+                return phone.length >= 10 && phone.length <= 13;
+            }
+            if (t === 'EVP') return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k);
+            return true;
+        };
+
+        window.validatePixInput = () => {
+            const key = document.getElementById('w-key').value.trim();
+            const type = document.getElementById('w-type').value;
+            const btn = document.getElementById('btn-request-saque');
+            const status = document.getElementById('pix-status');
+            if (!key) {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                status.innerHTML = '';
+                return;
+            }
+            const valid = window.validatePixKey(type, key);
+            if (valid) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                status.innerHTML = '<span style="color:#10b981;">✅ Chave PIX válida</span>';
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                let msg = 'Formato inválido';
+                if (type === 'CPF') msg = 'CPF inválido';
+                else if (type === 'EMAIL') msg = 'E-mail inválido';
+                else if (type === 'PHONE') msg = 'Telefone inválido';
+                else if (type === 'EVP') msg = 'Chave aleatória inválida';
+                status.innerHTML = `<span style="color:#ef4444;">❌ ${msg}</span>`;
+            }
+        };
+
+        window.filterHistory = (status, el) => {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.style.background = 'transparent';
+                b.style.color = 'var(--muted-fg)';
+            });
+            el.style.background = 'var(--primary)';
+            el.style.color = 'white';
+
+            const items = document.querySelectorAll('.withdraw-item');
+            items.forEach(item => {
+                item.style.transition = '0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                if(status === 'all' || item.dataset.status === status || (status === 'paid' && item.dataset.status === 'finalizado')) {
+                    item.style.display = 'flex';
+                    setTimeout(() => {
+                        item.style.opacity = '1';
+                        item.style.transform = 'scale(1)';
+                    }, 10);
+                } else {
+                    item.style.opacity = '0';
+                    item.style.transform = 'scale(0.95)';
+                    setTimeout(() => item.style.display = 'none', 300);
+                }
+            });
+        };
+
+        function loadWithdrawHistory() {
+            if(!auth.currentUser) return;
+            const refH = ref(db, `withdrawals/${auth.currentUser.uid}`);
+            onValue(refH, snap => {
+                const list = document.getElementById('withdraw-list');
+                const counter = document.getElementById('history-count');
+                if(!list) return;
+
+                list.innerHTML = '';
+                if(!snap.exists()) {
+                    list.innerHTML = `
+                        <div style="text-align:center; padding:40px; color:var(--text-muted); font-size:0.8rem; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <i data-lucide="inbox" style="width: 32px; height: 32px; opacity: 0.2;"></i>
+                            Nenhuma transação encontrada.
+                        </div>`;
+                    if(counter) counter.innerText = '0 transações';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    return;
+                }
+
+                const data = [];
+                snap.forEach(c => { data.push({id: c.key, ...c.val()}); });
+                data.sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+                if(counter) counter.innerText = `${data.length} transações`;
+
+                const fragment = document.createDocumentFragment();
+                data.forEach((w, index) => {
+                    const status = (w.status || 'pending').toLowerCase();
+                    let color = (status === 'paid' || status === 'finalizado') ? '#10b981' : (status === 'pending' ? '#fbbf24' : '#ef4444');
+                    let statusTxt = (status === 'paid' || status === 'finalizado') ? 'Pago' : (status === 'pending' ? 'Pendente' : 'Recusado');
+                    let icon = (status === 'paid' || status === 'finalizado') ? 'check-circle' : (status === 'pending' ? 'clock' : 'x-circle');
+
+                    const ts = w.timestamp || (w.created_at ? new Date(w.created_at).getTime() : Date.now());
+                    const d = new Date(ts).toLocaleDateString('pt-BR');
+                    const t = new Date(ts).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+                    const displayId = w.id ? w.id.slice(-6) : (ts ? ts.toString().slice(-6) : "---");
+                    const pixType = CyberUtils.escapeHtml(w.pixType || 'PIX');
+
+                    const item = document.createElement('div');
+                    item.className = 'withdraw-item glass-premium';
+                    item.dataset.status = status;
+                    item.style.cssText = `display:flex; justify-content:space-between; align-items:center; padding:15px; border-radius:16px; border:1px solid rgba(255,255,255,0.05); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity:0; transform: translateY(10px); animation: itemFadeIn 0.3s forwards ${index * 0.05}s;`;
+
+                    item.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; border-radius: 12px; background: ${color}15; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="${icon}" style="width: 20px; height: 20px; color: ${color};"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; font-size:0.95rem; color: #fff;">R$ ${(w.amount || 0).toFixed(2).replace('.', ',')}</div>
+                                <div style="font-size:0.65rem; color:var(--text-muted); font-weight: 600;">${d} às ${t} • ${pixType}</div>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color:${color}; font-size:0.65rem; font-weight:900; text-transform: uppercase; letter-spacing: 0.5px;">
+                                ${statusTxt}
+                            </div>
+                            <div style="font-size: 0.55rem; color: var(--text-muted); margin-top: 2px;">ID: ...${displayId}</div>
+                        </div>
+                    `;
+                    fragment.appendChild(item);
+                });
+
+                list.appendChild(fragment);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+
+
+        function loadReferrals() {
+            if (!auth.currentUser) {
+                console.warn("[CineCash] loadReferrals abortado: Usuário não logado.");
+                return;
+            }
+            console.log("[CineCash] Buscando convites para UID:", auth.currentUser.uid);
+            const refQuery = query(ref(db, 'users'), orderByChild('referredBy'), equalTo(auth.currentUser.uid));
+            onValue(refQuery, snapshot => {
+                const data = [];
+                snapshot.forEach(child => { data.push({ id: child.key, ...child.val() }); });
+                console.log(`[CineCash] ${data.length} convites encontrados.`);
+                renderReferrals(data);
+            }, (error) => {
+                console.error("[CineCash] Erro ao buscar convites:", error);
+            });
+        }
+
+        function renderReferrals(referrals) {
+            const list = document.getElementById('referrals-list');
+            const totalSpan = document.getElementById('ref-total-list');
+
+            if (totalSpan) totalSpan.innerText = referrals.length;
+
+            if (referrals.length === 0) {
+                list.innerHTML = `
+                    <div class="referrals-empty-state" style="padding: 20px; text-align: center; color: var(--text-muted);">
+                        <i data-lucide="inbox" style="width:32px; height:32px; opacity:0.3; margin-bottom: 10px;"></i>
+                        <br><span>Nenhum operador recrutado ainda.</span>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            list.innerHTML = '';
+            list.className = 'referrals-list-container'; // Estilo de container
+            referrals.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'referral-item glass-premium';
+                item.style.display = 'flex';
+                item.style.justifyContent = 'space-between';
+                item.style.alignItems = 'center';
+                item.style.padding = '12px';
+                item.style.marginBottom = '10px';
+                item.style.borderRadius = '12px';
+                item.style.border = '1px solid rgba(255,255,255,0.05)';
+
+                const vids = r.videosWatched || 0;
+                const status = vids >= 15 ? 'Ativo' : `${vids}/15`;
+                const statusClass = vids >= 15 ? 'status-active' : 'status-pending';
+                const statusColor = vids >= 15 ? '#10b981' : '#fbbf24';
+
+                item.innerHTML = `
+                    <div class="referral-user-info" style="display: flex; align-items: center; gap: 10px;">
+                        <div class="referral-avatar" style="width: 35px; height: 35px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;">
+                            ${(r.firstname || r.fullname || "U")[0].toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="referral-name" style="font-size: 0.85rem; font-weight: 700;">${r.fullname || "Usuário"}</div>
+                            <div style="font-size: 0.65rem; color: var(--text-muted);">${r.username || ''}</div>
+                        </div>
+                    </div>
+                    <div class="referral-status ${statusClass}" style="font-size: 0.7rem; font-weight: 800; color: ${statusColor}; background: ${statusColor}15; padding: 4px 10px; border-radius: 20px;">
+                        ${status}
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+            lucide.createIcons();
+        }
+
+        window.setAmount = (val) => {
+            const display = document.getElementById('w-amount-display');
+            const hidden = document.getElementById('w-amount');
+            if (display) display.value = val.toFixed(2).replace('.', ',');
+            if (hidden) hidden.value = val;
+
+            // Estilizar botão selecionado
+            const buttons = document.querySelectorAll('.amount-btn');
+            buttons.forEach(btn => {
+                if (btn.innerText.includes(val.toFixed(2).replace('.', ','))) {
+                    btn.style.background = 'rgba(124,58,237,0.3)';
+                    btn.style.borderColor = 'var(--primary)';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = 'rgba(255,255,255,0.05)';
+                    btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                    btn.style.color = 'var(--text-muted)';
+                }
+            });
+        };
+
+        // ============ SISTEMA DE TUTORIAL AGENTE NEXUS ============
+        window.startNexusTour = async () => {
+            const steps = [
+                { 
+                    msg: "Olá! Eu sou o Agente Nexus. Vou te mostrar como faturar aqui! 🚀",
+                    action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
+                },
+                { 
+                    msg: "Aqui no Início, você usa nossa rede neural para validar anúncios e ganhar saldo. 🎬",
+                    action: () => {
+                        const card = document.querySelector('.ai-card-premium');
+                        if (card) {
+                            card.style.boxShadow = "0 0 40px var(--primary)";
+                            setTimeout(() => card.style.boxShadow = "none", 3000);
+                        }
+                    } 
+                },
+                { 
+                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 5,00 ou 50,00. 💰", 
+                    action: () => window.switchTab('withdraw', document.querySelectorAll('.nav-item')[1])
+                },
+                { 
+                    msg: "Em Convites, você ganha R$ 0,50 por cada amigo que ativar a conta no CineCash! 🎁", 
+                    action: () => window.switchTab('referrals', document.querySelectorAll('.nav-item')[2])
+                },
+                { 
+                    msg: "Tutorial concluído! Agora você está pronto para lucrar. Alguma dúvida? 😊", 
+                    action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
+                }
+            ];
+
+            const container = document.getElementById('cybercore-chat-messages');
+            if (!container) return;
+
+            for (const step of steps) {
+                showTypingNexus(true);
+                await new Promise(r => setTimeout(r, 2000));
+                showTypingNexus(false);
+                step.action();
+
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'cybercore-msg cybercore-msg-ai';
+                aiMsg.innerHTML = `<strong>Nexus:</strong> ${step.msg}`;
+                container.appendChild(aiMsg);
+                container.scrollTop = container.scrollHeight;
+
+                await new Promise(r => setTimeout(r, 3500));
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        function showTypingNexus(show) {
+            const container = document.getElementById('cybercore-chat-messages');
+            if (!container) return;
+
+            let indicator = document.getElementById('nexus-typing-indicator');
+            if (show) {
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.id = 'nexus-typing-indicator';
+                    indicator.className = 'cybercore-msg cybercore-msg-ai';
+                    indicator.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+                    container.appendChild(indicator);
+                }
+                container.scrollTop = container.scrollHeight;
+            } else if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        window.startProcess = async () => {
+            if (CyberUtils.isProcessing) return;
+            CyberUtils.isProcessing = true;
+
+            triggerStrategicAd();
+            const btn = document.querySelector('.ai-card-premium .btn-neon-premium');
+            const card = document.querySelector('.ai-card-premium');
+
+            try {
+                btn.classList.add('loading');
+                btn.innerText = "SINCRONIZANDO...";
+                card.classList.add('scanning');
+
+                const resStart = await fetch(`${CONFIG.apiBase}/video/start/${auth.currentUser.uid}`, { method: 'POST' });
+                if(!resStart.ok) throw new Error();
+
+                const banner = document.getElementById('monetag-banner');
+                banner.innerHTML = `<span>SINCRO NEURAL ATIVA...</span>`;
+
+                const overlay = document.getElementById('video-overlay');
+                const progressBar = document.getElementById('progress-bar');
+
+                overlay.classList.remove('hidden');
+                progressBar.style.width = '0%';
+
+                let time = 30;
+                const itv = setInterval(async () => {
+                    time--;
+                    document.getElementById('timer').innerText = time;
+                    progressBar.style.width = `${((30 - time) / 30) * 100}%`;
+
+                    if(time <= 0) {
+                        clearInterval(itv);
+                        try {
+                            const resComp = await fetch(`${CONFIG.apiBase}/video/complete/${auth.currentUser.uid}`, { method: 'POST' });
+                            if(resComp.ok) {
+                                showToast("VALIDAÇÃO CONCLUÍDA!");
+                                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#f472b6'] });
+                            } else {
+                                const err = await resComp.json();
+                                showToast(err.detail || "Falha na validação.");
+                            }
+                        } catch (e) {
+                            console.warn("Erro ao reportar conclusão offline");
+                            showToast("Sessão validada com sucesso!");
+                        }
+
+                        overlay.classList.add('hidden');
+                        card.classList.remove('scanning');
+                        btn.classList.remove('loading');
+                        btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                        CyberUtils.isProcessing = false;
+                    }
+                }, 1000);
+            } catch {
+                showToast("Sincronia com servidor falhou.");
+                btn.classList.remove('loading');
+                btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                card.classList.remove('scanning');
+                CyberUtils.isProcessing = false;
+            }
+        };
+
+        window.triggerStrategicAd = (isMenu = false) => {
+            if (isMenu) {
+                menuClickCount++;
+                if (menuClickCount % 2 !== 0) return;
+            }
+
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const banner = document.getElementById('monetag-banner');
+            if (!banner) return;
+
+            if (isMobile) {
+                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO CARREGADO — AGUARDE...</span>`;
+                setTimeout(() => {
+                    banner.innerHTML =
+                        `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>ANÚNCIO PREMIUM DISPONÍVEL</span>`;
+                }, 10000);
+                return;
+            }
+
+            if (document.querySelector('script[data-ad-active="true"]')) return;
+
+            const zonesAl5sm = ['10922287', '10902829', '10902828', '10828297'];
+            const useQug = Math.random() > 0.8;
+            
+            let s = document.createElement('script');
+            s.setAttribute('data-ad-active', 'true');
+            if(useQug) {
+                s.src = 'https://quge5.com/88/tag.min.js';
+                s.dataset.zone = '226253';
+                s.async = true;
+                s.dataset.cfasync = 'false';
+            } else {
+                s.src = 'https://al5sm.com/tag.min.js';
+                s.dataset.zone = zonesAl5sm[Math.floor(Math.random() * zonesAl5sm.length)];
+            }
+            
+            document.body.appendChild(s);
+            const timeout = isMobile ? 20000 : 10000;
+            setTimeout(() => {
+                if(s.parentNode) s.remove();
+            }, timeout);
+        };
+
+        window.requestSaque = async () => {
+            if (CyberUtils.isProcessing) return;
+
+            triggerStrategicAd();
+            const amountInput = document.getElementById('w-amount');
+            const amount = parseFloat(amountInput?.value || '0');
+            const key = document.getElementById('w-key').value.trim();
+            const type = document.getElementById('w-type').value;
+
+            // Novos Limites Conforme Tabela (0.50, 5.00, 50.00)
+            const allowedAmounts = [0.5, 5.0, 50.0];
+
+            if (!allowedAmounts.includes(amount)) {
+                return showToast("Selecione um dos valores da tabela.");
+            }
+
+            if (_user.balance < amount) {
+                return showToast("Saldo insuficiente.");
+            }
+
+            // Verifica se atingiu os limites mínimos para saque conforme solicitado
+            if (amount === 0.5 && _user.balance < 0.5) return showToast("Mínimo R$ 0,50 necessário.");
+            if (amount === 5.0 && _user.balance < 5.0) return showToast("Mínimo R$ 5,00 necessário para este saque.");
+            if (amount === 50.0 && _user.balance < 50.0) return showToast("Mínimo R$ 50,00 necessário para este saque.");
+
+            // Validação de Chave PIX Premium
+            if (!window.validatePixKey(type, key)) {
+                let msg = "Formato de chave inválido.";
+                if (type === 'CPF') msg = "CPF inválido. Verifique os números.";
+                if (type === 'EMAIL') msg = "E-mail inválido. Verifique o formato.";
+                if (type === 'PHONE') msg = "Telefone inválido. Use DDD + Número.";
+                if (type === 'EVP') msg = "Chave Aleatória inválida. Verifique o código.";
+                return showToast(msg);
+            }
+
+            CyberUtils.isProcessing = true;
+            let finalKey = key;
+            if (type === 'CPF' || type === 'PHONE') finalKey = key.replace(/\D/g, '');
+
+            const btn = document.getElementById('btn-request-saque');
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="spinner" style="display:block;"></i> PROCESSANDO...';
+
+            try {
+                const fingerprint = await getFingerprint();
+
+                const res = await fetch(`${CONFIG.apiBase}/payments/request/${auth.currentUser.uid}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        amount,
+                        pixKey: finalKey,
+                        pixType: type,
+                        fingerprint: fingerprint
+                    })
+                });
+
+                if (res.ok) {
+                    showToast("SAQUE SOLICITADO COM SUCESSO!");
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.7 } });
+                    amountInput.value = '';
+                    document.getElementById('w-key').value = '';
+                } else {
+                    const errorData = await res.json();
+                    showToast(errorData.detail || "Erro no processamento do saque.");
+                }
+            } catch (e) {
+                showToast("Erro de conexão com o servidor neural.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+                CyberUtils.isProcessing = false;
+                lucide.createIcons();
+            }
+        };
+
+        window.copyLink = async () => {
+            const link = document.getElementById('ref-link').value;
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'CineCash Premium',
+                        text: 'Entre no CineCash e ganhe R$0,50 por amigo ativo! 🎬💰',
+                        url: link
+                    });
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        fallbackCopy(link);
+                    }
+                }
+            } else {
+                fallbackCopy(link);
+            }
+        };
+
+        function fallbackCopy(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Link copiado com sucesso!");
+            }).catch(() => {
+                const el = document.getElementById('ref-link');
+                el.select();
+                document.execCommand('copy');
+                showToast("Link copiado!");
+            });
+        }
+
+        window.claimDailyBonus = async () => {
+            if (!_user || CyberUtils.isProcessing) return;
+            CyberUtils.isProcessing = true;
+
+            triggerStrategicAd();
+            
+            const btn = document.getElementById('btn-bonus');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "VALIDANDO...";
+
+            try {
+                const res = await fetch(`${CONFIG.apiBase}/user/claim-daily/${auth.currentUser.uid}`, {
+                    method: 'POST'
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast("BÔNUS RESGATADO COM SUCESSO!");
+                    confetti({ particleCount: 50, spread: 30, origin: { y: 0.8 } });
+
+                    // O onValue do Firebase atualizará _user e a UI automaticamente
+                    btn.innerText = "COLETADO";
+                    btn.style.opacity = "0.5";
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || "Falha ao resgatar bônus.");
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                }
+            } catch (e) {
+                showToast("Erro de conexão com CyberCore.");
+                btn.disabled = false;
+                btn.innerText = originalText;
+            } finally {
+                CyberUtils.isProcessing = false;
+            }
+        };
+
+        window.logout = () => {
+            signOut(auth).then(() => window.location.reload());
+        };
+
+        // ============ AGENTE NEXUS (TELEMETRIA E AUDITORIA) ============
+        async function sendNexusTelemetry(doubt = null) {
+            if (!_user || !auth.currentUser) return;
+
+            const payload = {
+                uid: auth.currentUser.uid,
+                ads_watched: _user.videosWatched || 0,
+                balance: _user.balance || 0,
+                user_doubt: doubt,
+                page_context: window.location.hash || 'dashboard',
+                platform: navigator.platform,
+                session_duration: Math.floor((Date.now() - (window.sessionStart || Date.now())) / 1000)
+            };
+
+            try {
+                await fetch(`${CONFIG.apiBase}/api/nexus/report`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                console.log("Nexus: Relatório de telemetria enviado.");
+            } catch (e) {
+                console.warn("Nexus: Falha ao reportar ao núcleo.");
+            }
+        }
+
+        // Inicia o ciclo de vida do Agente Nexus
+        window.sessionStart = Date.now();
+        setInterval(() => sendNexusTelemetry(), 60000); // Reporte a cada 1 min
+
+        // ==================== CHAT HISTORY (localStorage) ====================
+        const CHAT_STORAGE_KEY = 'nexus_chat_history';
+        let chatHistory = loadChatHistory();
+
+        function loadChatHistory() {
+            try {
+                const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+                return saved ? JSON.parse(saved) : [];
+            } catch { return []; }
+        }
+
+        function saveChatHistory() {
+            try {
+                localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatHistory.slice(-50)));
+            } catch {}
+        }
+
+        function clearChatHistory() {
+            chatHistory = [];
+            saveChatHistory();
+            const container = document.getElementById('cybercore-chat-messages');
+            if (container) container.innerHTML = '';
+            addWelcomeMessage();
+        }
+
+        function addWelcomeMessage() {
+            const container = document.getElementById('cybercore-chat-messages');
+            if (!container) return;
+            const welcome = document.createElement('div');
+            welcome.className = 'cybercore-msg cybercore-msg-ai';
+            welcome.innerHTML = `Olá! Sou o <strong>Agente Nexus</strong>, seu tutor oficial CineCash. <br><br>Estou aqui para guiar você pela plataforma e garantir que sua experiência com a IA <strong>CyberCore</strong> seja lucrativa. <br><br>Deseja que eu te mostre como o sistema funciona?`;
+            container.appendChild(welcome);
+        }
+
+        function getTimestamp() {
+            const d = new Date();
+            return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+        }
+
+        // ==================== MARKDOWN RENDERER (#2) ====================
+        function renderMarkdown(text) {
+            let html = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            // code blocks
+            html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            // inline code
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // bold
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            // italic
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            // unordered list
+            html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+            html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+            // numbered list
+            html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+            // URLs
+            html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+            // newlines
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        // ==================== VOICE INPUT (#6) ====================
+        window.startVoiceInput = () => {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                addSystemMessage('⚠️ Comando de voz não suportado neste navegador.');
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.interimResults = false;
+            const micBtn = document.getElementById('cybercore-chat-mic');
+            if (micBtn) micBtn.style.color = '#ff4444';
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                const input = document.getElementById('cybercore-chat-input');
+                if (input) { input.value = transcript; window.sendFloatingChatMessage(); }
+                if (micBtn) micBtn.style.color = '';
+            };
+            recognition.onerror = () => {
+                addSystemMessage('⚠️ Erro ao capturar áudio. Tente novamente.');
+                if (micBtn) micBtn.style.color = '';
+            };
+            recognition.onend = () => { if (micBtn) micBtn.style.color = ''; };
+            recognition.start();
+        };
+
+        function addSystemMessage(text) {
+            const container = document.getElementById('cybercore-chat-messages');
+            if (!container) return;
+            const msg = document.createElement('div');
+            msg.className = 'cybercore-msg cybercore-msg-ai';
+            msg.style.fontSize = '11px'; msg.style.opacity = '0.7';
+            msg.innerHTML = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ==================== DYNAMIC SUGGESTIONS (#4) ====================
+        function updateSuggestions(suggestions) {
+            const container = document.getElementById('cybercore-chat-suggestions');
+            if (!container) return;
+            container.innerHTML = '';
+            const allSuggestions = suggestions.length > 0
+                ? suggestions
+                : ['🚀 Iniciar Tour', '❓ Dúvidas', '💰 Como Sacar'];
+            allSuggestions.forEach(text => {
+                const btn = document.createElement('button');
+                btn.textContent = text;
+                btn.onclick = () => window.sendQuickCommand(text);
+                container.appendChild(btn);
+            });
+        }
+
+        // ==================== MAIN CHAT FUNCTION (#1 #2 #3 #4 #5 #7) ====================
+        window.sendFloatingChatMessage = async () => {
+            const input = document.getElementById('cybercore-chat-input');
+            const container = document.getElementById('cybercore-chat-messages');
+            const chatContainer = document.getElementById('cybercore-floating-chat');
+            const suggestionsContainer = document.getElementById('cybercore-chat-suggestions');
+            const text = input.value.trim();
+            const lowText = text.toLowerCase();
+
+            if (!text) return;
+
+            // Envia a dúvida para o Nexus reportar ao Sentinel/CyberCore
+            sendNexusTelemetry(text);
+
+            // --- Mensagem do Usuário (#3 timestamp) ---
+            const ts = getTimestamp();
+            const userMsg = document.createElement('div');
+            userMsg.className = 'cybercore-msg cybercore-msg-user';
+            userMsg.innerHTML = renderMarkdown(text) + `<span class="msg-ts">${ts}</span>`;
+            container.appendChild(userMsg);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            // Salva no histórico (#7)
+            chatHistory.push({ role: 'user', content: text, ts });
+            saveChatHistory();
+
+            if (chatContainer) chatContainer.classList.add('cybercore-responding');
+
+            // --- Thinking / Typing (#5 refinado) ---
+            const typingId = 'typing-' + Date.now();
+            const typingMsg = document.createElement('div');
+            typingMsg.className = 'cybercore-msg cybercore-msg-ai';
+            typingMsg.id = typingId;
+            typingMsg.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+            container.appendChild(typingMsg);
+            container.scrollTop = container.scrollHeight;
+
+            // 1. Lógica de Tutorial/Tour
+            if (lowText.includes('tour') || lowText.includes('me mostre') || lowText.includes('apresentar')) {
+                document.getElementById(typingId).remove();
+                window.startNexusTour();
+                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                chatHistory.push({ role: 'assistant', content: '[Tour iniciado]', ts: getTimestamp() });
+                saveChatHistory();
+                return;
+            }
+
+            // 2. Filtro Nexus (Dúvidas Rápidas)
+            let quickAnswer = null;
+            if (typeof NEXUS_KNOWLEDGE !== 'undefined') {
+                for (let key in NEXUS_KNOWLEDGE) {
+                    if (lowText.includes(key)) {
+                        quickAnswer = NEXUS_KNOWLEDGE[key];
+                        break;
+                    }
+                }
+            }
+
+            if (quickAnswer) {
+                setTimeout(() => {
+                    const el = document.getElementById(typingId);
+                    if (el) {
+                        el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(quickAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
+                    }
+                    if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                    container.scrollTop = container.scrollHeight;
+                    chatHistory.push({ role: 'assistant', content: quickAnswer, ts: getTimestamp() });
+                    saveChatHistory();
+                    updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '🎬 Assistir Vídeos']);
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                }, 800);
+                return;
+            }
+
+            // 3. Delegação para CyberCore IA (Tempo Real)
+            try {
+                const typingEl = document.getElementById(typingId);
+                if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">consultando CyberCore...</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+
+                const response = await fetch(`${CHAT_API_BASE}/ai/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: text,
+                        uid: auth.currentUser?.uid || "guest",
+                        history: chatHistory.slice(-10)
+                    })
+                });
+
+                const data = await response.json();
+                let responseText = data.answer || "O núcleo CyberCore está processando outras requisições. Tente em instantes.";
+                
+                // --- INTERPRETADOR DE COMANDOS NEXUS ---
+                if (responseText.includes('[COMMAND:')) {
+                    if (responseText.includes('NAVIGATE:intercambio')) window.switchTab('withdraw');
+                    if (responseText.includes('NAVIGATE:convites')) window.switchTab('referrals');
+                    if (responseText.includes('NAVIGATE:inicio')) window.switchTab('dashboard');
+                    if (responseText.includes('START_TOUR')) window.startNexusTour();
+                    responseText = responseText.replace(/\[COMMAND:.*?\]/g, '').trim();
+                }
+
+                const el = document.getElementById(typingId);
+                if (el) {
+                    el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(responseText)}<span class="msg-ts">${getTimestamp()}</span>`;
+                }
+                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                container.scrollTop = container.scrollHeight;
+
+                // Salva no histórico (#7)
+                chatHistory.push({ role: 'assistant', content: responseText, ts: getTimestamp() });
+                saveChatHistory();
+
+                // Sugestões dinâmicas (#4)
+                const dynSuggestions = [];
+                if (responseText.toLowerCase().includes('saque') || responseText.toLowerCase().includes('pix')) dynSuggestions.push('💰 Quanto posso sacar?');
+                if (responseText.toLowerCase().includes('vídeo') || responseText.toLowerCase().includes('assistir')) dynSuggestions.push('🎬 Ver meus vídeos');
+                if (responseText.toLowerCase().includes('saldo') || responseText.toLowerCase().includes('ganho')) dynSuggestions.push('📊 Meu desempenho');
+                if (responseText.toLowerCase().includes('convidar') || responseText.toLowerCase().includes('indicação')) dynSuggestions.push('👥 Meus convites');
+                dynSuggestions.push('❓ Dúvidas', '🚀 Iniciar Tour');
+                updateSuggestions(dynSuggestions);
+
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            } catch (e) {
+                const el = document.getElementById(typingId);
+                if (el) el.innerHTML = `<strong>Nexus:</strong> ⚠️ Falha na conexão neural com CyberCore. Tente novamente.<span class="msg-ts">${getTimestamp()}</span>`;
+                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+            }
+        };
+
+        // ==================== RESTORE HISTORY ON LOAD (#7) ====================
+        function restoreChatHistory() {
+            const container = document.getElementById('cybercore-chat-messages');
+            if (!container) return;
+            container.innerHTML = '';
+            if (chatHistory.length === 0) {
+                addWelcomeMessage();
+                return;
+            }
+            chatHistory.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = `cybercore-msg cybercore-msg-${msg.role === 'user' ? 'user' : 'ai'}`;
+                div.innerHTML = (msg.role === 'user' ? '' : '<strong>Nexus:</strong> ') + renderMarkdown(msg.content) + `<span class="msg-ts">${msg.ts || ''}</span>`;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ==================== ENTER KEY SUPPORT ====================
+        setTimeout(() => {
+            document.getElementById('cybercore-chat-input')?.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') window.sendFloatingChatMessage();
+            });
+        }, 1000);
+
+        // ==================== AUTH STATE ====================
+        onAuthStateChanged(auth, u => {
+            const trigger = document.getElementById('cybercore-chat-trigger');
+            if(trigger) trigger.style.display = u ? 'flex' : 'none';
+            if (u) restoreChatHistory();
+        });
+
+        window.toggleFloatingChat = () => {
+            const chat = document.getElementById('cybercore-floating-chat');
+            if (!chat) return;
+            const isOpen = chat.style.display === 'flex';
+            chat.style.display = isOpen ? 'none' : 'flex';
+            if (!isOpen) setTimeout(() => document.getElementById('cybercore-chat-input')?.focus(), 100);
+        };
+
+        window.sendQuickCommand = (cmd) => {
+            const input = document.getElementById('cybercore-chat-input');
+            if (input) { input.value = cmd; window.sendFloatingChatMessage(); }
+        };
+    </script>
+</body>
+</html>

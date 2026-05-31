@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+firebase-admin
+pandas
+python-dotenv
+google-generativeai
+requests
+python-dateutil
+psutil
+duckduckgo_search
+Pillow
+groq
+chromadb
+redis
+langgraph

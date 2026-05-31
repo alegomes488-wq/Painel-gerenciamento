@@ -1,0 +1,72 @@
+{
+  "rules": {
+    ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
+    ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
+
+    "status": {
+      ".read": "true",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "config": {
+      ".read": "true",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "cybercore": {
+      ".read": "auth != null && (auth.token.email === 'alegomes488@gmail.com')",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "cybercore_memory": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "neural": {
+      ".read": "auth != null && (auth.token.email === 'alegomes488@gmail.com')",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "nexus": {
+      ".read": "auth != null && (auth.token.email === 'alegomes488@gmail.com')",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "stats": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "users": {
+      ".indexOn": ["referredBy", "fcmToken", "status"],
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')",
+        ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+      }
+    },
+    "withdrawals": {
+      ".indexOn": ["uid", "status"],
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')",
+        "$wid": {
+          ".write": "auth != null && ((auth.uid === $uid && !data.exists()) || auth.token.email === 'alegomes488@gmail.com')",
+          ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')"
+        }
+      }
+    },
+    "devices": {
+      ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "videos": {
+      ".read": "true",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    },
+    "logs": {
+      ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
+      "$logId": {
+        ".write": "auth != null"
+      }
+    },
+    "security": {
+      ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
+    }
+  }
+}
