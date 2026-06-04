@@ -323,11 +323,12 @@
                                 <input type="hidden" id="w-amount" value="0">
                                 <input type="hidden" id="w-type" value="CPF">
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;">
+                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px;">
                                 <button onclick="setAmount(0.50)" class="amount-btn">R$ 0,50</button>
-                                <button onclick="setAmount(1.00)" class="amount-btn">R$ 1,00</button>
                                 <button onclick="setAmount(3.00)" class="amount-btn">R$ 3,00</button>
+                                <button onclick="setAmount(5.00)" class="amount-btn">R$ 5,00</button>
                                 <button onclick="setAmount(10.00)" class="amount-btn">R$ 10,00</button>
+                                <button onclick="setAmount(50.00)" class="amount-btn">R$ 50,00</button>
                             </div>
                         </div>
 
@@ -1571,7 +1572,7 @@
                     } 
                 },
                 { 
-                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 1,00, 3,00 ou 10,00. 💰", 
+                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 3,00, 5,00, 10,00 ou 50,00. 💰", 
                     action: () => window.switchTab('withdraw', document.querySelectorAll('.nav-item')[1])
                 },
                 { 
@@ -1740,8 +1741,8 @@
             const key = document.getElementById('w-key').value.trim();
             const type = document.getElementById('w-type').value;
 
-            // Valores de saque por nível: R$ 0,50 | R$ 1,00 | R$ 3,00 | R$ 10,00 (limite máx R$ 50,00)
-            const allowedAmounts = [0.5, 1.0, 3.0, 10.0];
+            // Valores de saque por nível: R$ 0,50 | R$ 3,00 | R$ 5,00 | R$ 10,00 | R$ 50,00
+            const allowedAmounts = [0.5, 3.0, 5.0, 10.0, 50.0];
 
             if (!allowedAmounts.includes(amount)) {
                 return showToast("Selecione um dos valores disponíveis.");
