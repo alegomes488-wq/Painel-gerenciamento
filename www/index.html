@@ -291,7 +291,7 @@
                     <div class="bonus-bar glass-premium">
                         <div>
                             <span style="font-size:0.6rem; font-weight:900; color:var(--text-muted); display:block;">RECOMPENSA DIÁRIA</span>
-                            <span style="font-size:0.9rem; font-weight:800; color:#fff;">BÔNUS DE R$ 0,20</span>
+                            <span style="font-size:0.9rem; font-weight:800; color:#fff;">BÔNUS DE R$ 0,50</span>
                         </div>
                         <button class="btn-claim-small" id="btn-bonus" onclick="claimDailyBonus()" style="background:var(--primary); color:white; opacity:1; cursor:pointer;">RESGATAR</button>
                     </div>
@@ -538,10 +538,8 @@
         import { getMessaging, getToken } from "./firebase-messaging.js";
 
         const CONFIG = {
-            apiBase: (window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space'))
-                     ? 'https://desenvolvimento-cybercore-ia.hf.space'
-                     : window.location.origin,
-            adminBase: 'https://desenvolvimento-cybercore-ia.hf.space',
+            apiBase: 'https://desenvovimento-cinecash-ia.hf.space',
+            adminBase: 'https://desenvovimento-cybercore-ia.hf.space',
             workerBase: 'https://cybercore-api.alegomes488.workers.dev',
             monetagId: '7654321'
         };
@@ -1860,9 +1858,13 @@
             btn.disabled = true;
             btn.innerText = "VALIDANDO...";
 
+            const targetUrl = `${CONFIG.apiBase}/user/claim-daily/${auth.currentUser.uid}`;
+            console.log("🚀 Tentando resgate em:", targetUrl);
+
             try {
-                const res = await fetch(`${CONFIG.apiBase}/user/claim-daily/${auth.currentUser.uid}`, {
-                    method: 'POST'
+                const res = await fetch(targetUrl, {
+                    method: 'POST',
+                    headers: { 'Accept': 'application/json' }
                 });
                 
                 if (res.ok) {
