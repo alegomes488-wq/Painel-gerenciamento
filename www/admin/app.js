@@ -1390,15 +1390,16 @@ function updateAIPanelStats() {
 
 function updateStatusIndicators() {
     const isMaint = rtState.config?.maintenance || false;
-    const maintCheck = document.getElementById('toggle-cinecash-maint');
+    const maintCheck = document.getElementById('toggle-maintenance') || document.getElementById('toggle-cinecash-maint');
     if (maintCheck) maintCheck.checked = isMaint;
 
     const maintStatusText = document.getElementById('maint-firebase-status');
-    if (maintStatusText) maintStatusText.innerText = isMaint ? "MODO MANUTENÇÃO ATIVO" : "SISTEMA OPERALIZANDO";
+    if (maintStatusText) maintStatusText.innerText = isMaint ? "MODO MANUTENÇÃO ATIVO" : "SISTEMA OPERACIONAL";
 
     const versionInput = document.getElementById('conf-version');
     if (versionInput && !versionInput.matches(':focus')) versionInput.value = rtState.config?.version || '';
 }
+
 
 function renderAuditData() {
     updateEl('stat-banca-real', `R$ ${parseFloat(rtState.config?.audit?.bank_balance || 0).toFixed(2)}`);

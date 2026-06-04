@@ -1001,14 +1001,10 @@
             if (!_user) return;
             const firstName = _user.firstname || _user.fullname.split(' ')[0];
 
-            // Exibe o @username no topo e o nome completo + e-mail no corpo
+            // Exibe o @username no topo e o nome completo
             document.getElementById('user-name-display').innerText = _user.username || `@${firstName.toLowerCase()}`;
             document.getElementById('welcome-name').innerHTML = `
                 ${_user.fullname}
-                <div style="font-size: 0.75rem; color: var(--primary); font-weight: 400; margin-top: 5px; opacity: 0.8;">
-                    <i data-lucide="mail" style="width:12px; height:12px; vertical-align: middle; margin-right: 4px;"></i>
-                    ${_user.email}
-                </div>
             `;
             document.getElementById('user-avatar').innerText = firstName[0].toUpperCase();
 
