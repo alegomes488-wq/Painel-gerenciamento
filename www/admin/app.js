@@ -92,6 +92,14 @@ function initRealTimeSystem() {
         }
     });
 
+    // Sincronização de Nós (Projetos)
+    hubDb.ref('neural/nodes').on('value', snap => {
+        if (!rtState.neural) rtState.neural = {};
+        rtState.neural.nodes = snap.val() || {};
+        renderProjects();
+        updateWarRoom(); // Atualiza links SVG
+    });
+
     // Sincronização de Usuários
     hubDb.ref('users').on('value', snap => {
         rtState.users = snap.val() || {};
@@ -402,12 +410,21 @@ async function sendIACommand() {
                 body: JSON.stringify({ agent, action: "recover" })
             });
             const data = await resp.json();
-            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
+            typeIAResponse(`✅ **PROTOCOLO DE RECOMPOSIÇÃO**: ${data.message}`, 'nexus');
             return;
         } catch (e) {
             typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
             return;
         }
+    }
+
+    if (cmd.includes("chaos") || cmd.includes("simulação")) {
+        typeIAResponse("Selecione o tipo de falha para simular no ecossistema:", 'nexus', false, [
+            { label: "Falha Sentinel", type: "danger", actionId: "chaos", decision: "fail sentinel" },
+            { label: "Latência Alta", type: "warning", actionId: "chaos", decision: "high latency" },
+            { label: "Offline Mode", type: "info", actionId: "chaos", decision: "offline" }
+        ]);
+        return;
     }
 
     terminalHistory.push({ role: 'user', content: rawCmd });
@@ -541,6 +558,18 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
 }
 
 function authorizeAction(actionId, decision, bubbleId) {
+    if (actionId === 'chaos') {
+        const agent = decision.includes('sentinel') ? 'sentinel' : (decision.includes('latency') ? 'nexus' : 'auditor');
+        fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent, action: decision.includes('fail') ? "fail" : "latency" })
+        }).then(r => r.json()).then(data => {
+            typeIAResponse(`🔥 Simulação de ${decision.toUpperCase()} iniciada: ${data.message}`, 'nexus');
+        });
+        return;
+    }
+
     const bubble = document.getElementById(bubbleId);
     if (bubble) bubble.style.opacity = '0.5';
 
@@ -865,6 +894,54 @@ function renderProjects() {
         statusBadge.style.background = isActive ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)";
         statusBadge.style.color = isActive ? "#10b981" : "#ef4444";
     }
+
+    // Renderiza novos nós dinâmicos
+    const container = document.getElementById('projects-container');
+    if (!container) return;
+
+    // Mantém os fixos (Hub e Global) e remove o resto para re-renderizar
+    // Nota: Em um app real, idealmente faríamos um diffing, mas aqui simplificamos
+    const staticNodes = Array.from(container.children).slice(0, 2);
+    container.innerHTML = '';
+    staticNodes.forEach(node => container.appendChild(node));
+
+    const nodes = rtState.neural?.nodes || {};
+    Object.entries(nodes).forEach(([id, node]) => {
+        const nodeCard = document.createElement('div');
+        nodeCard.className = 'system-card premium-glass tech-border holo-shimmer';
+        nodeCard.innerHTML = `
+            <div class="system-header">
+                <div>
+                    <h3 style="font-size: 18px;">${node.name.toUpperCase()}</h3>
+                    <div class="sys-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">CONECTADO</div>
+                </div>
+                <div style="font-family: 'JetBrains Mono'; font-size: 10px; opacity: 0.6;">${id}</div>
+            </div>
+            <div style="margin: 15px 0; font-size: 12px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Stack:</span> <strong style="color:var(--teal)">${node.tech_stack?.join(', ') || 'N/A'}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Segurança:</span> <strong style="color:var(--gold)">${node.security_score || 0}%</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between;">
+                    <span>URL:</span> <small style="opacity:0.7">${node.url}</small>
+                </div>
+            </div>
+            <div class="control-item" style="margin-top:15px;">
+                <label>TOKEN DE ACESSO</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="password" value="${node.token}" readonly style="flex:1; font-size:10px;">
+                    <button class="btn-minimal" onclick="copyToClipboard('${node.token}')">📋</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(nodeCard);
+    });
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => showToast("Token copiado!", "success"));
 }
 
 function loadAuditInputs(config) {
@@ -1210,7 +1287,7 @@ function updateWarRoom() {
                 }
 
                 // Sugestão 1: Alerta da Sentinela Preditiva
-                if (data.anomalies > 0 && !window._lastAnomalyCount || data.anomalies > window._lastAnomalyCount) {
+                if (data.anomalies > 0 && (!window._lastAnomalyCount || data.anomalies > window._lastAnomalyCount)) {
                     addFloatingNotification('⚠️', 'SENTINELA', `${data.anomalies} contas suspeitas detectadas pelo ROI.`, 'error');
                     if (window.audioError) window.audioError.play().catch(() => {});
                 }
@@ -1257,10 +1334,47 @@ function updateWarRoom() {
         const agentBadge = document.getElementById(`agent-${name}-war-status`);
         if (agentBadge) {
             agentBadge.innerText = isFailed ? 'CRITICAL FAIL' : (isZombie ? 'OFFLINE' : status.toUpperCase());
-            agentBadge.className = `badge agent-badge-${isFailed ? 'failed' : (isZombie ? 'offline' : status)}`;
-            if (isFailed) agentBadge.classList.add('animate-ping-slow');
+            agentBadge.className = `war-status status-${isFailed ? 'failed' : (isZombie ? 'offline' : status.toLowerCase())}`;
         }
     });
+
+    // 1.1 Links Dinâmicos para Nós Conectados
+    const nodes = rtState.neural?.nodes || {};
+    const visualizer = document.getElementById('warroom-visual');
+    const linksSvg = visualizer?.querySelector('.war-links');
+
+    if (visualizer && linksSvg) {
+        Object.entries(nodes).forEach(([id, node], index) => {
+            let nodeEl = document.getElementById(`node-${id}`);
+            let linkEl = document.getElementById(`link-${id}`);
+
+            const angle = (index / Object.keys(nodes).length) * Math.PI * 2;
+            const x = 50 + 35 * Math.cos(angle);
+            const y = 50 + 35 * Math.sin(angle);
+
+            if (!nodeEl) {
+                nodeEl = document.createElement('div');
+                nodeEl.id = `node-${id}`;
+                nodeEl.className = 'node dynamic-node';
+                nodeEl.innerHTML = `<span>${node.name}</span><small class="war-status status-active">ONLINE</small>`;
+                visualizer.appendChild(nodeEl);
+
+                linkEl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                linkEl.id = `link-${id}`;
+                linkEl.setAttribute('class', 'link-line');
+                linkEl.setAttribute('stroke', '#10b981');
+                linkEl.setAttribute('stroke-width', '1');
+                linkEl.setAttribute('x1', '50%');
+                linkEl.setAttribute('y1', '50%');
+                linksSvg.appendChild(linkEl);
+            }
+
+            nodeEl.style.left = `${x}%`;
+            nodeEl.style.top = `${y}%`;
+            linkEl.setAttribute('x2', `${x}%`);
+            linkEl.setAttribute('y2', `${y}%`);
+        });
+    }
 
     // 2. ESTRATÉGIAS EM EXECUÇÃO
     const strategiesEl = document.getElementById('warroom-strategies');
@@ -1526,7 +1640,7 @@ function confirmarConexaoProjeto() {
     showToast("⛓️ Gerando Token de Conexão...", "info");
 
     const projectId = 'node_' + Date.now();
-    hubDb.ref(`cybercore/nodes/${projectId}`).set({
+    hubDb.ref(`neural/nodes/${projectId}`).set({
         ..._pendingProject,
         connected_at: firebase.database.ServerValue.TIMESTAMP,
         token: 'cc_' + Math.random().toString(36).substr(2, 16)
@@ -1534,7 +1648,7 @@ function confirmarConexaoProjeto() {
         showToast("🚀 Nó conectado ao Hub CyberCore!", "success");
         const modal = document.getElementById('modal-add-project-overlay');
         if (modal) modal.remove();
-        renderProjects();
+        // O renderProjects será chamado pelo listener do RTDB
     });
 }
 
