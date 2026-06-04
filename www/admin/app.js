@@ -896,6 +896,9 @@ function renderSecurityData() {
 
     const autobanToggle = document.getElementById('security-autoban');
     if (autobanToggle) autobanToggle.checked = rtState.config?.autoBan || false;
+
+    const adsToggle = document.getElementById('config-adsEnabled');
+    if (adsToggle) adsToggle.checked = rtState.config?.adsEnabled !== false;
 }
 
 function renderProjects() {
@@ -1040,7 +1043,8 @@ const CONFIG_LABELS = {
     blockVPN: ['VPN', 'Bloqueio de Proxy/VPN'],
     blockRoot: ['Root', 'Detecção de Root/Jailbreak'],
     deviceLock: ['Device Lock', 'Vínculo de ID Único'],
-    autoBan: ['Auto-Ban', 'Banimento Automático Multi-Contas']
+    autoBan: ['Auto-Ban', 'Banimento Automático Multi-Contas'],
+    adsEnabled: ['Anúncios', 'Anúncios no Site']
 };
 
 async function updateConfig(path, value) {

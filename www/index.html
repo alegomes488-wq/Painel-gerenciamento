@@ -627,6 +627,13 @@
             }
         });
 
+        // Controle de Exibição de Anúncios
+        let adsEnabled = true;
+        onValue(ref(db, 'config/adsEnabled'), (snap) => {
+            adsEnabled = snap.val() !== false;
+            console.log('[Ads] Enabled:', adsEnabled);
+        });
+
 
         let _user = null;
 
@@ -1688,6 +1695,8 @@
         };
 
         window.triggerStrategicAd = (isMenu = false) => {
+            if (!adsEnabled) return;
+
             if (isMenu) {
                 menuClickCount++;
                 if (menuClickCount % 2 !== 0) return;
