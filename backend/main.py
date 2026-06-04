@@ -1016,6 +1016,8 @@ async def request_withdrawal(uid: str, data: dict = Body(...)):
         # Ajustado para R$ 0.50 para permitir seus testes iniciais
         if amount < 0.50:
             return {"status": "error", "message": "Valor mínimo para saque é R$ 0,50"}
+        if amount > 50.0:
+            return {"status": "error", "message": "Valor máximo por saque é R$ 50,00"}
 
         if not pix_key:
             return {"status": "error", "message": "Chave PIX é obrigatória"}

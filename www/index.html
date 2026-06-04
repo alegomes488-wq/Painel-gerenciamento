@@ -323,10 +323,11 @@
                                 <input type="hidden" id="w-amount" value="0">
                                 <input type="hidden" id="w-type" value="CPF">
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px;">
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;">
                                 <button onclick="setAmount(0.50)" class="amount-btn">R$ 0,50</button>
-                                <button onclick="setAmount(5.00)" class="amount-btn">R$ 5,00</button>
-                                <button onclick="setAmount(50.00)" class="amount-btn">R$ 50,00</button>
+                                <button onclick="setAmount(1.00)" class="amount-btn">R$ 1,00</button>
+                                <button onclick="setAmount(3.00)" class="amount-btn">R$ 3,00</button>
+                                <button onclick="setAmount(10.00)" class="amount-btn">R$ 10,00</button>
                             </div>
                         </div>
 
@@ -986,9 +987,9 @@
             if (!bar || !percentTxt || !nextGoalTxt) return;
 
             let goal = 0.50;
-            if (balance >= 0.50) goal = 5.00;
-            if (balance >= 5.00) goal = 50.00;
-            if (balance >= 50.00) goal = 100.00;
+            if (balance >= 0.50) goal = 3.00;
+            if (balance >= 3.00) goal = 50.00;
+            if (balance >= 50.00) goal = 50.00;
 
             const percent = Math.min(100, (balance / goal) * 100);
             bar.style.width = `${percent}%`;
@@ -1556,27 +1557,6 @@
             lucide.createIcons();
         }
 
-        window.setAmount = (val) => {
-            const display = document.getElementById('w-amount-display');
-            const hidden = document.getElementById('w-amount');
-            if (display) display.value = val.toFixed(2).replace('.', ',');
-            if (hidden) hidden.value = val;
-
-            // Estilizar botão selecionado
-            const buttons = document.querySelectorAll('.amount-btn');
-            buttons.forEach(btn => {
-                if (btn.innerText.includes(val.toFixed(2).replace('.', ','))) {
-                    btn.style.background = 'rgba(124,58,237,0.3)';
-                    btn.style.borderColor = 'var(--primary)';
-                    btn.style.color = 'white';
-                } else {
-                    btn.style.background = 'rgba(255,255,255,0.05)';
-                    btn.style.borderColor = 'rgba(255,255,255,0.1)';
-                    btn.style.color = 'var(--text-muted)';
-                }
-            });
-        };
-
         // ============ SISTEMA DE TUTORIAL AGENTE NEXUS ============
         window.startNexusTour = async () => {
             const steps = [
@@ -1595,7 +1575,7 @@
                     } 
                 },
                 { 
-                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 5,00 ou 50,00. 💰", 
+                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 1,00, 3,00 ou 10,00. 💰", 
                     action: () => window.switchTab('withdraw', document.querySelectorAll('.nav-item')[1])
                 },
                 { 
@@ -1764,21 +1744,20 @@
             const key = document.getElementById('w-key').value.trim();
             const type = document.getElementById('w-type').value;
 
-            // Novos Limites Conforme Tabela (0.50, 5.00, 50.00)
-            const allowedAmounts = [0.5, 5.0, 50.0];
+            // Valores de saque por nível: R$ 0,50 | R$ 1,00 | R$ 3,00 | R$ 10,00 (limite máx R$ 50,00)
+            const allowedAmounts = [0.5, 1.0, 3.0, 10.0];
 
             if (!allowedAmounts.includes(amount)) {
-                return showToast("Selecione um dos valores da tabela.");
+                return showToast("Selecione um dos valores disponíveis.");
             }
 
             if (_user.balance < amount) {
                 return showToast("Saldo insuficiente.");
             }
 
-            // Verifica se atingiu os limites mínimos para saque conforme solicitado
-            if (amount === 0.5 && _user.balance < 0.5) return showToast("Mínimo R$ 0,50 necessário.");
-            if (amount === 5.0 && _user.balance < 5.0) return showToast("Mínimo R$ 5,00 necessário para este saque.");
-            if (amount === 50.0 && _user.balance < 50.0) return showToast("Mínimo R$ 50,00 necessário para este saque.");
+            if (amount > 50.0) {
+                return showToast("Limite máximo por saque é R$ 50,00.");
+            }
 
             // Validação de Chave PIX Premium
             if (!window.validatePixKey(type, key)) {
