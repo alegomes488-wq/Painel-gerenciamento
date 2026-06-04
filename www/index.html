@@ -1743,6 +1743,40 @@
             signOut(auth).then(() => window.location.reload());
         };
 
+        // ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO) ============
+        let sessionLocked = false;
+        function lockSession() {
+            if (sessionLocked) return;
+            if (!auth.currentUser) return;
+            sessionLocked = true;
+            signOut(auth).then(() => {
+                window.location.reload();
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                sessionLocked = true;
+            } else if (sessionLocked) {
+                lockSession();
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            sessionLocked = true;
+        });
+
+        window.addEventListener('focus', () => {
+            if (sessionLocked) {
+                lockSession();
+            }
+        });
+
+        // Mobile: detecta quando o app vai para background (cordova/capacitor)
+        document.addEventListener('pause', () => {
+            sessionLocked = true;
+        });
+
         // ============ AGENTE NEXUS (TELEMETRIA E AUDITORIA) ============
         async function sendNexusTelemetry(doubt = null) {
             if (!_user || !auth.currentUser) return;

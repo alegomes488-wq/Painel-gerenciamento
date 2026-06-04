@@ -775,6 +775,27 @@ async function login() {
 
 function logout() { auth.signOut().then(() => location.reload()); }
 
+// ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO) ============
+let sessionLocked = false;
+function lockSession() {
+    if (sessionLocked) return;
+    if (!auth.currentUser) return;
+    sessionLocked = true;
+    auth.signOut().then(() => location.reload());
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        sessionLocked = true;
+    } else if (sessionLocked) {
+        lockSession();
+    }
+});
+
+window.addEventListener('blur', () => { sessionLocked = true; });
+window.addEventListener('focus', () => { if (sessionLocked) lockSession(); });
+document.addEventListener('pause', () => { sessionLocked = true; });
+
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
 function updatePulseCoreUI() {
     const hits = rtState.status?.total_hits || 0;
