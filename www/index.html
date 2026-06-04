@@ -799,6 +799,7 @@
 
             try { 
                 const userCredential = await signInWithEmailAndPassword(auth, e, p);
+                sessionStorage.removeItem('cinecash_lock');
                 const fingerprint = await getFingerprint();
 
                 // Atualiza o último dispositivo usado no login para auditoria
@@ -951,7 +952,7 @@
             };
 
             if (u) {
-                // Verifica trava de sessão (refresh da página)
+                // Verifica trava de sessão (refresh/voltar de minimizar)
                 if (sessionStorage.getItem('cinecash_lock') === '1') {
                     sessionStorage.removeItem('cinecash_lock');
                     signOut(auth).then(() => window.location.reload());
@@ -1044,7 +1045,6 @@
 
                 try { loadReferrals(); } catch(e) { console.warn('Falha ao carregar indicações'); }
             } else {
-                sessionStorage.removeItem('cinecash_lock');
                 document.getElementById('page-login').classList.remove('hidden');
                 document.getElementById('app-container').classList.add('hidden');
                 hideSplash();
@@ -1788,6 +1788,14 @@
         document.addEventListener('pause', () => {
             sessionLocked = true;
             sessionStorage.setItem('cinecash_lock', '1');
+        });
+
+        // Captura refresh da página (beforeunload para Android, pagehide para iOS)
+        window.addEventListener('beforeunload', () => {
+            if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
+        });
+        window.addEventListener('pagehide', () => {
+            if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
         });
 
         // ============ AGENTE NEXUS (TELEMETRIA E AUDITORIA) ============

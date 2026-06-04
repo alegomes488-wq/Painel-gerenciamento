@@ -375,9 +375,44 @@ async function sendIACommand() {
         return;
     }
 
+    // [CYBERCORE] Comandos de Simulação de Caos (Sentinel/Chaos Testing)
+    if (cmd.includes("kill agent") || cmd.includes("fail agent")) {
+        const agent = cmd.split(" ").pop();
+        try {
+            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agent, action: "fail" })
+            });
+            const data = await resp.json();
+            typeIAResponse(`🚨 **PROTOCOLO DE CAOS ATIVADO**: ${data.message}`, 'nexus');
+            return;
+        } catch (e) {
+            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
+            return;
+        }
+    }
+
+    if (cmd.includes("recover agent") || cmd.includes("fix agent")) {
+        const agent = cmd.split(" ").pop();
+        try {
+            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agent, action: "recover" })
+            });
+            const data = await resp.json();
+            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
+            return;
+        } catch (e) {
+            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
+            return;
+        }
+    }
+
     terminalHistory.push({ role: 'user', content: rawCmd });
 
-    // Thinking indicator
+    // Indicador de "Pensando"
     const thinkingId = 'thinking-' + Date.now();
     const thinkingEl = document.createElement('div');
     thinkingEl.className = 'chat-bubble ia';
@@ -386,76 +421,10 @@ async function sendIACommand() {
     termList.appendChild(thinkingEl);
     termList.scrollTop = termList.scrollHeight;
 
-    // [CYBERCORE] Comandos de Simulação de Caos
-    if (rawCmd.toLowerCase().includes("kill agent") || rawCmd.toLowerCase().includes("fail agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "fail" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🚨 **PROTOCOLO DE CAOS ATIVADO**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
-    if (rawCmd.toLowerCase().includes("recover agent") || rawCmd.toLowerCase().includes("fix agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "recover" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
     try {
         let answer = '';
-        // Tenta Worker (Groq na nuvem)
-        // [CYBERCORE] Comandos de Simulação de Caos
-    if (rawCmd.toLowerCase().includes("kill agent") || rawCmd.toLowerCase().includes("fail agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
+        // 1. Tenta Worker (Nuvem)
         try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "fail" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🚨 **PROTOCOLO DE CAOS ATIVADO**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
-    if (rawCmd.toLowerCase().includes("recover agent") || rawCmd.toLowerCase().includes("fix agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "recover" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
-    try {
             const resp = await fetch(`${TERMINAL_WORKER}/ai/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -465,45 +434,17 @@ async function sendIACommand() {
                     uid: currentUser?.uid || 'admin'
                 })
             });
-            const data = await resp.json();
-            answer = data.answer || data.resposta || '';
-        } catch {}
-        // Fallback: backend local
+            if (resp.ok) {
+                const data = await resp.json();
+                answer = data.answer || data.resposta || '';
+            }
+        } catch (err) {
+            console.warn("Worker indisponível, tentando núcleo local...");
+        }
+
+        // 2. Fallback: Backend Local
         if (!answer && CYBERCORE_BACKEND_URL) {
-            // [CYBERCORE] Comandos de Simulação de Caos
-    if (rawCmd.toLowerCase().includes("kill agent") || rawCmd.toLowerCase().includes("fail agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "fail" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🚨 **PROTOCOLO DE CAOS ATIVADO**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
-    if (rawCmd.toLowerCase().includes("recover agent") || rawCmd.toLowerCase().includes("fix agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "recover" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
-
-    try {
+            try {
                 const resp = await fetch(`${CYBERCORE_BACKEND_URL}/ai/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -517,7 +458,8 @@ async function sendIACommand() {
                 answer = data.answer || '';
             } catch {}
         }
-        if (!answer) answer = "Núcleo sem resposta.";
+
+        if (!answer) answer = "Núcleo sem resposta. Verifique a conexão com o Nexus local.";
 
         document.getElementById(thinkingId)?.remove();
         typeIAResponse(answer, agentId);
@@ -526,7 +468,7 @@ async function sendIACommand() {
         if (terminalHistory.length > 30) terminalHistory = terminalHistory.slice(-30);
     } catch (e) {
         document.getElementById(thinkingId)?.remove();
-        typeIAResponse("ERRO: Núcleo IA offline. Verifique o servidor.", agentId);
+        typeIAResponse("ERRO CRÍTICO: Núcleo IA offline.", agentId);
     }
 }
 
@@ -757,12 +699,6 @@ auth.onAuthStateChanged(user => {
         return;
     }
 
-    if (user) {
-        sessionStorage.removeItem('cinecash_lock');
-    } else {
-        sessionStorage.removeItem('cinecash_lock');
-    }
-
     if (user && user.email === 'alegomes488@gmail.com') {
         document.getElementById('login-screen').style.display = 'none';
         const app = document.getElementById('hub-app');
@@ -779,8 +715,10 @@ async function login() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value;
     if (!email || !pass) return showToast('Preencha e-mail e senha.', 'error');
-    try { await auth.signInWithEmailAndPassword(email, pass); }
-    catch (e) { 
+    try {
+        await auth.signInWithEmailAndPassword(email, pass);
+        sessionStorage.removeItem('cinecash_lock');
+    } catch (e) { 
         console.warn('[Admin Login]', e.code, e.message);
         showToast(e.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' : 'Acesso negado.', 'error');
     }
@@ -816,6 +754,13 @@ window.addEventListener('focus', () => { if (sessionLocked) lockSession(); });
 document.addEventListener('pause', () => {
     sessionLocked = true;
     sessionStorage.setItem('cinecash_lock', '1');
+});
+
+window.addEventListener('beforeunload', () => {
+    if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
+});
+window.addEventListener('pagehide', () => {
+    if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
 });
 
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
@@ -1030,21 +975,10 @@ async function updateConfig(path, value) {
     }
 }
 
-    if (rawCmd.toLowerCase().includes("recover agent") || rawCmd.toLowerCase().includes("fix agent")) {
-        const agent = rawCmd.split(" ").pop().toLowerCase();
-        try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agent, action: "recover" })
-            });
-            const data = await resp.json();
-            typeIAResponse(`🛠️ **REPARAÇÃO CONCLUÍDA**: ${data.message}`, 'nexus');
-            return;
-        } catch (e) {
-            typeIAResponse("Falha ao comunicar com o Hub de Simulação.", 'nexus');
-        }
-    }
+async function updateConfigLegacy(path, value) {
+    const label = CONFIG_LABELS[path] || [path, path];
+    const statusText = value ? 'ATIVADO' : 'DESATIVADO';
+    const icon = value ? '✅' : '⛔';
 
     try {
         await hubDb.ref(`config/${path}`).set(value);
