@@ -1325,7 +1325,7 @@ function logout() { auth.signOut().then(() => location.reload()); }
 // ============ SEGURANÇA DE SESSÃO (RELAXADA) ============
 // Removido auto-logout por perda de foco para facilitar o desenvolvimento.
 window.addEventListener('pagehide', () => {
-    if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
+    if (auth.currentUser) sessionStorage.setItem('cybercore_lock', '1');
 });
 
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
@@ -1558,7 +1558,7 @@ function saveAuditParameters() {
 
 const CONFIG_LABELS = {
     active: ['Núcleo IA', 'Núcleo CyberCore IA'],
-    maintenance: ['Manutenção', 'Modo Manutenção CineCash'],
+    maintenance: ['Manutenção', 'Modo Manutenção do Sistema'],
     deviceIdSecurity: ['ID Único', 'Segurança de ID Único'],
     production: ['Produção', 'Ambiente de Produção'],
     blockVPN: ['VPN', 'Bloqueio de Proxy/VPN'],

@@ -1046,8 +1046,8 @@
             }
 
             const vids = _user.videosWatched || 0;
-            const goals = [150, 1500, 15000];
-            const amounts = [0.5, 5.0, 50.0];
+            const goals = [150, 900, 1500, 3000, 15000];
+            const amounts = [0.5, 3.0, 5.0, 10.0, 50.0];
             let nextGoal = goals.find(g => vids < g) || 15000;
             let nextAmount = amounts[goals.indexOf(nextGoal)];
             document.getElementById('goal-txt').innerText = `${vids}/${nextGoal} (R$ ${nextAmount.toFixed(2)})`;
