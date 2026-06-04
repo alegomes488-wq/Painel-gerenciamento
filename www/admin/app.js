@@ -750,6 +750,19 @@ auth.onAuthStateChanged(user => {
         setTimeout(() => loader.remove(), 500);
     }
 
+    // Verifica trava de sessão (refresh da página)
+    if (user && sessionStorage.getItem('cinecash_lock') === '1') {
+        sessionStorage.removeItem('cinecash_lock');
+        auth.signOut().then(() => location.reload());
+        return;
+    }
+
+    if (user) {
+        sessionStorage.removeItem('cinecash_lock');
+    } else {
+        sessionStorage.removeItem('cinecash_lock');
+    }
+
     if (user && user.email === 'alegomes488@gmail.com') {
         document.getElementById('login-screen').style.display = 'none';
         const app = document.getElementById('hub-app');
@@ -775,26 +788,35 @@ async function login() {
 
 function logout() { auth.signOut().then(() => location.reload()); }
 
-// ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO) ============
+// ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO / REFRESH) ============
+// O check inicial da flag é feito dentro do onAuthStateChanged
 let sessionLocked = false;
 function lockSession() {
     if (sessionLocked) return;
     if (!auth.currentUser) return;
     sessionLocked = true;
+    sessionStorage.setItem('cinecash_lock', '1');
     auth.signOut().then(() => location.reload());
 }
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         sessionLocked = true;
+        sessionStorage.setItem('cinecash_lock', '1');
     } else if (sessionLocked) {
         lockSession();
     }
 });
 
-window.addEventListener('blur', () => { sessionLocked = true; });
+window.addEventListener('blur', () => {
+    sessionLocked = true;
+    sessionStorage.setItem('cinecash_lock', '1');
+});
 window.addEventListener('focus', () => { if (sessionLocked) lockSession(); });
-document.addEventListener('pause', () => { sessionLocked = true; });
+document.addEventListener('pause', () => {
+    sessionLocked = true;
+    sessionStorage.setItem('cinecash_lock', '1');
+});
 
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
 function updatePulseCoreUI() {
@@ -888,10 +910,10 @@ function renderSecurityData() {
 }
 
 function renderProjects() {
-    const nodeToggle = document.getElementById('toggle-cinecash-node');
+    const nodeToggle = document.getElementById('toggle-cybercore-node');
     if (nodeToggle) nodeToggle.checked = rtState.config?.active !== false;
 
-    const statusBadge = document.getElementById('cinecash-status-badge');
+    const statusBadge = document.getElementById('cybercore-status-badge');
     if (statusBadge) {
         const isActive = rtState.config?.active !== false;
         statusBadge.innerText = isActive ? "NODE ATIVO" : "NODE INATIVO";
@@ -1479,9 +1501,109 @@ function updateNeuralActivity() {
 }
 
 // === FUNÇÕES FALTANTES ===
+// === GESTÃO DE PROJETOS (INTEL CONNECTOR) ===
+let _pendingProject = null;
+
 function showAddProjectModal() {
-    showToast("Módulo de novo projeto em desenvolvimento...", "info");
+    const modalHtml = `
+        <div id="modal-add-project-overlay" class="premium-modal-overlay">
+            <div class="modal-window premium-glass" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>Conectar Novo Nó Inteligente</h3>
+                    <button class="btn-close-modal" onclick="document.getElementById('modal-add-project-overlay').remove()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div id="connector-step-1">
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
+                            Insira a URL do projeto. O CyberCore analisará o stack tecnológico e protocolos de segurança automaticamente.
+                        </p>
+                        <div class="p-input-group">
+                            <label>URL DO PROJETO</label>
+                            <input type="text" id="project-url-input" placeholder="https://meu-app.com">
+                        </div>
+                        <button class="btn-premium" onclick="analisarProjetoIA()" style="width: 100%; margin-top: 20px;">INICIAR ESCANEAMENTO</button>
+                    </div>
+                    <div id="connector-step-2" style="display: none;">
+                        <div class="analysis-results" style="background: rgba(255,255,255,0.03); padding: 20px; border-radius: 12px; margin-top: 10px;">
+                            <h4 id="res-project-name" style="color: var(--gold); margin-bottom: 15px;">-</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 12px;">
+                                <div>
+                                    <span style="opacity: 0.6; display: block;">STACK DETECTADO</span>
+                                    <strong id="res-tech-stack">-</strong>
+                                </div>
+                                <div>
+                                    <span style="opacity: 0.6; display: block;">SCORE SEGURANÇA</span>
+                                    <strong id="res-security-score">-</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <p style="font-size: 11px; color: var(--text-secondary); margin-top: 15px;">
+                            ✅ Compatível com CyberCore Hub. Deseja estabelecer conexão segura?
+                        </p>
+                        <button class="btn-premium" onclick="confirmarConexaoProjeto()" style="width: 100%; margin-top: 20px;">ESTABELECER CONEXÃO</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
+
+async function analisarProjetoIA() {
+    const urlInput = document.getElementById('project-url-input');
+    const url = urlInput.value.trim();
+    if (!url) return showToast("Insira uma URL válida", "error");
+
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "🔍 ANALISANDO...";
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || '';
+        const response = await fetch(`${baseUrl}/api/cybercore/analyze_project`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            _pendingProject = result.data;
+            document.getElementById('connector-step-1').style.display = 'none';
+            document.getElementById('connector-step-2').style.display = 'block';
+            document.getElementById('res-project-name').innerText = _pendingProject.name.toUpperCase();
+            document.getElementById('res-tech-stack').innerText = _pendingProject.tech_stack.join(', ');
+            document.getElementById('res-security-score').innerText = _pendingProject.security_score + '%';
+            showToast("Análise concluída com sucesso", "success");
+        } else {
+            showToast(result.msg, "error");
+        }
+    } catch (e) {
+        showToast("Erro ao conectar com o backend", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
+}
+
+function confirmarConexaoProjeto() {
+    if (!_pendingProject) return;
+    showToast("⛓️ Gerando Token de Conexão...", "info");
+
+    const projectId = 'node_' + Date.now();
+    hubDb.ref(`cybercore/nodes/${projectId}`).set({
+        ..._pendingProject,
+        connected_at: firebase.database.ServerValue.TIMESTAMP,
+        token: 'cc_' + Math.random().toString(36).substr(2, 16)
+    }).then(() => {
+        showToast("🚀 Nó conectado ao Hub CyberCore!", "success");
+        const modal = document.getElementById('modal-add-project-overlay');
+        if (modal) modal.remove();
+        renderProjects();
+    });
+}
+
 
 function addBancaPrompt() {
     const valor = prompt("Valor para adicionar à banca (R$):");
