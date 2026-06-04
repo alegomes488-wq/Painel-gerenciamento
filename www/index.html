@@ -553,7 +553,7 @@
         const NEXUS_KNOWLEDGE = {
             "sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
             "como sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
-            "como funciona": "O CineCash utiliza o processamento da IA CyberCore para validar anúncios. Você assiste aos vídeos, nossa IA processa os dados e você recebe uma parte do lucro em saldo real.",
+            "como funciona": "O CineCash utiliza o processamento da IA CyberCore para validar anúncios. Você processa os anúncios, nossa IA analisa os dados e você recebe uma parte do lucro em saldo real.",
             "me mostre o site": "Com certeza! Vou te mostrar o site. No topo você vê seu saldo, no meio o botão de processar anúncios e embaixo suas estatísticas de hoje.",
             "indicacao": "Cada amigo que você convida e fica ativo rende R$ 0,50 de bônus direto no seu saldo!",
             "dúvidas": "Eu sou o Nexus, seu guia. Posso te ajudar com saques, problemas técnicos ou te mostrar como ganhar mais. O que deseja saber?",
@@ -2173,7 +2173,7 @@
                     container.scrollTop = container.scrollHeight;
                     chatHistory.push({ role: 'assistant', content: quickAnswer, ts: getTimestamp() });
                     saveChatHistory();
-                    updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '🎬 Assistir Vídeos']);
+                    updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '🎬 Processar Anúncios']);
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 }, 800);
                 return;
@@ -2220,7 +2220,7 @@
                 // Sugestões dinâmicas (#4)
                 const dynSuggestions = [];
                 if (responseText.toLowerCase().includes('saque') || responseText.toLowerCase().includes('pix')) dynSuggestions.push('💰 Quanto posso sacar?');
-                if (responseText.toLowerCase().includes('vídeo') || responseText.toLowerCase().includes('assistir')) dynSuggestions.push('🎬 Ver meus vídeos');
+                if (responseText.toLowerCase().includes('anúncio') || responseText.toLowerCase().includes('processar')) dynSuggestions.push('🎬 Ver meus anúncios');
                 if (responseText.toLowerCase().includes('saldo') || responseText.toLowerCase().includes('ganho')) dynSuggestions.push('📊 Meu desempenho');
                 if (responseText.toLowerCase().includes('convidar') || responseText.toLowerCase().includes('indicação')) dynSuggestions.push('👥 Meus convites');
                 dynSuggestions.push('❓ Dúvidas', '🚀 Iniciar Tour');

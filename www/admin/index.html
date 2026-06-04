@@ -47,11 +47,11 @@
     <!-- Interface Premium -->
     <div id="hub-app" class="premium-layout" style="display:none;">
 
-<!-- Sidebar Icon-Only -->
-        <aside id="sidebar" class="premium-sidebar collapsed icon-only">
+<!-- Sidebar Expanded Navigation -->
+        <aside id="sidebar" class="premium-sidebar">
             <div class="sidebar-top">
-                <div class="brand-box">
-                    <div class="cyber-mini-logo" style="margin:0 auto;">
+                <div class="brand-box" style="display: flex; align-items: center; gap: 12px;">
+                    <div class="cyber-mini-logo" style="margin: 0;">
                         <svg viewBox="0 0 100 100" style="width:32px;height:32px;">
                             <defs>
                                 <linearGradient id="grad-brand" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -63,50 +63,74 @@
                             <path d="M50 30 L55 45 L70 45 L58 55 L63 70 L50 60 L37 70 L42 55 L30 45 L45 45 Z" fill="url(#grad-brand)" />
                         </svg>
                     </div>
+                    <span class="sidebar-brand-title">CyberCore IA</span>
                 </div>
             </div>
 
             <nav class="premium-nav">
-                <button class="nav-btn active" onclick="showPanel('overview')" title="Visão Geral">
-                    <span class="btn-icon">📊</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('projects')" title="Sistemas">
-                    <span class="btn-icon">🛰️</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('users')" title="Usuários">
-                    <span class="btn-icon">👥</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('memory')" title="Memória Neural">
-                    <span class="btn-icon">🧠</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('security')" title="Segurança">
-                    <span class="btn-icon">🛡️</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('settings')" title="Configurações">
-                    <span class="btn-icon">⚙️</span>
-                </button>
+                <!-- Section: Command -->
+                <div class="nav-section-title">🧠 Command Center</div>
+                <div class="nav-group">
+                    <button class="nav-link active" id="btn-nav-overview" onclick="showPanel('overview')" title="Painel Principal">
+                        <span>🧠</span> Command Center
+                    </button>
+                </div>
 
-                <div style="height:1px;background:rgba(232,184,48,0.1);margin:8px 12px;"></div>
+                <!-- Section: Watch -->
+                <div class="nav-section-title">🛡️ CyberCore Watch</div>
+                <div class="nav-group">
+                    <button class="nav-link" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
+                        <span>🛡️</span> CyberCore Watch
+                    </button>
+                    <div class="sub-nav">
+                        <span class="sub-link" onclick="showPanel('watch', 'website')">├ Sites</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'android')">├ Apps</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'api')">├ APIs</span>
+                        <span class="sub-link" onclick="showPanel('saques')">├ Saques PIX</span>
+                        <span class="sub-link" onclick="showPanel('users')">├ Usuários</span>
+                        <span class="sub-link" onclick="showPanel('security')">├ Alertas</span>
+                        <span class="sub-link" onclick="showPanel('terminal')">├ Logs</span>
+                    </div>
+                </div>
 
-                <button class="nav-btn" onclick="showPanel('saques')" title="Saques PIX">
-                    <span class="btn-icon">💸</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('watch')" title="CyberCore WATCH (Sala de Guerra)">
-                    <span class="btn-icon">🎯</span>
-                </button>
-                <button class="nav-btn" onclick="showPanel('studio')" title="CyberCore STUDIO (Criação)" style="border:1px solid rgba(232,184,48,0.3);">
-                    <span class="btn-icon">🤖</span>
-                </button>
+                <!-- Section: Studio -->
+                <div class="nav-section-title">🚀 CyberCore Studio</div>
+                <div class="nav-group">
+                    <button class="nav-link" id="btn-nav-studio" onclick="showPanel('studio')" title="Criação e Desenvolvimento">
+                        <span>🚀</span> CyberCore Studio
+                    </button>
+                    <div class="sub-nav">
+                        <span class="sub-link" onclick="selectAgentFromNav('BUILDER')">├ Builder</span>
+                        <span class="sub-link" onclick="selectAgentFromNav('DESIGNER')">├ Designer</span>
+                        <span class="sub-link" onclick="selectAgentFromNav('FULLSTACK')">├ Fullstack</span>
+                        <span class="sub-link" onclick="selectAgentFromNav('PYTHON')">├ Python Core</span>
+                        <span class="sub-link" onclick="selectAgentFromNav('JAVA')">├ Java Core</span>
+                        <span class="sub-link" onclick="selectAgentFromNav('SOFTWARE')">├ Software</span>
+                    </div>
+                </div>
 
-                <div class="sidebar-core-status" style="margin-top:auto;padding:15px 0;border-top:1px solid rgba(232,184,48,0.1);text-align:center;">
-                    <div id="python-core-ping" class="ai-pulse-orb" style="width:6px;height:6px;margin:0 auto 6px;background:#52525b;"></div>
-                    <small style="font-size:7px;font-weight:700;color:#52525b;letter-spacing:0.5px;display:block;">PYTHON <span id="python-core-status">OFF</span></small>
+                <!-- Section: Telemetry & Config -->
+                <div class="nav-section-title">📊 Geral</div>
+                <div class="nav-group">
+                    <button class="nav-link" id="btn-nav-analytics" onclick="showPanel('analytics')" title="Analytics & Métricas">
+                        <span>📊</span> Analytics
+                    </button>
+                    <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
+                        <span>⚙️</span> Configurações
+                    </button>
+                </div>
+
+                <!-- Status Orb at bottom of nav -->
+                <div class="sidebar-core-status" style="margin-top:auto; padding:15px 0; border-top:1px solid rgba(232,184,48,0.1); display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <div id="python-core-ping" class="ai-pulse-orb" style="width:8px; height:8px; background:#52525b; border-radius:50%;"></div>
+                    <small style="font-size:9px; font-weight:700; color:#a1a1aa; letter-spacing:0.5px; text-transform:uppercase;">Sistema: <span id="python-core-status" style="color: #ef4444;">OFF</span></small>
                 </div>
             </nav>
 
-            <div class="sidebar-bottom" style="padding:10px 0;text-align:center;">
-                <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="justify-content:center;padding:10px;">
-                    <span class="btn-icon" style="margin:0;">📤</span>
+            <div class="sidebar-bottom" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v3.1.6</span>
+                <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
+                    <span>📤</span>
                 </button>
             </div>
         </aside>
