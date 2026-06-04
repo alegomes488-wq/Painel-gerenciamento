@@ -923,7 +923,7 @@ async def claim_daily(uid: str):
             raise HTTPException(status_code=400, detail="Bônus disponível apenas em dias úteis (Seg a Sex).")
 
         current_balance = float(user_data.get('balance', 0))
-        new_balance = current_balance + 0.50
+        new_balance = current_balance + 0.20
 
         user_ref.update({
             "balance": new_balance,

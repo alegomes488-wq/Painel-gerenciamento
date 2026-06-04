@@ -101,6 +101,8 @@ function initRealTimeSystem() {
         connectedProjects = Object.keys(nodes).map(k => ({ id: k, ...nodes[k] }));
         renderProjects();
         updateWarRoom();
+        if (typeof renderWatchProjects === 'function') renderWatchProjects();
+        if (typeof renderCmdProjectsTable === 'function') renderCmdProjectsTable();
         // Migra projetos do localStorage para Firebase se existirem
         migrateLocalProjectsToFirebase();
     });
@@ -215,33 +217,233 @@ function initRealTimeSystem() {
 
 // ============ UI & DASHBOARD ============
 
-function showPanel(id) {
+let currentWatchFilter = null;
+let currentCmdFilter = 'website';
+
+function filterWatchProjects(type) {
+    currentWatchFilter = type;
+    renderWatchProjects();
+}
+
+function showPanel(id, filterType = null) {
     document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active-watch'));
+    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active-watch'));
+    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active-studio'));
 
     const target = document.getElementById('panel-' + id);
     if (target) {
         target.classList.add('active');
-        const btn = document.querySelector(`button[onclick*="'${id}'"]`);
-        if (btn) btn.classList.add('active');
-
+        
+        // Find corresponding sidebar nav-link or sub-link
+        const navBtn = document.getElementById('btn-nav-' + id);
+        if (navBtn) {
+            if (id === 'watch') {
+                navBtn.classList.add('active-watch');
+            } else {
+                navBtn.classList.add('active');
+            }
+        }
+        
+        // Handle filter type for Watch
+        if (id === 'watch') {
+            if (filterType) {
+                // Set active sub-link
+                const subLinks = document.querySelectorAll(`.sub-nav span`);
+                subLinks.forEach(link => {
+                    if (link.textContent.toLowerCase().includes(filterType)) {
+                        link.classList.add('active');
+                        link.classList.add('active-watch');
+                    }
+                });
+                filterWatchProjects(filterType);
+            } else {
+                filterWatchProjects(null);
+            }
+        }
+        
         const titleMap = {
-            overview: '[SYS_DASHBOARD] // VISÃO GERAL',
+            overview: '[SYS_DASHBOARD] // COMMAND CENTER',
+            analytics: '[SYS_ANALYTICS] // ANALYTICS & TELEMETRIA',
             projects: '[SYS_CONNECTOR] // INTEL CONNECTOR',
-            watch: '[SYS_WATCH] // SALA DE GUERRA',
+            watch: '[SYS_WATCH] // CYBERCORE WATCH',
             studio: '[SYS_STUDIO] // CYBERCORE STUDIO',
             users: '[SYS_DATABASE] // USUÁRIOS',
             memory: '[SYS_NEURAL] // MEMÓRIA',
             security: '[SYS_SENTINEL] // SEGURANÇA',
             settings: '[SYS_CONFIG] // CONFIGURAÇÕES',
-            saques: '[SYS_FINANCE] // SAQUES PIX'
+            saques: '[SYS_FINANCE] // SAQUES PIX',
+            terminal: '[SYS_TERMINAL] // LOGS'
         };
         const titleEl = document.getElementById('current-panel-name');
         if (titleEl) titleEl.textContent = titleMap[id] || '[SYS_TERMINAL]';
 
         if (id === 'watch') renderWatchProjects();
         if (id === 'studio') listStudioFiles();
+        if (id === 'overview') renderCmdProjectsTable();
     }
+}
+
+function selectAgentFromNav(agent) {
+    showPanel('studio');
+    selectAgent(agent);
+    
+    // Set active sub-link
+    document.querySelectorAll('.sub-nav span').forEach(link => {
+        if (link.textContent.toUpperCase().includes(agent)) {
+            link.classList.add('active');
+            link.classList.add('active-studio');
+        }
+    });
+}
+
+function filterCmdProjects(type, el) {
+    currentCmdFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.borderColor = 'transparent';
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-secondary)';
+    });
+    if (el) {
+        el.classList.add('active');
+        el.style.borderColor = 'rgba(0, 243, 255, 0.2)';
+        el.style.background = 'rgba(0, 243, 255, 0.1)';
+        el.style.color = '#fff';
+    }
+    renderCmdProjectsTable();
+}
+
+function renderCmdProjectsTable() {
+    const tbody = document.getElementById('cmd-projects-table-body');
+    if (!tbody) return;
+
+    const filtered = connectedProjects.filter(p => p.type === currentCmdFilter);
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 25px; opacity: 0.4;">Nenhum projeto deste tipo conectado.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(p => {
+        const health = p.health || {};
+        const isOnline = health.status === 'online';
+        const isDegraded = health.status === 'degraded';
+        const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
+        const statusLabel = isOnline ? 'Online' : (isDegraded ? 'Degradado' : 'Offline');
+        const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
+        const lastCheck = health.last_checked 
+            ? new Date(health.last_checked).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : 'Pendente';
+            
+        return `
+            <tr style="border-bottom: 1px solid var(--border-glass);">
+                <td style="padding: 10px 12px; font-weight: 700; color: #fff;">${p.name || p.identifier}</td>
+                <td style="padding: 10px 12px; opacity: 0.7;">${p.type.toUpperCase()}</td>
+                <td style="padding: 10px 12px; color: ${color}; font-weight: 800;">● ${statusLabel}</td>
+                <td style="padding: 10px 12px;">${health.uptime || '99.98%'}</td>
+                <td style="padding: 10px 12px; color: #10b981; font-weight: 800;">${health.perf || '96'}</td>
+                <td style="padding: 10px 12px; opacity: 0.6;">${lastCheck}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function cmdGerarEquipe() {
+    const name = document.getElementById('cmd-project-name').value.trim();
+    const type = document.getElementById('cmd-project-type').value;
+    const desc = document.getElementById('cmd-project-desc').value.trim();
+    
+    if (!name || !desc) {
+        return showToast("Preencha o nome e o objetivo do projeto.", "error");
+    }
+    
+    showToast(`🤖 Gerando equipe para o projeto: ${name}...`, "info");
+    
+    const list = document.getElementById('cmd-suggested-team-list');
+    list.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
+            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#a855f7">●</span> Builder</span>
+            <span style="color:#10b981">✓</span>
+        </div>
+    `;
+    
+    if (type === 'android') {
+        list.innerHTML += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
+                <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#84cc16">●</span> Java Core</span>
+                <span style="color:#10b981">✓</span>
+            </div>
+        `;
+    } else if (type === 'website' || type === 'api') {
+        list.innerHTML += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
+                <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#3b82f6">●</span> FullStack</span>
+                <span style="color:#10b981">✓</span>
+            </div>
+        `;
+    }
+    
+    list.innerHTML += `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
+            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#ec4899">●</span> Designer</span>
+            <span style="color:#10b981">✓</span>
+        </div>
+    `;
+    
+    const projectId = 'PRJ' + Date.now().toString(36).toUpperCase();
+    const projectData = {
+        id: projectId,
+        name: name,
+        type: type,
+        identifier: type === 'website' ? `https://${name.toLowerCase().replace(/\s+/g, '')}.com` : `com.empresa.${name.toLowerCase().replace(/\s+/g, '')}`,
+        framework: type === 'website' ? 'React' : type === 'android' ? 'Android SDK / Kotlin' : 'REST API / Node.js',
+        addedAt: new Date().toISOString()
+    };
+    
+    fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: projectId, data: projectData })
+    })
+    .then(r => r.json())
+    .then(resp => {
+        if (resp.status === 'success') {
+            showToast(`Projeto '${name}' criado e adicionado ao painel!`, "success");
+            document.getElementById('cmd-project-name').value = '';
+            document.getElementById('cmd-project-desc').value = '';
+        }
+    });
+}
+
+function sendCmdOrchestratorCommand() {
+    const cmd = document.getElementById('cmd-orchestrator-input').value.trim();
+    if (!cmd) return showToast("Digite um comando para o Orchestrator", "error");
+    
+    showToast("🔮 Orchestrator processando diretiva...", "info");
+    
+    fetch(`${CYBERCORE_BACKEND_URL}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: cmd, uid: currentUser?.uid || "admin_master" })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.answer) {
+            showPanel('terminal');
+            typeIAResponse(data.answer, 'cmo');
+            document.getElementById('cmd-orchestrator-input').value = '';
+        }
+    })
+    .catch(() => {
+        showToast("Erro ao contatar o Orchestrator.", "error");
+    });
+}
+
+function useCmdExample(text) {
+    document.getElementById('cmd-orchestrator-input').value = text;
 }
 
 let selectedAgent = 'BUILDER'; // Default agent
