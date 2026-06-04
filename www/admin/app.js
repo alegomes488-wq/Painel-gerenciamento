@@ -26,12 +26,12 @@ try { sessionStorage.removeItem('firebase:session'); } catch(_) {}
 auth.useDeviceLanguage();
 
 // --- CONFIGURAÇÃO CYBERCORE IA (LOCAL ONLY) ---
-// Forçando uso exclusivo da porta 7860 local
 const LOCAL_BACKEND = 'http://localhost:7860';
-let CYBERCORE_BACKEND_URL = ""; // Vazio para requisições relativas no mesmo servidor (7860)
+// Prioriza o que está no localStorage ou o LOCAL_BACKEND
+let CYBERCORE_BACKEND_URL = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
 
 // Desativa qualquer ponte com Hugging Face ou portas antigas
-localStorage.setItem('CYBERCORE_BACKEND_URL', LOCAL_BACKEND);
+localStorage.setItem('CYBERCORE_BACKEND_URL', CYBERCORE_BACKEND_URL);
 
 // --- SISTEMA DESPERTADOR (WAKE-UP) ---
 async function forceWakeUpBackend() {
@@ -217,24 +217,297 @@ function initRealTimeSystem() {
 
 function showPanel(id) {
     document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + id).classList.add('active');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`button[onclick*="'${id}'"]`);
-    if (btn) btn.classList.add('active');
 
-    const titleMap = {
-        overview: '[SYS_TERMINAL] // CYBERCORE IA',
-        projects: '[SYS_PROJECTS] // SISTEMAS',
-        users: '[SYS_USERS] // USUÁRIOS',
-        memory: '[SYS_MEMORY] // MEMÓRIA NEURAL',
-        warroom: '[SYS_WARROOM] // SALA DE GUERRA',
-        security: '[SYS_SECURITY] // SEGURANÇA',
-        settings: '[SYS_SETTINGS] // CONFIGURAÇÕES',
-        saques: '[SYS_SAQUES] // SAQUES PIX',
-        audit: '[SYS_AUDIT] // AUDITORIA'
+    const target = document.getElementById('panel-' + id);
+    if (target) {
+        target.classList.add('active');
+        const btn = document.querySelector(`button[onclick*="'${id}'"]`);
+        if (btn) btn.classList.add('active');
+
+        const titleMap = {
+            overview: '[SYS_DASHBOARD] // VISÃO GERAL',
+            projects: '[SYS_CONNECTOR] // INTEL CONNECTOR',
+            watch: '[SYS_WATCH] // SALA DE GUERRA',
+            studio: '[SYS_STUDIO] // CYBERCORE STUDIO',
+            users: '[SYS_DATABASE] // USUÁRIOS',
+            memory: '[SYS_NEURAL] // MEMÓRIA',
+            security: '[SYS_SENTINEL] // SEGURANÇA',
+            settings: '[SYS_CONFIG] // CONFIGURAÇÕES',
+            saques: '[SYS_FINANCE] // SAQUES PIX'
+        };
+        const titleEl = document.getElementById('current-panel-name');
+        if (titleEl) titleEl.textContent = titleMap[id] || '[SYS_TERMINAL]';
+
+        if (id === 'watch') renderWatchProjects();
+        if (id === 'studio') listStudioFiles();
+    }
+}
+
+let selectedAgent = 'BUILDER'; // Default agent
+
+function selectAgent(agent) {
+    selectedAgent = agent;
+    showToast(`Agente ${agent} selecionado no Studio.`, "info");
+    const terminal = document.getElementById('studio-output');
+    const body = document.getElementById('studio-terminal-body');
+    if (terminal) terminal.style.display = 'block';
+    if (body) {
+        body.innerHTML += `<div style="color: var(--gold); margin-bottom: 15px; font-family: 'JetBrains Mono'; font-size: 12px; border-bottom: 1px solid rgba(232,184,48,0.1); padding-bottom: 5px;">> Agente ${agent} inicializado e aguardando diretrizes...</div>`;
+        body.scrollTop = body.scrollHeight;
+    }
+}
+
+async function generateTeam() {
+    const prompt = document.getElementById('studio-prompt').value;
+    if (!prompt) return showToast("Descreva o objetivo primeiro.", "error");
+
+    const terminal = document.getElementById('studio-output');
+    const body = document.getElementById('studio-terminal-body');
+    if (terminal) terminal.style.display = 'block';
+
+    if (body) {
+        body.innerHTML += `<div style="color: #fff; margin-top: 15px; font-family: 'JetBrains Mono'; font-size: 12px;">[SISTEMA] Convocando Equipe Neural CyberCore (${selectedAgent}) para: "${prompt}"</div>`;
+        body.scrollTop = body.scrollHeight;
+
+        try {
+            const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+
+            // Refinamento de Prompts por Agente
+            let agentContext = "";
+            switch(selectedAgent) {
+                case 'BUILDER':
+                    agentContext = "Você é um Especialista Front-end e UI Builder. Foco em HTML5, CSS3 moderno (Glassmorphism, Neon) e estruturação de interfaces.";
+                    break;
+                case 'DESIGNER':
+                    agentContext = "Você é um Senior UI/UX Designer. Foco em paleta de cores, tipografia, efeitos visuais avançados e experiência do usuário premium.";
+                    break;
+                case 'PYTHON':
+                    agentContext = "Você é um Especialista Python Core. Foco em automações, scripts de backend, processamento de dados e integração de APIs.";
+                    break;
+                case 'FULLSTACK':
+                    agentContext = "Você é um Desenvolvedor Fullstack. Foco na integração completa entre frontend e backend (Node/Python).";
+                    break;
+                case 'SOFTWARE':
+                    agentContext = "Você é um Arquiteto de Software. Foco em padrões de projeto, escalabilidade e estrutura de diretórios eficiente.";
+                    break;
+                default:
+                    agentContext = "Você é um Arquiteto de Software sênior.";
+            }
+
+            const resp = await fetch(`${baseUrl}/ai/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: `${agentContext} Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
+                    history: [],
+                    uid: 'admin_studio'
+                })
+            });
+            const data = await resp.json();
+            const answer = data.answer || "";
+
+            // Tenta extrair JSON
+            let files = {};
+            try {
+                const jsonStr = answer.includes('{') ? answer.substring(answer.indexOf('{'), answer.lastIndexOf('}') + 1) : answer;
+                files = JSON.parse(jsonStr);
+            } catch(e) {
+                console.warn("IA não retornou JSON puro, tentando processar como texto.");
+            }
+
+            if (Object.keys(files).length > 0) {
+                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe (BUILDER, DESIGNER, FULLSTACK) gerou ${Object.keys(files).length} arquivos.</div>`;
+                for (const [filename, content] of Object.entries(files)) {
+                    await fetch(`${baseUrl}/api/studio/save-file`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename, content })
+                    });
+                    body.innerHTML += `<div style="color: #64748b; font-family: 'JetBrains Mono'; font-size: 11px;">  └─ [CRIADO] ${filename}</div>`;
+                }
+                listStudioFiles();
+                showToast("Estrutura do projeto gerada com sucesso!", "success");
+            } else {
+                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Resposta do Núcleo:</div>`;
+                body.innerHTML += `<div style="color: #94a3b8; font-family: 'JetBrains Mono'; font-size: 11px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-top: 5px;">${renderMarkdown(answer)}</div>`;
+            }
+        } catch (e) {
+            body.innerHTML += `<div style="color: #ef4444; font-family: 'JetBrains Mono'; font-size: 12px;">[ERRO] Falha crítica na comunicação com o backend Studio.</div>`;
+        }
+        body.scrollTop = body.scrollHeight;
+    }
+}
+
+// ============ CYBERCORE STUDIO WORKSPACE ============
+
+async function listStudioFiles() {
+    const list = document.getElementById('studio-file-list');
+    if (!list) return;
+
+    list.innerHTML = '<div style="opacity: 0.5; text-align: center; padding: 20px;">Lendo workspace...</div>';
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/files`);
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            if (data.files.length === 0) {
+                list.innerHTML = '<div style="opacity: 0.3; text-align: center; padding: 20px;">Workspace vazio.</div>';
+                return;
+            }
+
+            list.innerHTML = data.files.map(f => {
+                const icon = getFileIcon(f.ext);
+                return `
+                    <div class="file-item" onclick="openStudioFile('${f.name}')" style="display: flex; align-items: center; gap: 10px; padding: 8px; cursor: pointer; border-radius: 4px; transition: background 0.2s; margin-bottom: 2px;">
+                        <span style="font-size: 14px;">${icon}</span>
+                        <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e4e4e7; font-size: 11px;">${f.name}</div>
+                        <div style="font-size: 9px; opacity: 0.4; color: var(--text-secondary);">${(f.size / 1024).toFixed(1)}KB</div>
+                        <button onclick="event.stopPropagation(); deleteStudioFile('${f.name}')" style="background: transparent; border: none; color: #ef4444; cursor: pointer; opacity: 0.5; font-size: 10px; padding: 4px;">🗑️</button>
+                    </div>
+                `;
+            }).join('');
+        } else {
+            list.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px; font-size: 10px;">Erro: ${data.msg}</div>`;
+        }
+    } catch (e) {
+        list.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 20px; font-size: 10px;">Studio Offline</div>';
+    }
+}
+
+function getFileIcon(ext) {
+    const icons = {
+        'py': '🐍', 'js': '📜', 'html': '🌐', 'css': '🎨', 'json': '📦', 'txt': '📄', 'md': '📝', 'png': '🖼️', 'jpg': '🖼️'
     };
-    const titleEl = document.getElementById('current-panel-name');
-    if (titleEl) titleEl.textContent = titleMap[id] || '[SYS_TERMINAL]';
+    return icons[ext] || '📄';
+}
+
+async function openStudioFile(filename) {
+    const editor = document.getElementById('studio-editor');
+    const nameEl = document.getElementById('current-file-name');
+    const iconEl = document.getElementById('current-file-icon');
+    if (!editor || !nameEl) return;
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/read-file/${filename}`);
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            editor.value = data.content;
+            nameEl.textContent = filename;
+            const ext = filename.split('.').pop();
+            iconEl.textContent = getFileIcon(ext);
+            showToast(`Arquivo ${filename} aberto.`, "success");
+        } else {
+            showToast(`Erro ao abrir: ${data.msg}`, "error");
+        }
+    } catch (e) {
+        showToast("Falha ao ler arquivo do backend.", "error");
+    }
+}
+
+async function saveCurrentFile() {
+    const filename = document.getElementById('current-file-name').textContent;
+    const content = document.getElementById('studio-editor').value;
+    if (filename === 'nenhum arquivo aberto') return showToast("Selecione um arquivo primeiro.", "error");
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, content })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            showToast("Alterações salvas no workspace.", "success");
+            listStudioFiles();
+        } else {
+            showToast(data.msg, "error");
+        }
+    } catch (e) {
+        showToast("Erro de conexão ao salvar.", "error");
+    }
+}
+
+async function createNewFile() {
+    const name = prompt("Nome do novo arquivo (ex: script.js):", "novo_modulo.py");
+    if (!name) return;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: name, content: "// Inicializado pelo CyberCore Studio" })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            showToast(`Arquivo ${name} criado.`, "success");
+            listStudioFiles();
+            openStudioFile(name);
+        }
+    } catch (e) {
+        showToast("Falha ao criar arquivo.", "error");
+    }
+}
+
+async function deleteStudioFile(filename) {
+    if (!confirm(`Deseja remover ${filename} permanentemente?`)) return;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/delete-file/${filename}`, { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            showToast(data.msg, "success");
+            if (document.getElementById('current-file-name').textContent === filename) closeEditor();
+            listStudioFiles();
+        }
+    } catch (e) {
+        showToast("Falha ao deletar.", "error");
+    }
+}
+
+function closeEditor() {
+    document.getElementById('studio-editor').value = "";
+    document.getElementById('current-file-name').textContent = "nenhum arquivo aberto";
+    document.getElementById('current-file-icon').textContent = "📄";
+}
+
+function renderWatchProjects() {
+    const container = document.getElementById('watch-projects-list');
+    if (!container) return;
+
+    if (connectedProjects.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary); font-size: 12px;">Nenhum projeto sendo monitorado pelo Watch.</div>`;
+        return;
+    }
+
+    container.innerHTML = connectedProjects.map(p => {
+        const health = p.health || {};
+        const isOnline = health.status === 'online';
+        const isDegraded = health.status === 'degraded';
+        const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
+        const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
+        const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
+
+        return `
+            <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}">
+                <div>
+                    <div style="font-weight: 800; font-size: 13px; color: white;">${p.name || p.identifier}</div>
+                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">TYPE: ${p.type.toUpperCase()} | FW: ${p.framework}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-family: 'JetBrains Mono'; font-size: 11px; color: ${color};">
+                        ${isOnline ? '✓ ONLINE' : (isDegraded ? '⚠ DEGRADADO' : '✗ OFFLINE')}
+                    </div>
+                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">LATENCY: ${latency}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 function renderGlobalStats() {
@@ -371,6 +644,38 @@ async function sendIACommand() {
 
     const userBubble = document.createElement('div');
     userBubble.className = 'chat-bubble user';
+
+    // Suporte para comando direto de script: studio://filename|content
+    if (rawCmd.startsWith('studio://')) {
+        const parts = rawCmd.replace('studio://', '').split('|');
+        if (parts.length >= 2) {
+            const filename = parts[0].trim();
+            const content = parts.slice(1).join('|').trim();
+            userBubble.innerHTML = `<strong>OPERADOR:</strong> [COMANDO STUDIO] Salvar ${filename}<span class="msg-ts">${timeStr}</span>`;
+            termList.appendChild(userBubble);
+
+            const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+            try {
+                const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename, content })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    typeIAResponse(`Arquivo **${filename}** injetado no workspace com sucesso.`, 'nexus');
+                    listStudioFiles();
+                } else {
+                    typeIAResponse(`Erro ao injetar arquivo: ${data.msg}`, 'nexus');
+                }
+            } catch (e) {
+                typeIAResponse("Falha na ponte Studio-Terminal.", 'nexus');
+            }
+            termList.scrollTop = termList.scrollHeight;
+            return;
+        }
+    }
+
     userBubble.innerHTML = `<strong>OPERADOR:</strong> ${renderMarkdown(rawCmd)}<span class="msg-ts">${timeStr}</span>`;
     termList.appendChild(userBubble);
     termList.scrollTop = termList.scrollHeight;
@@ -540,6 +845,46 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
     const target = bubble.querySelector('.typing-text');
     let i = 0;
     const fullText = renderMarkdown(text);
+
+    // Smart Link: Detecta blocos de código e adiciona botão de exportação para Studio
+    const codeBlockMatch = text.match(/```(\w*)\n?([\s\S]*?)```/);
+    if (codeBlockMatch) {
+        const lang = codeBlockMatch[1] || 'txt';
+        const code = codeBlockMatch[2].trim();
+        const exportBtnId = `export-${Date.now()}`;
+
+        bubble.innerHTML += `
+            <div style="margin-top:10px; padding:10px; background: rgba(0,255,194,0.05); border: 1px dashed var(--cyan); border-radius: 4px;">
+                <p style="font-size:10px; color: var(--cyan); margin-bottom: 5px;">[SMART LINK] Código detectado. Deseja enviar para o Studio?</p>
+                <button id="${exportBtnId}" class="btn-cyber-primary" style="font-size:9px; padding:4px 10px;">[ EXPORTAR PARA WORKSPACE ]</button>
+            </div>
+        `;
+
+        setTimeout(() => {
+            const btn = document.getElementById(exportBtnId);
+            if (btn) btn.onclick = async () => {
+                const filename = prompt("Nome do arquivo (ex: script.js):", `generated_${Date.now()}.${lang}`);
+                if (filename) {
+                    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+                    try {
+                        const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ filename, content: code })
+                        });
+                        const data = await resp.json();
+                        if (data.status === 'success') {
+                            showToast(`Exportado: ${filename}`, "success");
+                            listStudioFiles();
+                        }
+                    } catch (e) {
+                        showToast("Erro na exportação.", "error");
+                    }
+                }
+            };
+        }, 100);
+    }
+
     const interval = setInterval(() => {
         target.innerHTML += fullText[i] || '';
         i++;
@@ -719,26 +1064,25 @@ function initNexusAgent() {
 auth.onAuthStateChanged(user => {
     console.log("[AUTH] Estado alterado:", user ? "Logado" : "Deslogado");
 
-    // Remove o loader assim que o Firebase responder (logado ou não)
+    // Remove o loader assim que o Firebase responder
     const loader = document.getElementById('loader');
     if (loader) {
         loader.style.opacity = '0';
         setTimeout(() => loader.remove(), 500);
     }
 
-    // Verifica trava de sessão (refresh da página) - ignora durante login ativo
-    if (user && !loginInProgress && sessionStorage.getItem('cinecash_lock') === '1') {
-        sessionStorage.removeItem('cinecash_lock');
-        auth.signOut().then(() => location.reload());
-        return;
-    }
-
-    if (user && user.email === 'alegomes488@gmail.com') {
+    if (user) {
+        // Se estiver logado, garante que a tela de login suma e o app apareça
         document.getElementById('login-screen').style.display = 'none';
         const app = document.getElementById('hub-app');
         if (app) app.style.display = 'grid';
-        initRealTimeSystem();
+
+        // Inicializa sistemas apenas se ainda não foram iniciados
+        if (Object.keys(rtState.users).length === 0) {
+            initRealTimeSystem();
+        }
     } else {
+        // Se deslogado, mostra login e esconde app
         document.getElementById('login-screen').style.display = 'flex';
         const app = document.getElementById('hub-app');
         if (app) app.style.display = 'none';
@@ -751,58 +1095,33 @@ async function login() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value;
     if (!email || !pass) return showToast('Preencha e-mail e senha.', 'error');
+
     loginInProgress = true;
-    sessionStorage.removeItem('cinecash_lock');
-    sessionLocked = false;
     try {
         await auth.signInWithEmailAndPassword(email, pass);
-        sessionStorage.removeItem('cinecash_lock');
         loginInProgress = false;
-    } catch (e) { 
+        showToast('Acesso Master concedido!', 'success');
+    } catch (e) {
         loginInProgress = false;
-        console.warn('[Admin Login]', e.code, e.message);
-        showToast(e.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' : 'Acesso negado.', 'error');
+        console.error('[Admin Login]', e.code, e.message);
+        showToast('Erro: Verifique suas credenciais.', 'error');
     }
+}
+
+// MODO DE EMERGÊNCIA: Pular Login no Localhost
+function bypassLogin() {
+    console.log("[DEV] Ativando Bypass de Segurança...");
+    document.getElementById('login-screen').style.display = 'none';
+    const app = document.getElementById('hub-app');
+    if (app) app.style.display = 'grid';
+    initRealTimeSystem();
+    showToast('MODO DESENVOLVEDOR: Acesso Liberado ⚡', 'info');
 }
 
 function logout() { auth.signOut().then(() => location.reload()); }
 
-// ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO / REFRESH) ============
-// O check inicial da flag é feito dentro do onAuthStateChanged
-let sessionLocked = false;
-function lockSession() {
-    if (sessionLocked) return;
-    if (!auth.currentUser) return;
-    sessionLocked = true;
-    sessionStorage.setItem('cinecash_lock', '1');
-    auth.signOut().then(() => location.reload());
-}
-
-document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        if (!auth.currentUser) return;
-        sessionLocked = true;
-        sessionStorage.setItem('cinecash_lock', '1');
-    } else if (sessionLocked) {
-        lockSession();
-    }
-});
-
-window.addEventListener('blur', () => {
-    if (!auth.currentUser) return;
-    sessionLocked = true;
-    sessionStorage.setItem('cinecash_lock', '1');
-});
-window.addEventListener('focus', () => { if (sessionLocked) lockSession(); });
-document.addEventListener('pause', () => {
-    if (!auth.currentUser) return;
-    sessionLocked = true;
-    sessionStorage.setItem('cinecash_lock', '1');
-});
-
-window.addEventListener('beforeunload', () => {
-    if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
-});
+// ============ SEGURANÇA DE SESSÃO (RELAXADA) ============
+// Removido auto-logout por perda de foco para facilitar o desenvolvimento.
 window.addEventListener('pagehide', () => {
     if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
 });
@@ -1295,7 +1614,18 @@ function updateWarRoom() {
     fetch(metricsUrl)
         .then(r => r.json())
         .then(data => {
-            if (data.core_online) {
+            // Atualiza Overview Dashboard
+            updateEl('tele-ping', `${data.ping || 0}ms`);
+            updateEl('tele-cpu', `${data.cpu || 0}%`);
+            updateEl('tele-ram', data.ram || '0MB');
+
+            // Atualiza barras de progresso (opcional)
+            const pingFill = document.querySelector('.ping-fill');
+            if (pingFill) pingFill.style.width = `${Math.min((data.ping / 200) * 100, 100)}%`;
+            const cpuFill = document.querySelector('.cpu-fill');
+            if (cpuFill) cpuFill.style.width = `${data.cpu || 0}%`;
+
+            if (data.status === 'online') {
                 // Sugestão 2: War Room (Telemetria)
                 updateEl('stat-latency', `${data.latency_ms}ms`);
                 updateEl('stat-anomalies', data.anomalies);
@@ -1718,41 +2048,34 @@ let currentProjectType = 'website';
 let lastAnalysisResult = null;
 let connectedProjects = [];
 
-function selectProjectType(btn) {
-    document.querySelectorAll('.proj-type-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    currentProjectType = btn.dataset.type;
+function selectType(el) {
+    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    currentProjectType = el.dataset.type;
 
-    document.querySelectorAll('.proj-input-group').forEach(g => g.style.display = 'none');
-    const target = document.getElementById('input-' + currentProjectType);
-    if (target) target.style.display = 'block';
+    // Atualiza o label do input se necessário
+    const labels = {
+        website: 'URL DO SITE',
+        android: 'PACOTE OU NOME DO APP',
+        api: 'URL DA API',
+        local: 'IDENTIFICADOR LOCAL'
+    };
+    const labelEl = document.querySelector('.intel-col:nth-child(2) label');
+    if (labelEl) labelEl.textContent = labels[currentProjectType];
 
-    document.getElementById('project-analysis-result').style.display = 'none';
+    // Oculta output de análise anterior
+    document.getElementById('ai-analysis-output').style.display = 'none';
     lastAnalysisResult = null;
 }
 
-function getProjectInputValue() {
-    const map = {
-        website: 'project-url',
-        android: 'project-package',
-        api: 'project-api-url',
-        local: 'project-local-path'
-    };
-    const el = document.getElementById(map[currentProjectType]);
-    return el ? el.value.trim() : '';
-}
-
-async function analisarProjeto() {
-    const identifier = getProjectInputValue();
+async function analisarProjetoAI() {
+    const identifier = document.getElementById('ai-project-url').value.trim();
     if (!identifier) return showToast("Informe a URL ou identificador do projeto.", "error");
 
-    const resultDiv = document.getElementById('project-analysis-result');
-    resultDiv.style.display = 'block';
-    document.getElementById('analysis-status').textContent = 'Analisando...';
-    document.getElementById('analysis-status').style.color = '#fbbf24';
-    document.getElementById('analysis-framework').textContent = '—';
-    document.getElementById('analysis-env').textContent = '—';
-    document.getElementById('analysis-monitoring').textContent = '—';
+    const btn = document.querySelector('.btn-analyze-ai');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> ANALISANDO...';
 
     try {
         const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/project/analyze`, {
@@ -1760,61 +2083,109 @@ async function analisarProjeto() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: currentProjectType, identifier })
         });
-        const raw = await resp.json();
-        // raw pode ser { status: "success", data: { ... } } ou { status: "Conectado", framework: "...", ... }
-        const info = raw.data || raw;
-        lastAnalysisResult = { type: currentProjectType, identifier, data: info };
-        updateAnalysisUI(info);
+        const res = await resp.json();
+
+        if (res.status === 'success' || res.status === 'partial') {
+            const data = res.data;
+            lastAnalysisResult = {
+                type: currentProjectType,
+                identifier,
+                data: data,
+                name: document.getElementById('ai-project-name').value.trim() || identifier.split('//').pop().split('/')[0]
+            };
+
+            // Atualiza UI de resultados
+            document.getElementById('res-framework').textContent = data.framework || '—';
+            document.getElementById('res-tech').textContent = currentProjectType.toUpperCase();
+
+            document.getElementById('ai-analysis-output').style.display = 'block';
+            showToast("Análise concluída!", "success");
+
+            // Se for sistema local, mostra o comando de instalação
+            if (currentProjectType === 'local') {
+                showLocalInstallCommand();
+            }
+
+            // Adiciona automaticamente o botão para conectar após análise
+            const output = document.getElementById('ai-analysis-output');
+            if (output && !document.getElementById('btn-connect-now')) {
+                const connBtn = document.createElement('button');
+                connBtn.id = 'btn-connect-now';
+                connBtn.className = 'btn-premium holo-shimmer';
+                connBtn.style = 'margin-top: 20px; width: 100%; padding: 15px; border-radius: 12px; font-weight: 800;';
+                connBtn.textContent = 'CONECTAR AO HUB AGORA';
+                connBtn.onclick = addCurrentProject;
+                output.appendChild(connBtn);
+            }
+        }
     } catch (e) {
-        const fallback = detectProjectLocally(identifier);
-        lastAnalysisResult = { type: currentProjectType, identifier, data: fallback };
-        updateAnalysisUI(fallback);
+        showToast("Erro ao conectar com o motor de análise.", "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
     }
 }
 
-function detectProjectLocally(identifier) {
-    const result = { status: 'Conectado', framework: 'Desconhecido', ambiente: 'Produção', monitoring: 'Ativo' };
-
-    if (currentProjectType === 'website') {
-        if (identifier.includes('wordpress') || identifier.includes('wp')) {
-            result.framework = 'WordPress';
-        } else if (identifier.includes('react') || identifier.includes('vercel')) {
-            result.framework = 'React';
-        } else if (identifier.includes('laravel') || identifier.includes('php')) {
-            result.framework = 'Laravel / PHP';
-        } else if (identifier.includes('vue') || identifier.includes('nuxt')) {
-            result.framework = 'Vue.js';
-        } else if (identifier.includes('node') || identifier.includes('express')) {
-            result.framework = 'Node.js';
-        } else {
-            result.framework = 'HTML / Estático';
+async function showLocalInstallCommand() {
+    try {
+        const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/local/install-command`);
+        const data = await resp.json();
+        if (data.status === 'success') {
+            typeIAResponse(`Para conectar seu **Sistema Local**, execute este comando no terminal do servidor alvo:\n\n \`\`\`bash\n${data.command}\n\`\`\``, 'nexus');
         }
-    } else if (currentProjectType === 'android') {
-        result.framework = 'Android Native / Kotlin';
-        result.ambiente = 'APK Analisado';
-    } else if (currentProjectType === 'api') {
-        if (identifier.includes('graphql')) {
-            result.framework = 'GraphQL';
-        } else if (identifier.includes('rest') || identifier.includes('api')) {
-            result.framework = 'REST API';
-        } else {
-            result.framework = 'API Desconhecida';
-        }
-    } else if (currentProjectType === 'local') {
-        result.framework = 'Sistema Local';
-        result.ambiente = 'localhost';
-    }
-
-    return result;
+    } catch (e) {}
 }
 
-function updateAnalysisUI(data) {
-    document.getElementById('analysis-status').textContent = data.status || 'Conectado';
-    document.getElementById('analysis-status').style.color = '#10b981';
-    document.getElementById('analysis-framework').textContent = data.framework || '—';
-    document.getElementById('analysis-env').textContent = data.ambiente || '—';
-    document.getElementById('analysis-monitoring').textContent = data.monitoring || 'Ativo';
-    document.getElementById('analysis-monitoring').style.color = '#10b981';
+function renderProjects() {
+    const tbody = document.getElementById('projects-table-body');
+    if (!tbody) return;
+
+    if (!connectedProjects || connectedProjects.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; opacity:0.3; padding:40px;">Nenhum projeto conectado.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = connectedProjects.map(p => `
+        <tr>
+            <td>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="proj-icon-circle">${p.type === 'website' ? '🌐' : p.type === 'android' ? '🤖' : p.type === 'api' ? '☁️' : '🖥️'}</div>
+                    <div>
+                        <div style="font-weight: 800; color: #fff;">${p.name || p.identifier}</div>
+                        <small style="opacity: 0.5;">${p.identifier}</small>
+                    </div>
+                </div>
+            </td>
+            <td><span class="type-tag ${p.type}">${p.type.toUpperCase()}</span></td>
+            <td>
+                <span class="status-tag ${p.health?.status || 'offline'}">
+                    ● ${p.health?.status === 'online' ? 'Online' : p.health?.status === 'degraded' ? 'Degradado' : 'Offline'}
+                </span>
+            </td>
+            <td>${p.health?.latency_ms ? p.health.latency_ms + 'ms' : '--'}</td>
+            <td>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="flex:1; height:4px; background:rgba(255,255,255,0.1); border-radius:2px;">
+                        <div style="width: ${p.health?.status === 'online' ? '98%' : '0%'}; height:100%; background:var(--success); border-radius:2px;"></div>
+                    </div>
+                    <small>${p.health?.status === 'online' ? '98%' : '0%'}</small>
+                </div>
+            </td>
+            <td><small>${p.health?.last_checked ? new Date(p.health.last_checked).toLocaleTimeString() : 'Pendente'}</small></td>
+            <td>
+                <button class="btn-table-action" onclick="removeProject('${p.id}')">REMOVER</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function removeProject(id) {
+    if (!confirm("Remover este projeto do monitoramento?")) return;
+    fetch(`${CYBERCORE_BACKEND_URL}/api/project/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    }).then(() => showToast("Projeto removido.", "info"));
 }
 
 function addCurrentProject() {
@@ -1825,17 +2196,16 @@ function addCurrentProject() {
     );
     if (exists) return showToast("Este projeto já está conectado.", "error");
 
-    const projectId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const projectId = 'PRJ' + Date.now().toString(36).toUpperCase();
     const projectData = {
+        id: projectId,
+        name: lastAnalysisResult.name,
         type: lastAnalysisResult.type,
         identifier: lastAnalysisResult.identifier,
-        framework: lastAnalysisResult.data?.framework || lastAnalysisResult.framework || '—',
-        ambiente: lastAnalysisResult.data?.ambiente || lastAnalysisResult.ambiente || '—',
-        monitoring: lastAnalysisResult.data?.monitoring || lastAnalysisResult.monitoring || 'Ativo',
+        framework: lastAnalysisResult.data?.framework || '—',
         addedAt: new Date().toISOString()
     };
 
-    // Salva via backend (admin SDK) para evitar regras de segurança do client
     fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1844,21 +2214,12 @@ function addCurrentProject() {
     .then(r => r.json())
     .then(resp => {
         if (resp.status === 'success') {
-            showToast("Projeto adicionado com sucesso!", "success");
+            showToast("Projeto conectado com sucesso!", "success");
+            document.getElementById('ai-analysis-output').style.display = 'none';
         } else {
             showToast("Erro ao salvar projeto.", "error");
         }
-    })
-    .catch(() => {
-        showToast("Erro de conexão com o backend.", "error");
     });
-
-    document.getElementById('project-analysis-result').style.display = 'none';
-    document.getElementById('project-url').value = '';
-    document.getElementById('project-package').value = '';
-    document.getElementById('project-api-url').value = '';
-    document.getElementById('project-local-path').value = '';
-    lastAnalysisResult = null;
 }
 
 function renderProjects() {

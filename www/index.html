@@ -635,6 +635,7 @@
 
 
         let _user = null;
+        let _bonusClaimedToday = false;
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -1018,9 +1019,21 @@
 
             // Atualiza estado do botão de bônus diário
             const btnBonus = document.getElementById('btn-bonus');
-            const todayStr = new Date().toISOString().split('T')[0];
-            if (_user.last_daily_bonus_date === todayStr) {
+            if (!btnBonus) return;
+            const now = new Date();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+            const weekday = now.getDay(); // 0=Dom, 6=Sáb
+            const isWeekend = weekday === 0 || weekday === 6;
+            const lastBonus = _user && _user.last_daily_bonus_date;
+            const alreadyClaimed = lastBonus === todayStr || _bonusClaimedToday;
+            console.log('[Daily Bonus] last_daily_bonus_date:', lastBonus, 'today:', todayStr, 'match:', alreadyClaimed, 'flag:', _bonusClaimedToday, 'user:', _user ? 'loaded' : 'null');
+            if (alreadyClaimed) {
                 btnBonus.innerText = "COLETADO";
+                btnBonus.disabled = true;
+                btnBonus.style.opacity = "0.5";
+                btnBonus.style.cursor = "default";
+            } else if (isWeekend) {
+                btnBonus.innerText = "INDISPONÍVEL (FIM DE SEMANA)";
                 btnBonus.disabled = true;
                 btnBonus.style.opacity = "0.5";
                 btnBonus.style.cursor = "default";
@@ -1855,6 +1868,10 @@
 
         window.claimDailyBonus = async () => {
             if (!_user || CyberUtils.isProcessing) return;
+            const weekday = new Date().getDay();
+            if (weekday === 0 || weekday === 6) {
+                return showToast("Bônus disponível apenas em dias úteis (Seg a Sex).");
+            }
             CyberUtils.isProcessing = true;
 
             triggerStrategicAd();
@@ -1878,7 +1895,8 @@
                     showToast("BÔNUS RESGATADO COM SUCESSO!");
                     confetti({ particleCount: 50, spread: 30, origin: { y: 0.8 } });
 
-                    // O onValue do Firebase atualizará _user e a UI automaticamente
+                    _bonusClaimedToday = true;
+                    updateUI();
                     btn.innerText = "COLETADO";
                     btn.style.opacity = "0.5";
                 } else {

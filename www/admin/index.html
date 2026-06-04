@@ -91,10 +91,10 @@
                 <button class="nav-btn" onclick="showPanel('saques')" title="Saques PIX">
                     <span class="btn-icon">💸</span>
                 </button>
-                <button class="nav-btn" onclick="showPanel('audit')" title="Auditoria">
-                    <span class="btn-icon">📈</span>
+                <button class="nav-btn" onclick="showPanel('watch')" title="CyberCore WATCH (Sala de Guerra)">
+                    <span class="btn-icon">🎯</span>
                 </button>
-                <button class="nav-btn" onclick="showPanel('terminal')" title="CyberCore IA" style="border:1px solid rgba(232,184,48,0.3);">
+                <button class="nav-btn" onclick="showPanel('studio')" title="CyberCore STUDIO (Criação)" style="border:1px solid rgba(232,184,48,0.3);">
                     <span class="btn-icon">🤖</span>
                 </button>
 
@@ -138,7 +138,158 @@
 
             <div class="workspace-content">
                 
-                <!-- Painel: Overview -->
+                <!-- Painel: STUDIO (Antigo Terminal) -->
+                <div id="panel-studio" class="panel-view">
+                    <div class="studio-container">
+                        <div class="studio-header">
+                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: var(--gold);">CYBERCORE STUDIO</h2>
+                            <p style="font-size: 10px; color: var(--text-secondary);">AMBIENTE DE DESENVOLVIMENTO NEURAL</p>
+                        </div>
+
+                        <div class="agents-grid">
+                            <div class="agent-card builder" onclick="selectAgent('BUILDER')">
+                                <div class="agent-icon">🏗️</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">BUILDER</span>
+                                    <small>Páginas & UI</small>
+                                </div>
+                            </div>
+                            <div class="agent-card designer" onclick="selectAgent('DESIGNER')">
+                                <div class="agent-icon">🎨</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">DESIGNER</span>
+                                    <small>UI / UX Expert</small>
+                                </div>
+                            </div>
+                            <div class="agent-card fullstack" onclick="selectAgent('FULLSTACK')">
+                                <div class="agent-icon">⚡</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">FULLSTACK</span>
+                                    <small>Sistemas Web</small>
+                                </div>
+                            </div>
+                            <div class="agent-card python" onclick="selectAgent('PYTHON')">
+                                <div class="agent-icon">🐍</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">PYTHON CORE</span>
+                                    <small>Automações</small>
+                                </div>
+                            </div>
+                            <div class="agent-card java" onclick="selectAgent('JAVA')">
+                                <div class="agent-icon">☕</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">JAVA CORE</span>
+                                    <small>Apps Android</small>
+                                </div>
+                            </div>
+                            <div class="agent-card software" onclick="selectAgent('SOFTWARE')">
+                                <div class="agent-icon">🏛️</div>
+                                <div class="agent-info">
+                                    <span class="agent-name">SOFTWARE</span>
+                                    <small>Arquitetura</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Prompt Master -->
+                        <div class="prompt-master-area">
+                            <div class="prompt-header">
+                                <span class="data-dot gold"></span> PROMPT MASTER
+                            </div>
+                            <textarea id="studio-prompt" placeholder="Descreva o objetivo do novo projeto ou funcionalidade..."></textarea>
+                            <div class="prompt-actions">
+                                <button class="btn-cyber-primary" onclick="generateTeam()">[ GERAR EQUIPE ]</button>
+                            </div>
+                        </div>
+
+                        <!-- Workspace de Arquivos (Explorer + Editor) -->
+                        <div class="studio-workspace" style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-top: 30px;">
+                            <!-- File Explorer -->
+                            <div class="system-card premium-glass tech-border" style="padding: 15px; min-height: 400px; display: flex; flex-direction: column;">
+                                <div class="system-header" style="margin-bottom: 15px; justify-content: space-between;">
+                                    <h4 style="font-size: 12px; letter-spacing: 1px;">EXPLORER</h4>
+                                    <button class="btn-minimal" onclick="listStudioFiles()" title="Atualizar">🔄</button>
+                                </div>
+                                <div id="studio-file-list" style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono'; font-size: 11px;">
+                                    <div style="opacity: 0.3; text-align: center; padding: 20px;">Nenhum arquivo no workspace.</div>
+                                </div>
+                                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                    <button class="btn-minimal" onclick="createNewFile()" style="width: 100%; font-size: 10px;">+ NOVO ARQUIVO</button>
+                                </div>
+                            </div>
+
+                            <!-- Editor Area -->
+                            <div class="system-card premium-glass tech-border" style="padding: 0; min-height: 400px; display: flex; flex-direction: column;">
+                                <div class="system-header" style="padding: 10px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); justify-content: space-between;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span id="current-file-icon">📄</span>
+                                        <span id="current-file-name" style="font-size: 12px; font-weight: 800; color: var(--gold);">nenhum arquivo aberto</span>
+                                    </div>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button class="btn-minimal" onclick="saveCurrentFile()" style="color: var(--success); font-weight: 800;">SALVAR</button>
+                                        <button class="btn-minimal" onclick="closeEditor()" style="color: var(--danger);">FECHAR</button>
+                                    </div>
+                                </div>
+                                <textarea id="studio-editor" style="flex: 1; background: transparent; border: none; color: #e4e4e7; padding: 20px; font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none;" spellcheck="false" placeholder="// Selecione um arquivo para editar ou gere código com a IA..."></textarea>
+                            </div>
+                        </div>
+
+                        <div id="studio-output" class="terminal-container" style="margin-top: 20px; display: none;">
+                             <div id="studio-terminal-body" class="terminal-body"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: WATCH (Antigo Auditoria/Sala de Guerra) -->
+                <div id="panel-watch" class="panel-view">
+                    <div class="watch-container">
+                        <div class="watch-header">
+                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: #00f3ff;">CYBERCORE WATCH</h2>
+                            <p style="font-size: 10px; color: var(--text-secondary);">CENTRO DE OPERAÇÕES DE REDE (NOC)</p>
+                        </div>
+
+                        <div class="watch-agents-grid">
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">SENTINEL</span>
+                                <small>MONITORAMENTO</small>
+                            </div>
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">AUDITOR</span>
+                                <small>AUDITORIA</small>
+                            </div>
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">FISCAL</span>
+                                <small>CUSTOS/FIN</small>
+                            </div>
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">SECURITY</span>
+                                <small>SEGURANÇA</small>
+                            </div>
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">UPTIME</span>
+                                <small>DISPONIBILIDADE</small>
+                            </div>
+                            <div class="watch-agent-card active">
+                                <div class="agent-status-led online"></div>
+                                <span class="agent-title">PERFORMANCE</span>
+                                <small>LATÊNCIA/CPU</small>
+                            </div>
+                        </div>
+
+                        <!-- Monitor de Projetos -->
+                        <div class="watch-monitoring-section">
+                            <div class="section-title">PROJETOS ATIVOS</div>
+                            <div id="watch-projects-list" class="watch-projects-grid">
+                                <!-- Preenchido dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="panel-overview" class="panel-view active">
                     <div class="panel-scanner"></div>
                     <div class="dashboard-container">
@@ -296,135 +447,220 @@
                 <!-- Painel: Sistemas -->
                 <div id="panel-projects" class="panel-view">
                     <div class="panel-scanner"></div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position:relative;z-index:1;">
-                        <div>
-                            <h2 style="font-size: 28px; font-weight: 800; display:flex;align-items:center;gap:10px;"><span class="data-dot gold"></span> Sistemas & Nós</h2>
-                            <p class="sub-header">Gerencie as instâncias conectadas ao Hub</p>
+
+                    <div class="projects-header-area" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position:relative;z-index:2;">
+                        <div class="title-group">
+                            <h2 style="font-size: 32px; font-weight: 900; letter-spacing: -1.5px; display:flex; align-items:center; gap:12px;">
+                                <span class="data-dot gold" style="width:12px; height:12px; box-shadow: 0 0 15px var(--gold);"></span>
+                                [SYS_PROJECTS] // SISTEMAS
+                                <span class="badge-ia" style="font-size: 10px; margin-left: 10px; vertical-align: middle;">PREVISÃO IA ATIVA ✅ +8.6%</span>
+                            </h2>
+                            <p class="sub-header" style="font-family: 'Inter', sans-serif; opacity: 0.6; margin-top: 5px;">Monitoramento de infraestrutura em tempo real</p>
                         </div>
-                        <button class="btn-premium holo-shimmer" onclick="showAddProjectModal()" style="width: auto; padding: 12px 25px;">+ NOVO PROJETO</button>
+                        <button class="btn-premium holo-shimmer" onclick="showAddProjectModal()" style="width: auto; padding: 12px 30px; border-radius: 12px; font-weight: 800;">+ NOVO PROJETO</button>
                     </div>
-                    
-                    <div id="projects-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; position:relative;z-index:1;">
-                        <!-- Conector Inteligente de Projetos -->
-                        <div class="system-card premium-glass tech-border holo-shimmer" id="project-connector-card">
-                            <div class="system-header">
+
+                    <!-- NOVO COMPONENTE: INTELIGÊNCIA DE PROJETO (CONECTOR) -->
+                    <div class="system-card premium-glass tech-border-glow holo-shimmer" id="ai-project-intelligence" style="margin-bottom: 30px; position:relative; z-index:2;">
+                        <div class="card-inner-padding" style="padding: 30px;">
+                            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 30px;">
+                                <div class="ai-brain-icon" style="font-size: 32px; filter: drop-shadow(0 0 10px var(--teal));">🧠</div>
                                 <div>
-                                    <h3 style="font-size: 20px;">INTELIGÊNCIA DE PROJETO</h3>
-                                    <div class="sys-badge" style="background: rgba(30, 158, 187, 0.15); color: var(--teal);">CONECTOR MULTI-PROJETO</div>
+                                    <h3 style="font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #fff;">INTELIGÊNCIA DE PROJETO</h3>
+                                    <p style="font-size: 12px; color: var(--text-secondary);">Conecte qualquer site, aplicativo ou API para monitorar, testar e analisar</p>
                                 </div>
                             </div>
 
-                            <div class="neural-bg" style="border-radius: 20px; padding: 20px; margin-bottom: 25px;">
-                                <div class="project-type-selector" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-                                    <button class="proj-type-btn active" data-type="website" onclick="selectProjectType(this)">
-                                        <span>🌐</span> Website
-                                    </button>
-                                    <button class="proj-type-btn" data-type="android" onclick="selectProjectType(this)">
-                                        <span>📱</span> App Android
-                                    </button>
-                                    <button class="proj-type-btn" data-type="api" onclick="selectProjectType(this)">
-                                        <span>⚡</span> API
-                                    </button>
-                                    <button class="proj-type-btn" data-type="local" onclick="selectProjectType(this)">
-                                        <span>💻</span> Sistema Local
-                                    </button>
-                                </div>
-
-                                <div id="project-input-area">
-                                    <div id="input-website" class="proj-input-group">
-                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">URL do Projeto</label>
-                                        <div style="display: flex; gap: 10px;">
-                                            <input type="url" id="project-url" placeholder="https://meusite.com.br" style="flex: 1;">
-                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                            <div class="intelligence-grid" style="display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 40px;">
+                                <!-- 1. Tipo de Projeto -->
+                                <div class="intel-col">
+                                    <h4 class="intel-step-title">1. TIPO DE PROJETO</h4>
+                                    <div class="project-type-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px;">
+                                        <div class="type-card active" data-type="website" onclick="selectType(this)">
+                                            <div class="type-icon">🌐</div>
+                                            <span class="type-label">Website</span>
+                                            <small class="type-desc">Site ou Sistema Web</small>
                                         </div>
-                                    </div>
-                                    <div id="input-android" class="proj-input-group" style="display:none;">
-                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Nome do Pacote ou Upload APK</label>
-                                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                            <input type="text" id="project-package" placeholder="com.empresa.app" style="flex: 1; min-width: 200px;">
-                                            <label class="btn-premium" style="padding: 12px 20px; cursor: pointer; background: rgba(30, 158, 187, 0.2); border-color: var(--teal);">
-                                                📤 Upload APK
-                                                <input type="file" accept=".apk" style="display:none;" onchange="handleApkUpload(this)">
-                                            </label>
-                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px;">🔍 ANALISAR</button>
+                                        <div class="type-card" data-type="android" onclick="selectType(this)">
+                                            <div class="type-icon">🤖</div>
+                                            <span class="type-label">Aplicativo Android</span>
+                                            <small class="type-desc">App (.apk ou pacote)</small>
                                         </div>
-                                    </div>
-                                    <div id="input-api" class="proj-input-group" style="display:none;">
-                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">URL da API</label>
-                                        <div style="display: flex; gap: 10px;">
-                                            <input type="url" id="project-api-url" placeholder="https://api.exemplo.com/v1" style="flex: 1;">
-                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                                        <div class="type-card" data-type="api" onclick="selectType(this)">
+                                            <div class="type-icon">☁️</div>
+                                            <span class="type-label">API / Serviço</span>
+                                            <small class="type-desc">API REST, GraphQL...</small>
                                         </div>
-                                    </div>
-                                    <div id="input-local" class="proj-input-group" style="display:none;">
-                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Caminho do Diretório ou IP:Porta</label>
-                                        <div style="display: flex; gap: 10px;">
-                                            <input type="text" id="project-local-path" placeholder="C:\projetos\meu-sistema ou 192.168.1.100:3000" style="flex: 1;">
-                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                                        <div class="type-card" data-type="local" onclick="selectType(this)">
+                                            <div class="type-icon">🖥️</div>
+                                            <span class="type-label">Sistema Local</span>
+                                            <small class="type-desc">Ambiente Interno</small>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div id="project-analysis-result" style="display:none; margin-top: 20px; padding: 20px; background: rgba(30, 158, 187, 0.05); border-radius: 16px; border: 1px solid rgba(30, 158, 187, 0.15);">
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                                        <div class="analysis-item">
-                                            <small style="color: var(--text-secondary);">Status</small>
-                                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                                                <span class="data-dot" style="background: #10b981;"></span>
-                                                <span id="analysis-status" style="font-weight: 700; color: #10b981;">Conectado</span>
+                                <!-- 2. Informações -->
+                                <div class="intel-col">
+                                    <h4 class="intel-step-title">2. INFORMAÇÕES DO PROJETO</h4>
+                                    <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 20px;">
+                                        <div class="p-input-group">
+                                            <label style="font-size: 10px; letter-spacing: 1px;">URL DO SITE</label>
+                                            <div style="position: relative;">
+                                                <span style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); opacity: 0.5;">🔗</span>
+                                                <input type="text" id="ai-project-url" placeholder="https://meusite.com.br" style="padding-left: 45px; border-radius: 12px; background: rgba(0,0,0,0.2);">
+                                                <span class="input-check-icon" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #10b981; display:none;">✓</span>
                                             </div>
                                         </div>
-                                        <div class="analysis-item">
-                                            <small style="color: var(--text-secondary);">Framework</small>
-                                            <div id="analysis-framework" style="font-weight: 700; margin-top: 4px; font-family: 'JetBrains Mono', monospace;">—</div>
-                                        </div>
-                                        <div class="analysis-item">
-                                            <small style="color: var(--text-secondary);">Ambiente</small>
-                                            <div id="analysis-env" style="font-weight: 700; margin-top: 4px;">Produção</div>
-                                        </div>
-                                        <div class="analysis-item">
-                                            <small style="color: var(--text-secondary);">Monitoramento</small>
-                                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                                                <span class="data-dot" style="background: #10b981;"></span>
-                                                <span id="analysis-monitoring" style="font-weight: 700; color: #10b981;">Ativo</span>
-                                            </div>
+                                        <div class="p-input-group">
+                                            <label style="font-size: 10px; letter-spacing: 1px;">NOME DO PROJETO (OPCIONAL)</label>
+                                            <input type="text" id="ai-project-name" placeholder="Meu Site" style="border-radius: 12px; background: rgba(0,0,0,0.2);">
                                         </div>
                                     </div>
-                                    <button class="btn-premium" onclick="addCurrentProject()" style="margin-top: 15px; width: 100%; padding: 14px;">+ ADICIONAR PROJETO AO PAINEL</button>
                                 </div>
-                            </div>
-                        </div>
 
-                        <!-- Projetos Conectados -->
-                        <div class="system-card premium-glass tech-border holo-shimmer">
-                            <div class="system-header">
-                                <h3 style="font-size: 20px;">PROJETOS CONECTADOS</h3>
-                                <div class="sys-badge" id="projects-count-badge" style="background: rgba(232, 184, 48, 0.15); color: var(--gold);">0 ATIVOS</div>
-                            </div>
-                            <div id="projects-list" style="display: flex; flex-direction: column; gap: 15px;">
-                                <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px;">
-                                    Nenhum projeto conectado. Use o conector acima para adicionar.
+                                <!-- 3. Ação -->
+                                <div class="intel-col" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                                    <h4 class="intel-step-title">3. ANÁLISE INTELIGENTE</h4>
+                                    <p style="font-size: 11px; color: var(--text-secondary); margin: 15px 0 25px 0;">Nossa IA irá analisar seu projeto, detectar tecnologias, verificar disponibilidade, APIs, performance e segurança.</p>
+                                    <button class="btn-analyze-ai" onclick="analisarProjetoAI()">
+                                        <span class="icon">🛠️</span> ANALISAR PROJETO
+                                    </button>
+                                    <small style="margin-top: 15px; font-size: 10px; opacity: 0.5; font-family: 'JetBrains Mono';">Análise completa em segundos</small>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Monitoramento Site/App -->
-                        <div id="monitor-card" class="system-card premium-glass tech-border holo-shimmer" style="grid-column: 1 / -1;">
-                            <div class="system-header">
-                                <h3 style="font-size: 20px;">📡 MONITORAMENTO SITE / APP</h3>
-                                <div class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">ATUALIZANDO A CADA 3S</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 15px;">
-                                <div>
-                                    <h4 style="color: var(--gold); font-size: 12px; font-weight: 800; margin-bottom: 15px; letter-spacing: 0.5px;">📊 ESTRATÉGIAS EM EXECUÇÃO</h4>
-                                    <div id="monitor-strategies" class="strategy-list"></div>
-                                </div>
-                                <div>
-                                    <h4 style="color: var(--teal); font-size: 12px; font-weight: 800; margin-bottom: 15px; letter-spacing: 0.5px;">⚡ COMANDOS DISPARADOS</h4>
-                                    <div id="monitor-commands" class="command-stream"></div>
+                            <!-- Resultado da Análise (Aparece após clicar) -->
+                            <div id="ai-analysis-output" style="display:none; margin-top: 40px; padding-top: 30px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                <div class="result-badge-label">RESULTADO DA ANÁLISE</div>
+                                <div class="analysis-results-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 15px; margin-top: 15px;">
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#10b981">✓</div>
+                                        <div class="res-info">
+                                            <small>STATUS</small>
+                                            <span>Projeto conectado</span>
+                                        </div>
+                                    </div>
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#3b82f6">⚛️</div>
+                                        <div class="res-info">
+                                            <small>FRAMEWORK</small>
+                                            <span id="res-framework">React 18.2.0</span>
+                                        </div>
+                                    </div>
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#84cc16">⬢</div>
+                                        <div class="res-info">
+                                            <small>TECNOLOGIA</small>
+                                            <span id="res-tech">Node.js</span>
+                                        </div>
+                                    </div>
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#f59e0b">⚙️</div>
+                                        <div class="res-info">
+                                            <small>AMBIENTE</small>
+                                            <span>Produção</span>
+                                        </div>
+                                    </div>
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#10b981">🛡️</div>
+                                        <div class="res-info">
+                                            <small>SSL / SEGURANÇA</small>
+                                            <span>Válido</span>
+                                        </div>
+                                    </div>
+                                    <div class="res-item">
+                                        <div class="res-icon" style="color:#06b6d4">📈</div>
+                                        <div class="res-info">
+                                            <small>MONITORAMENTO</small>
+                                            <span>Disponível</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- MÉTRICAS DE PROJETOS -->
+                    <div class="project-metrics-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 30px; position:relative; z-index:2;">
+                        <div class="mini-stat-card premium-glass">
+                            <small>PROJETOS CONECTADOS</small>
+                            <div class="v-group">
+                                <span class="val">3</span>
+                                <span class="trend up">+1 este mês</span>
+                            </div>
+                        </div>
+                        <div class="mini-stat-card premium-glass">
+                            <small>TESTES EXECUTADOS</small>
+                            <div class="v-group">
+                                <span class="val">128</span>
+                                <span class="trend up">+24 hoje</span>
+                            </div>
+                        </div>
+                        <div class="mini-stat-card premium-glass">
+                            <small>ALERTAS ATIVOS</small>
+                            <div class="v-group">
+                                <span class="val" style="color: var(--danger);">2</span>
+                                <span class="trend">Críticos: 0</span>
+                            </div>
+                        </div>
+                        <div class="mini-stat-card premium-glass">
+                            <small>UPTIME MÉDIO</small>
+                            <div class="v-group">
+                                <span class="val" style="color: var(--success);">99.98%</span>
+                                <span class="trend">Últimos 7 dias</span>
+                            </div>
+                        </div>
+                        <div class="mini-stat-card premium-glass">
+                            <small>PERFORMANCE</small>
+                            <div class="v-group">
+                                <span class="val" style="color: var(--success);">Ótimo</span>
+                                <div class="perf-circle">96</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LISTA DE PROJETOS CADASTRADOS -->
+                    <div class="premium-table-container premium-glass tech-border-glow" style="position:relative; z-index:2;">
+                        <div class="table-header" style="padding: 25px;">
+                            <h3><span class="data-dot gold"></span> PROJETOS CADASTRADOS</h3>
+                        </div>
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>PROJETO</th>
+                                    <th>TIPO</th>
+                                    <th>STATUS</th>
+                                    <th>UPTIME</th>
+                                    <th>PERFORMANCE</th>
+                                    <th>ÚLTIMA ANÁLISE</th>
+                                    <th>AÇÕES</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body">
+                                <tr>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 12px;">
+                                            <div class="proj-icon-circle">🌐</div>
+                                            <div>
+                                                <div style="font-weight: 800; color: #fff;">Meu Site Principal</div>
+                                                <small style="opacity: 0.5;">https://meusite.com.br</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="type-tag site">Website</span></td>
+                                    <td><span class="status-tag online">● Online</span></td>
+                                    <td>99.99%</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div class="mini-perf-bar"><div class="fill" style="width: 95%;"></div></div>
+                                            <span>95 Ótimo</span>
+                                        </div>
+                                    </td>
+                                    <td>2 min atrás</td>
+                                    <td><button class="btn-action-dot">⋮</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -910,6 +1146,11 @@
                         <span class="btn-shimmer"></span>
                         <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                     </button>
+
+                    <!-- BYPASS PARA DESENVOLVEDOR (APARECE APENAS NO LOCALHOST) -->
+                    <div id="dev-bypass-area" style="margin-top: 15px; text-align: center;">
+                        <button onclick="bypassLogin()" style="background: transparent; border: 1px solid rgba(232,184,48,0.3); color: var(--gold); padding: 8px 15px; border-radius: 8px; font-size: 10px; cursor: pointer; font-weight: 800; letter-spacing: 1px;">⚡ BYPASS DESENVOLVEDOR</button>
+                    </div>
                 </div>
 
                 <div class="login-footer">

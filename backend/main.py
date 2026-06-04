@@ -17,6 +17,11 @@ from collections import deque
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+
+# Adiciona a raiz do projeto ao sys.path para permitir imports relativos e pacotes
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 WWW_DIR = os.path.join(PROJECT_ROOT, "www")
 ADMIN_DIR = os.path.join(WWW_DIR, "admin")
 
@@ -160,14 +165,14 @@ def tool_execute_unban(uid, reason):
 
 async def auto_approve_withdrawals(force=False):
     try:
-        config = db.reference('config').get() or {}
-        api_key = config.get('asaasKey') or os.environ.get('ASAAS_API_KEY', '')
-        if not api_key: return "ASAAS_API_KEY não configurada"
+        nodes = db.reference('neural/nodes').get() or {}
+        global_config = db.reference('config').get() or {}
+        global_asaas_key = global_config.get('asaasKey') or os.environ.get('ASAAS_API_KEY', '')
 
         users = db.reference('users').get() or {}
         total_debt = sum([float(u.get('balance', 0)) for u in users.values() if isinstance(u, dict)])
-        hits = config.get('stats', {}).get('hits', 0)
-        cpm = config.get('cpm', 0.18)
+        hits = global_config.get('stats', {}).get('hits', 0)
+        cpm = global_config.get('cpm', 0.18)
         dollar = get_dollar_rate()
         revenue = (hits / 1000) * cpm * dollar
         roi = ((revenue - total_debt) / revenue * 100) if revenue > 0 else 0
@@ -181,6 +186,15 @@ async def auto_approve_withdrawals(force=False):
         for uid, ws in all_withdrawals.items():
             for wid, w in ws.items():
                 if w.get('status') == 'pending':
+                    # Determina qual chave usar (Projeto ou Global)
+                    pid = w.get('projectId')
+                    node = nodes.get(pid) if pid else None
+                    api_key = (node.get('asaas_key') if node else None) or global_asaas_key
+
+                    if not api_key:
+                        print(f"Pulo saque {wid}: Nenhuma chave Asaas configurada.")
+                        continue
+
                     amount = float(w.get('amount', 0))
                     # Limite de segurança para auto-payout
                     if not force and amount > 5.0: continue
@@ -340,6 +354,28 @@ def tool_sentinel_enforcement():
         return f"Sentinel: {banned} banidos | VPN:{block_vpn} Root:{block_root} DevLock:{device_lock} AutoBan:{auto_ban}"
     except Exception as e: return f"Erro Sentinel: {str(e)}"
 
+WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "cybercore_workspace")
+if not os.path.exists(WORKSPACE_DIR):
+    os.makedirs(WORKSPACE_DIR)
+
+def tool_write_studio_file(filename, content):
+    try:
+        # Sanitização básica para evitar Path Traversal
+        filename = os.path.basename(filename)
+        path = os.path.join(WORKSPACE_DIR, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"Arquivo {filename} gerado com sucesso no workspace."
+    except Exception as e:
+        return f"Erro ao escrever arquivo: {e}"
+
+def tool_list_studio_files():
+    try:
+        files = os.listdir(WORKSPACE_DIR)
+        return {"files": files}
+    except Exception as e:
+        return f"Erro ao listar arquivos: {e}"
+
 AVAILABLE_TOOLS = {
     "toggle_maintenance": lambda state: db.reference('config/maintenance').set(state) or f"Manutenção: {state}",
     "update_cpm": lambda value: db.reference('config/cpm').set(value) or f"CPM: {value}",
@@ -351,7 +387,9 @@ AVAILABLE_TOOLS = {
     "get_user_data": lambda uid: db.reference(f'users/{uid}').get(),
     "check_frauds": lambda: db.reference('logs/frauds').get(),
     "process_all_payments": auto_approve_withdrawals,
-    "sentinel_enforcement": tool_sentinel_enforcement
+    "sentinel_enforcement": tool_sentinel_enforcement,
+    "write_studio_file": tool_write_studio_file,
+    "list_studio_files": tool_list_studio_files
 }
 
 TOOLS_DEFINITION = [
@@ -367,7 +405,9 @@ TOOLS_DEFINITION = [
             {"name": "get_user_data", "description": "Dados do usuário.", "parameters": {"type": "object", "properties": {"uid": {"type": "string"}}, "required": ["uid"]}},
             {"name": "check_frauds", "description": "Verifica logs de fraude.", "parameters": {"type": "object", "properties": {}}},
             {"name": "process_all_payments", "description": "Processa todos os saques pendentes.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "sentinel_enforcement", "description": "Executa varredura e banimento automático de fraudes.", "parameters": {"type": "object", "properties": {}}}
+            {"name": "sentinel_enforcement", "description": "Executa varredura e banimento automático de fraudes.", "parameters": {"type": "object", "properties": {}}},
+            {"name": "write_studio_file", "description": "Salva um arquivo ou script gerado no workspace do Studio.", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}}, "required": ["filename", "content"]}},
+            {"name": "list_studio_files", "description": "Lista os arquivos gerados no workspace do Studio.", "parameters": {"type": "object", "properties": {}}}
         ]
     }
 ]
@@ -572,35 +612,35 @@ async def cybercore_audit_loop():
             if HUB_MODE == "ADMIN":
                 # Sincroniza o sinal que o site (WWW) espera para mostrar "ONLINE"
                 db.reference('status/auditor_last_pulse').set({".sv": "timestamp"})
-                print(f"[ADMIN] Pulso do Auditor enviado ao Firebase: {datetime.now().strftime('%H:%M:%S')}")
 
-                # Apenas o Admin executa as tarefas pesadas de auditoria e Sentinel
+                # Executa tarefas de auditoria
                 tool_sync_monetag()
                 sentinel_report = tool_sentinel_enforcement()
-                oada_result = await oada_cycle()
+                await oada_cycle()
                 await monitor_connected_projects()
 
-                db.reference('status/active_strategies').update({
-                    "cybercore": {
-                        "name": "CyberCore OADA + Sentinel",
-                        "status": f"Modo: {oada_result['level'].upper()} | {sentinel_report}",
-                        "icon": "🛡️"
-                    }
-                })
-                print(f"[ADMIN] Loop OK: {sentinel_report}")
+                print(f"[ADMIN] Ciclo de Auditoria Completo: {datetime.now().strftime('%H:%M:%S')}")
             else:
-                # O modo USER apenas mantém o pulso ativo e limpa cache se necessário
                 print(f"[USER] CineCash IA Ativo e Pulsando...")
 
         except Exception as e:
             print(f"Erro Loop {HUB_MODE}: {e}")
-        await asyncio.sleep(30)
+
+        # Aumentamos um pouco o delay para evitar sobrecarga no reload
+        await asyncio.sleep(45)
 
 # --- INICIALIZAÇÃO DO APP ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Inicia o loop de auditoria em segundo plano
     task = asyncio.create_task(cybercore_audit_loop())
+    print("🚀 CyberCore IA: Loop de Auditoria Iniciado")
+
+    # Imprime rotas para diagnóstico
+    print("📌 Rotas registradas:")
+    for route in app.routes:
+        print(f"   {route.path} [{getattr(route, 'methods', 'ANY')}]")
+
     yield
     task.cancel()
 
@@ -611,20 +651,35 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Middleware para logar todas as requisições (ajuda a debugar 404)
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"🔍 Requisição recebida: {request.method} {request.url.path}")
+    response = await call_next(request)
+    print(f"📤 Resposta: {response.status_code}")
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- ROTAS API (DEVEM VIR ANTES DOS STATIC MOUNTS) ---
+# --- ROTAS API (OBRIGATORIAMENTE ANTES DOS STATIC MOUNTS) ---
 
 @app.get("/health")
-def health_check():
-    return {"status": "CyberCore IA Elite Online", "uptime": datetime.now().isoformat(), "version": "2.0.0"}
+@app.get("/health/")
+async def health_check():
+    return {
+        "status": "CyberCore IA Elite Online",
+        "mode": HUB_MODE,
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.post("/api/sentinel/scan")
+@app.post("/api/sentinel/scan/")
 async def manual_sentinel_scan():
     """Executa a varredura do Sentinel sob demanda via painel admin"""
     try:
@@ -685,6 +740,44 @@ async def ai_recall(data: dict = Body(...)):
     results = memory_recall(uid, query)
     return {"results": results, "count": len(results)}
 
+@app.get("/ai/status")
+async def ai_status():
+    """Retorna o status detalhado da IA para o painel."""
+    try:
+        health = tool_analyze_health()
+
+        # Determina o motor de IA prioritário disponível
+        motor_ativo = "nenhum"
+        if GROQ_AVAILABLE:
+            motor_ativo = "groq"
+        else:
+            # Verifica se Gemini está configurado
+            config = db.reference('config').get() or {}
+            gemini_key = os.environ.get("GEMINI_API_KEY") or str(config.get('geminiKey', '')).strip()
+            if gemini_key:
+                motor_ativo = "gemini"
+
+        return {
+            "status": "online",
+            "engine": "Groq/Gemini Hybrid",
+            "motor_ativo": motor_ativo,
+            "independente_de_api_paga": GROQ_AVAILABLE,  # Groq Cloud Free Tier
+            "ambiente": "Produção" if HUB_MODE == "ADMIN" else "Desenvolvimento",
+            "motores": {
+                "groq": {"ativo": GROQ_AVAILABLE},
+                "gemini": {"ativo": motor_ativo == "gemini" or (not GROQ_AVAILABLE and motor_ativo != "nenhum")},
+                "ollama": {"ativo": False}
+            },
+            "alert_level": compute_alert_level(),
+            "last_audit": datetime.now().isoformat(),
+            "mode": HUB_MODE,
+            "neural_sync": True,
+            "system_health": health
+        }
+    except Exception as e:
+        print(f"[AI STATUS] Erro: {e}")
+        return {"status": "degraded", "error": str(e)}
+
 @app.post("/ai/chat")
 async def ai_chat(data: dict = Body(...)):
     prompt = data.get("prompt", "")
@@ -693,9 +786,71 @@ async def ai_chat(data: dict = Body(...)):
     answer = await ask_ai(prompt, uid)
     return {"answer": answer}
 
+# --- STUDIO WORKSPACE API ---
+
+@app.get("/api/studio/files")
+async def studio_files():
+    try:
+        files = os.listdir(WORKSPACE_DIR)
+        file_details = []
+        for f in files:
+            path = os.path.join(WORKSPACE_DIR, f)
+            stat = os.stat(path)
+            file_details.append({
+                "name": f,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "ext": f.split('.')[-1] if '.' in f else 'txt'
+            })
+        return {"status": "success", "files": file_details}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.get("/api/studio/read-file/{filename}")
+async def studio_read_file(filename: str):
+    try:
+        # Sanitização
+        filename = os.path.basename(filename)
+        path = os.path.join(WORKSPACE_DIR, filename)
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+        with open(path, "r", encoding="utf-8") as f:
+            return {"status": "success", "content": f.read()}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/studio/save-file")
+async def studio_save_file(data: dict = Body(...)):
+    filename = data.get("filename")
+    content = data.get("content")
+    if not filename or content is None:
+        return {"status": "error", "msg": "Nome e conteúdo são obrigatórios"}
+
+    result = tool_write_studio_file(filename, content)
+    if "sucesso" in result:
+        return {"status": "success", "msg": result}
+    return {"status": "error", "msg": result}
+
+@app.delete("/api/studio/delete-file/{filename}")
+async def studio_delete_file(filename: str):
+    try:
+        filename = os.path.basename(filename)
+        path = os.path.join(WORKSPACE_DIR, filename)
+        if os.path.exists(path):
+            os.remove(path)
+            return {"status": "success", "msg": f"Arquivo {filename} removido."}
+        return {"status": "error", "msg": "Arquivo não encontrado."}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
 # --- SERVE STATIC FILES ---
 # As rotas estáticas manuais foram removidas em favor dos mounts automáticos.
 # O site de usuários (WWW) será servido na raiz (/) e o admin em (/admin).
+
+# --- API DE TELEMETRIA E SESSÃO ---
+@app.post("/api/session/pulse")
+async def session_pulse():
+    return {"status": "online", "timestamp": time.time(), "core": "CyberCore-Nexus"}
 
 # --- API: MÉTRICAS EM TEMPO REAL ---
 @app.get("/api/metrics")
@@ -746,6 +901,8 @@ def get_audit(): return tool_analyze_health()
 
 @app.post("/user/claim-daily/{uid}")
 @app.get("/user/claim-daily/{uid}")
+@app.post("/user/claim-daily/{uid}/")
+@app.get("/user/claim-daily/{uid}/")
 async def claim_daily(uid: str):
     try:
         user_ref = db.reference(f'users/{uid}')
@@ -753,11 +910,30 @@ async def claim_daily(uid: str):
         if not user_data:
             return {"status": "error", "message": "Usuário não encontrado"}
 
+        # Trava de Segurança: Verificação de Data
+        today = datetime.now().strftime('%Y-%m-%d')
+        last_bonus = user_data.get('last_daily_bonus_date')
+
+        if last_bonus == today:
+            raise HTTPException(status_code=400, detail="Bônus já resgatado hoje.")
+
+        # Bloqueio de Fim de Semana (Sábado/Domingo)
+        weekday = datetime.now().weekday()  # 0=Seg, 6=Dom
+        if weekday >= 5:
+            raise HTTPException(status_code=400, detail="Bônus disponível apenas em dias úteis (Seg a Sex).")
+
         current_balance = float(user_data.get('balance', 0))
         new_balance = current_balance + 0.50
-        user_ref.update({"balance": new_balance, "last_claim": datetime.now().isoformat()})
+
+        user_ref.update({
+            "balance": new_balance,
+            "last_daily_bonus_date": today,
+            "last_claim": datetime.now().isoformat()
+        })
 
         return {"status": "success", "new_balance": new_balance, "message": "Bônus diário resgatado!"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -823,6 +999,7 @@ async def request_withdrawal(uid: str, data: dict = Body(...)):
     try:
         amount = float(data.get("amount", 0))
         pix_key = data.get("pixKey", "").strip()
+        project_id = data.get("projectId") or data.get("nodeId")
 
         # --- SEGURANÇA: VALIDAÇÃO DE SALDO REAL ---
         user_ref = db.reference(f'users/{uid}')
@@ -862,6 +1039,7 @@ async def request_withdrawal(uid: str, data: dict = Body(...)):
             "timestamp": ts,
             "created_at": datetime.now().isoformat(),
             "uid": uid,
+            "projectId": project_id,
             "fingerprint": data.get("fingerprint", "unknown"),
             "fp_detail": data.get("fp_detail", {})
         }
@@ -1017,15 +1195,32 @@ async def project_remove(data: dict = Body(...)):
         return {"status": "error", "msg": str(e)}
 
 
+@app.get("/api/local/setup-script")
+async def get_setup_script():
+    """Retorna o script do agente local para instalação."""
+    script_path = os.path.join(PROJECT_ROOT, "core", "local_agent.py")
+    if os.path.exists(script_path):
+        with open(script_path, "r", encoding="utf-8") as f:
+            return {"status": "success", "script": f.read()}
+    return {"status": "error", "msg": "Script não encontrado"}
+
+
+@app.get("/api/local/install-command")
+async def get_install_command():
+    """Retorna o comando de terminal para instalar o agente local."""
+    # Assume que o servidor está rodando em um host acessível
+    # Em ambiente local, usamos localhost:7860
+    host = "http://localhost:7860" # Idealmente viria de uma config ou request.base_url
+    cmd = f"python -c \"import requests; r = requests.get('{host}/api/local/setup-script'); open('cybercore_agent.py', 'w', encoding='utf-8').write(r.json()['script'])\" && python cybercore_agent.py --hub {host}"
+    return {"status": "success", "command": cmd}
+
+
 @app.post("/payments/approve/{wid}")
 async def approve_payment(wid: str):
     try:
-        config = db.reference('config').get() or {}
-        api_key = config.get('asaasKey') or os.environ.get('ASAAS_API_KEY', '')
-        if not api_key:
-            msg = "⚠️ Alerta CyberCore: Chave API ASAAS não configurada no sistema!"
-            tool_send_push('global', msg)
-            return {"status": "error", "msg": "ASAAS_API_KEY não configurada."}
+        nodes = db.reference('neural/nodes').get() or {}
+        global_config = db.reference('config').get() or {}
+        global_asaas_key = global_config.get('asaasKey') or os.environ.get('ASAAS_API_KEY', '')
 
         withdraw_data = None
         target_uid = None
@@ -1042,6 +1237,16 @@ async def approve_payment(wid: str):
 
         if withdraw_data.get('status') != 'pending':
             return {"status": "error", "msg": f"Saque já processado (Status: {withdraw_data.get('status')})"}
+
+        # Seleciona chave Asaas baseada no projeto
+        pid = withdraw_data.get('projectId')
+        node = nodes.get(pid) if pid else None
+        api_key = (node.get('asaas_key') if node else None) or global_asaas_key
+
+        if not api_key:
+            msg = "⚠️ Alerta CyberCore: Chave API ASAAS não configurada!"
+            tool_send_push('global', msg)
+            return {"status": "error", "msg": "ASAAS_API_KEY não configurada para este projeto."}
 
         amount = float(withdraw_data.get('amount', 0))
         pix_key = withdraw_data.get('pixKey', '')
@@ -1128,23 +1333,24 @@ else:
         print(f"[ERRO] Falha ao montar Admin: {e}")
 
 if __name__ == "__main__":
-    import uvicorn, socket
+    import uvicorn
+    import os
 
-    def is_port_free(port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            return s.connect_ex(('127.0.0.1', port)) != 0
+    # Forma robusta: aponta o diretório base e o nome do módulo sem o prefixo da pasta
+    # Isso garante que tanto o uvicorn quanto o reload encontrem o arquivo main.py
+    app_module = "main:app"
 
-    # Usa porta 7860 por padrão; se ocupada, tenta 7861 e 7862
-    preferred = int(os.environ.get("PORT", 7860))
-    if not is_port_free(preferred):
-        print(f"[AVISO] Porta {preferred} ocupada, tentando alternativa...")
-        for alt in [7861, 7862]:
-            if is_port_free(alt):
-                preferred = alt
-                break
-        else:
-            print("[ERRO] Nenhuma porta disponivel (7860-7862)")
-            exit(1)
-        print(f"[INFO] Usando porta {preferred}")
+    preferred_port = int(os.environ.get("PORT", 7860))
 
-    uvicorn.run(app, host="0.0.0.0", port=preferred)
+    print(f"🚀 Iniciando CyberCore Elite em http://localhost:{preferred_port}")
+    print(f"🔄 Modo Auto-Reload Ativado")
+
+    uvicorn.run(
+        app_module,
+        host="0.0.0.0",
+        port=preferred_port,
+        reload=True,
+        app_dir=BACKEND_DIR, # Define explicitamente onde o código reside
+        proxy_headers=True,
+        forwarded_allow_ips="*"
+    )
