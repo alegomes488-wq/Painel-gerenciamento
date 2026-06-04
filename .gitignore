@@ -11,6 +11,9 @@ node_modules/
 __pycache__/
 *.pyc
 
+# Chroma DB vector store (binary, too large for HF)
+backend/chroma_db/
+
 # IDEs and Logs
 .idea/
 .vscode/
