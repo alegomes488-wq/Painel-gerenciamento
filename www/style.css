@@ -577,6 +577,45 @@ p.subtitle {
     transition: all 0.4s ease;
 }
 
+.cybercore-chat-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(124, 58, 237, 0.5) transparent;
+}
+
+.cybercore-chat-body::-webkit-scrollbar {
+    width: 4px;
+}
+.cybercore-chat-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+.cybercore-chat-body::-webkit-scrollbar-thumb {
+    background: rgba(124, 58, 237, 0.5);
+    border-radius: 4px;
+}
+
+.cybercore-chat-close {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all 0.3s;
+    line-height: 1;
+}
+.cybercore-chat-close:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.1);
+}
+
 .cybercore-chat-container::after {
     content: '';
     position: absolute;
@@ -632,6 +671,23 @@ p.subtitle {
     line-height: 1.6;
     position: relative;
     transition: all 0.3s ease;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.cybercore-msg pre {
+    max-width: 100%;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.cybercore-msg code {
+    word-break: break-word;
+}
+
+.cybercore-msg a {
+    word-break: break-all;
 }
 
 .cybercore-msg-ai {
@@ -1102,6 +1158,12 @@ p.subtitle {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .cybercore-chat-container {
+        width: calc(100% - 30px);
+        right: 15px;
+        height: 500px;
+    }
+
     .navbar {
         margin: 15px 10px;
         padding: 8px 12px;
@@ -1120,6 +1182,17 @@ p.subtitle {
 
     .stat-grid-premium {
         grid-template-columns: 1fr;
+    }
+
+    .cybercore-chat-container {
+        width: calc(100% - 30px);
+        right: 15px;
+        height: 450px;
+    }
+
+    .cybercore-chat-suggestions button {
+        font-size: 0.65rem;
+        padding: 6px 10px;
     }
 
     .navbar {
@@ -1164,6 +1237,17 @@ p.subtitle {
 }
 
 @media (max-width: 480px) {
+    .cybercore-chat-container {
+        width: calc(100% - 30px);
+        right: 15px;
+        height: 400px;
+    }
+
+    .cybercore-chat-suggestions button {
+        font-size: 0.6rem;
+        padding: 5px 8px;
+    }
+
     .navbar {
         margin: 10px 8px;
         padding: 8px 10px;
@@ -1197,6 +1281,17 @@ p.subtitle {
 
 /* ─── Responsividade Extrema (< 360px) ─── */
 @media (max-width: 360px) {
+    .cybercore-chat-container {
+        width: calc(100% - 20px);
+        right: 10px;
+        height: 350px;
+    }
+
+    .cybercore-chat-suggestions button {
+        font-size: 0.55rem;
+        padding: 4px 7px;
+    }
+
     .navbar {
         padding: 6px 8px;
     }
