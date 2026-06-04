@@ -539,9 +539,9 @@
 
         const CONFIG = {
             apiBase: (window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space'))
-                     ? 'https://desenvolvimento-cinecash-ia.hf.space'
+                     ? 'https://desenvolvimento-cybercore-ia.hf.space'
                      : window.location.origin,
-            adminBase: 'https://desenvovimento-cybercore-ia.hf.space',
+            adminBase: 'https://desenvolvimento-cybercore-ia.hf.space',
             workerBase: 'https://cybercore-api.alegomes488.workers.dev',
             monetagId: '7654321'
         };
@@ -699,20 +699,147 @@
         };
 
         // Sistema de Fingerprint Digital (Identificação de Dispositivo)
+        async function collectDetailedFingerprint() {
+            let canvasHash = '', glHash = '', vpnDetected = false, rootHints = [];
+            try {
+                const c = document.createElement('canvas');
+                c.width = 256; c.height = 256;
+                const ctx = c.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#f60';
+                ctx.fillRect(100, 1, 50, 50);
+                ctx.fillStyle = '#069';
+                ctx.fillText('CineCash™', 2, 15);
+                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                ctx.fillText('CyberCore', 4, 45);
+                const b64 = c.toDataURL();
+                const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(b64));
+                canvasHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+            } catch (e) { canvasHash = 'nocanvas'; }
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (gl) {
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    glHash = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : 'noext';
+                }
+            } catch (e) { glHash = 'nogl'; }
+            try {
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                await pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                await new Promise(r => { pc.onicecandidate = e => r(); setTimeout(r, 2000); });
+                const candidates = pc.localDescription.sdp.match(/candidate:[^ ]+/g) || [];
+                const ips = [...new Set(candidates.map(c => { const m = c.match(/udp (\d+\.\d+\.\d+\.\d+)/); return m ? m[1] : null; }).filter(Boolean))];
+                if (ips.length > 1) vpnDetected = true;
+                pc.close();
+            } catch (e) {}
+            if (/SuperSU|Magisk/i.test(navigator.userAgent)) rootHints.push('root_app');
+            if (/Cydia|MobileSubstrate/i.test(navigator.userAgent)) rootHints.push('jailbreak_app');
+            if (navigator.webdriver === true) rootHints.push('automation');
+            if (!navigator.plugins || navigator.plugins.length === 0) rootHints.push('no_plugins');
+            if (navigator.languages && navigator.languages.length === 0) rootHints.push('headless');
+
+            return {
+                canvas: canvasHash,
+                webgl: glHash,
+                vpn: vpnDetected,
+                root_hints: rootHints,
+                cores: navigator.hardwareConcurrency || 'unknown',
+                mem: navigator.deviceMemory || 'unknown',
+                screen: window.screen.width + 'x' + window.screen.height,
+                lang: navigator.language,
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                ua: navigator.userAgent
+            };
+        }
+
         async function getFingerprint() {
+            // Canvas fingerprint para maior unicidade
+            let canvasHash = '';
+            try {
+                const c = document.createElement('canvas');
+                c.width = 256; c.height = 256;
+                const ctx = c.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#f60';
+                ctx.fillRect(100, 1, 50, 50);
+                ctx.fillStyle = '#069';
+                ctx.fillText('CineCash™', 2, 15);
+                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                ctx.fillText('CyberCore', 4, 45);
+                const b64 = c.toDataURL();
+                const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(b64));
+                canvasHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
+            } catch (e) { canvasHash = 'nocanvas'; }
+
+            // WebGL fingerprint
+            let glHash = '';
+            try {
+                const gl = document.createElement('canvas').getContext('webgl');
+                if (gl) {
+                    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+                    glHash = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) + '|' + gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : 'noext';
+                }
+            } catch (e) { glHash = 'nogl'; }
+
+            // Detecção de VPN/Proxy via WebRTC
+            let vpnDetected = false;
+            try {
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                await pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                await new Promise(r => { pc.onicecandidate = e => r(); setTimeout(r, 2000); });
+                const candidates = pc.localDescription.sdp.match(/candidate:[^ ]+/g) || [];
+                const ips = [...new Set(candidates.map(c => {
+                    const m = c.match(/udp (\d+\.\d+\.\d+\.\d+)/);
+                    return m ? m[1] : null;
+                }).filter(Boolean))];
+                // Se encontramos IPs locais diferentes do esperado (ex: 10.x, 172.16-31.x, 192.168.x)
+                // combinados com IP público diferente, é forte indício de VPN
+                if (ips.length > 1) vpnDetected = true;
+                pc.close();
+            } catch (e) { /* WebRTC não disponível */ }
+
+            // Heurísticas de Root/Jailbreak (limitado em web, mas detectamos padrões suspeitos)
+            let rootHints = [];
+            if (/android/i.test(navigator.userAgent)) {
+                // Verifica se há apps de root conhecidos ou configurações incomuns
+                if (navigator.userAgent.includes('SuperSU') || navigator.userAgent.includes('Magisk')) rootHints.push('root_app');
+                // Verifica se o dispositivo tem resolução incomum para o modelo
+            }
+            if (/iphone|ipad/i.test(navigator.userAgent)) {
+                // Alguns jailbreaks deixam rastros no user agent
+                if (navigator.userAgent.includes('Cydia') || navigator.userAgent.includes('MobileSubstrate')) rootHints.push('jailbreak_app');
+            }
+            // Detecção de automação (Selenium, Puppeteer, etc.)
+            if (navigator.webdriver === true) rootHints.push('automation');
+            if (!navigator.plugins || navigator.plugins.length === 0) rootHints.push('no_plugins');
+            // Chrome headless detection
+            if (navigator.languages && navigator.languages.length === 0) rootHints.push('headless');
+
             const data = {
                 ua: navigator.userAgent,
-                screen: `${window.screen.width}x${window.screen.height}`,
+                screen: window.screen.width + 'x' + window.screen.height,
                 lang: navigator.language,
                 tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 cores: navigator.hardwareConcurrency || 'unknown',
-                mem: navigator.deviceMemory || 'unknown'
+                mem: navigator.deviceMemory || 'unknown',
+                canvas: canvasHash,
+                webgl: glHash,
+                vpn: vpnDetected,
+                root_hints: rootHints,
+                timestamp: Date.now()
             };
+
             const str = JSON.stringify(data);
             const msgBuffer = new TextEncoder().encode(str);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            const deviceId = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            return deviceId;
         }
 
         window.handleRegister = async () => {
@@ -748,6 +875,7 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const referredBy = urlParams.get('ref') || null;
                 const fingerprint = await getFingerprint();
+                const fpData = await collectDetailedFingerprint();
 
                 await set(ref(db, `users/${uid}`), {
                     fullname: `${fname} ${lname}`,
@@ -764,6 +892,7 @@
                     security: {
                         fingerprint: fingerprint,
                         device_info: navigator.userAgent,
+                        fp_detail: fpData,
                         ip_check_required: false
                     },
                     legal_acceptance: {
@@ -801,11 +930,13 @@
                 const userCredential = await signInWithEmailAndPassword(auth, e, p);
                 sessionStorage.removeItem('cinecash_lock');
                 const fingerprint = await getFingerprint();
+                const fpData = await collectDetailedFingerprint();
 
                 // Atualiza o último dispositivo usado no login para auditoria
                 await import('./firebase-database.js').then(({update}) => {
                     update(ref(db, `users/${userCredential.user.uid}/security`), {
                         last_login_fingerprint: fingerprint,
+                        last_login_fp_detail: fpData,
                         last_login_at: serverTimestamp()
                     });
                 });
@@ -1645,6 +1776,7 @@
 
             try {
                 const fingerprint = await getFingerprint();
+                const fpData = await collectDetailedFingerprint();
 
                 const res = await fetch(`${CONFIG.apiBase}/payments/request/${auth.currentUser.uid}`, {
                     method: 'POST',
@@ -1653,7 +1785,8 @@
                         amount,
                         pixKey: finalKey,
                         pixType: type,
-                        fingerprint: fingerprint
+                        fingerprint: fingerprint,
+                        fp_detail: fpData
                     })
                 });
 

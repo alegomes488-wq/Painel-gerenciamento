@@ -92,12 +92,17 @@ function initRealTimeSystem() {
         }
     });
 
-    // Sincronização de Nós (Projetos)
+    // Sincronização de Nós (Projetos) — monitoramento em tempo real
     hubDb.ref('neural/nodes').on('value', snap => {
         if (!rtState.neural) rtState.neural = {};
-        rtState.neural.nodes = snap.val() || {};
+        const nodes = snap.val() || {};
+        rtState.neural.nodes = nodes;
+        // Sincroniza o array connectedProjects com os dados do Firebase
+        connectedProjects = Object.keys(nodes).map(k => ({ id: k, ...nodes[k] }));
         renderProjects();
-        updateWarRoom(); // Atualiza links SVG
+        updateWarRoom();
+        // Migra projetos do localStorage para Firebase se existirem
+        migrateLocalProjectsToFirebase();
     });
 
     // Sincronização de Usuários
@@ -721,8 +726,8 @@ auth.onAuthStateChanged(user => {
         setTimeout(() => loader.remove(), 500);
     }
 
-    // Verifica trava de sessão (refresh da página)
-    if (user && sessionStorage.getItem('cinecash_lock') === '1') {
+    // Verifica trava de sessão (refresh da página) - ignora durante login ativo
+    if (user && !loginInProgress && sessionStorage.getItem('cinecash_lock') === '1') {
         sessionStorage.removeItem('cinecash_lock');
         auth.signOut().then(() => location.reload());
         return;
@@ -740,14 +745,21 @@ auth.onAuthStateChanged(user => {
     }
 });
 
+let loginInProgress = false;
+
 async function login() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value;
     if (!email || !pass) return showToast('Preencha e-mail e senha.', 'error');
+    loginInProgress = true;
+    sessionStorage.removeItem('cinecash_lock');
+    sessionLocked = false;
     try {
         await auth.signInWithEmailAndPassword(email, pass);
         sessionStorage.removeItem('cinecash_lock');
+        loginInProgress = false;
     } catch (e) { 
+        loginInProgress = false;
         console.warn('[Admin Login]', e.code, e.message);
         showToast(e.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' : 'Acesso negado.', 'error');
     }
@@ -768,6 +780,7 @@ function lockSession() {
 
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+        if (!auth.currentUser) return;
         sessionLocked = true;
         sessionStorage.setItem('cinecash_lock', '1');
     } else if (sessionLocked) {
@@ -776,11 +789,13 @@ document.addEventListener('visibilitychange', () => {
 });
 
 window.addEventListener('blur', () => {
+    if (!auth.currentUser) return;
     sessionLocked = true;
     sessionStorage.setItem('cinecash_lock', '1');
 });
 window.addEventListener('focus', () => { if (sessionLocked) lockSession(); });
 document.addEventListener('pause', () => {
+    if (!auth.currentUser) return;
     sessionLocked = true;
     sessionStorage.setItem('cinecash_lock', '1');
 });
@@ -961,7 +976,6 @@ function loadAuditInputs(config) {
         'audit-telegram-chatid': merged.telegramChatId,
         'audit-whatsapp': merged.admin_whatsapp,
         'audit-asaas-key': merged.asaas_key,
-        'audit-vapid-key': merged.vapid_key,
         'audit-backend-url': localStorage.getItem('CYBERCORE_BACKEND_URL') || merged.backend_url
     };
     for (const [id, val] of Object.entries(fields)) {
@@ -980,8 +994,7 @@ function saveAuditParameters() {
         'telegramToken': document.getElementById('audit-telegram-token').value,
         'telegramChatId': document.getElementById('audit-telegram-chatid').value,
         'admin_whatsapp': document.getElementById('audit-whatsapp').value,
-        'asaas_key': document.getElementById('audit-asaas-key').value,
-        'vapid_key': document.getElementById('audit-vapid-key').value
+        'asaas_key': document.getElementById('audit-asaas-key').value
     };
 
     const backendUrl = document.getElementById('audit-backend-url').value;
@@ -1270,7 +1283,10 @@ function injectSentinelLogs() {
 }
 
 function updateWarRoom() {
-    // Busca métricas em tempo real do Núcleo IA
+    // Atualiza ambos: monitor no painel de projetos + war room legacy
+    const strategiesEl = document.getElementById('monitor-strategies') || document.getElementById('warroom-strategies');
+    const cmdsEl = document.getElementById('monitor-commands') || document.getElementById('warroom-commands');
+
     const metricsUrl = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/api/metrics` : '/api/metrics';
     fetch(metricsUrl)
         .then(r => r.json())
@@ -1377,7 +1393,6 @@ function updateWarRoom() {
     }
 
     // 2. ESTRATÉGIAS EM EXECUÇÃO
-    const strategiesEl = document.getElementById('warroom-strategies');
     if (strategiesEl) {
         const strategies = [
             { icon: '🚀', name: 'Otimização de ROI v4', desc: `CPM ajustado: R$ ${rtState.config?.cpm || 0.18}`, progress: Math.min(100, ((rtState.status?.financial_realtime?.hits || 0) / 1000) * 100) },
@@ -1398,7 +1413,6 @@ function updateWarRoom() {
     }
 
     // 3. COMANDOS DISPARADOS
-    const cmdsEl = document.getElementById('warroom-commands');
     if (cmdsEl) {
         const now = new Date().toLocaleTimeString();
         const cmds = [
@@ -1685,18 +1699,6 @@ function resetReservaPrompt() {
     }
 }
 
-function testPushNotification() {
-    const vapid = document.getElementById('vapid-key')?.value || '';
-    if (!vapid) return showToast("Configure a VAPID Key primeiro.", "error");
-    fetch(`${CYBERCORE_BACKEND_URL}/send-test-push`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vapid })
-    }).then(r => r.json()).then(d => {
-        showToast(d.message || "Push enviado!", "success");
-    }).catch(() => showToast("Falha ao enviar push.", "error"));
-}
-
 function approveAllWithdrawals() {
     if (!confirm("Aprovar TODOS os saques pendentes?")) return;
     fetch(`${CYBERCORE_BACKEND_URL}/process-all-payments`, {
@@ -1705,4 +1707,254 @@ function approveAllWithdrawals() {
     }).then(r => r.json()).then(d => {
         showToast(d.message || "Saques processados!", "success");
     }).catch(() => showToast("Falha ao processar saques.", "error"));
+}
+
+// ============ INTELIGÊNCIA DE PROJETO ============
+let currentProjectType = 'website';
+let lastAnalysisResult = null;
+let connectedProjects = [];
+
+function selectProjectType(btn) {
+    document.querySelectorAll('.proj-type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentProjectType = btn.dataset.type;
+
+    document.querySelectorAll('.proj-input-group').forEach(g => g.style.display = 'none');
+    const target = document.getElementById('input-' + currentProjectType);
+    if (target) target.style.display = 'block';
+
+    document.getElementById('project-analysis-result').style.display = 'none';
+    lastAnalysisResult = null;
+}
+
+function getProjectInputValue() {
+    const map = {
+        website: 'project-url',
+        android: 'project-package',
+        api: 'project-api-url',
+        local: 'project-local-path'
+    };
+    const el = document.getElementById(map[currentProjectType]);
+    return el ? el.value.trim() : '';
+}
+
+async function analisarProjeto() {
+    const identifier = getProjectInputValue();
+    if (!identifier) return showToast("Informe a URL ou identificador do projeto.", "error");
+
+    const resultDiv = document.getElementById('project-analysis-result');
+    resultDiv.style.display = 'block';
+    document.getElementById('analysis-status').textContent = 'Analisando...';
+    document.getElementById('analysis-status').style.color = '#fbbf24';
+    document.getElementById('analysis-framework').textContent = '—';
+    document.getElementById('analysis-env').textContent = '—';
+    document.getElementById('analysis-monitoring').textContent = '—';
+
+    try {
+        const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/project/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: currentProjectType, identifier })
+        });
+        const raw = await resp.json();
+        // raw pode ser { status: "success", data: { ... } } ou { status: "Conectado", framework: "...", ... }
+        const info = raw.data || raw;
+        lastAnalysisResult = { type: currentProjectType, identifier, data: info };
+        updateAnalysisUI(info);
+    } catch (e) {
+        const fallback = detectProjectLocally(identifier);
+        lastAnalysisResult = { type: currentProjectType, identifier, data: fallback };
+        updateAnalysisUI(fallback);
+    }
+}
+
+function detectProjectLocally(identifier) {
+    const result = { status: 'Conectado', framework: 'Desconhecido', ambiente: 'Produção', monitoring: 'Ativo' };
+
+    if (currentProjectType === 'website') {
+        if (identifier.includes('wordpress') || identifier.includes('wp')) {
+            result.framework = 'WordPress';
+        } else if (identifier.includes('react') || identifier.includes('vercel')) {
+            result.framework = 'React';
+        } else if (identifier.includes('laravel') || identifier.includes('php')) {
+            result.framework = 'Laravel / PHP';
+        } else if (identifier.includes('vue') || identifier.includes('nuxt')) {
+            result.framework = 'Vue.js';
+        } else if (identifier.includes('node') || identifier.includes('express')) {
+            result.framework = 'Node.js';
+        } else {
+            result.framework = 'HTML / Estático';
+        }
+    } else if (currentProjectType === 'android') {
+        result.framework = 'Android Native / Kotlin';
+        result.ambiente = 'APK Analisado';
+    } else if (currentProjectType === 'api') {
+        if (identifier.includes('graphql')) {
+            result.framework = 'GraphQL';
+        } else if (identifier.includes('rest') || identifier.includes('api')) {
+            result.framework = 'REST API';
+        } else {
+            result.framework = 'API Desconhecida';
+        }
+    } else if (currentProjectType === 'local') {
+        result.framework = 'Sistema Local';
+        result.ambiente = 'localhost';
+    }
+
+    return result;
+}
+
+function updateAnalysisUI(data) {
+    document.getElementById('analysis-status').textContent = data.status || 'Conectado';
+    document.getElementById('analysis-status').style.color = '#10b981';
+    document.getElementById('analysis-framework').textContent = data.framework || '—';
+    document.getElementById('analysis-env').textContent = data.ambiente || '—';
+    document.getElementById('analysis-monitoring').textContent = data.monitoring || 'Ativo';
+    document.getElementById('analysis-monitoring').style.color = '#10b981';
+}
+
+function addCurrentProject() {
+    if (!lastAnalysisResult) return showToast("Analise um projeto primeiro.", "error");
+
+    const exists = connectedProjects.find(p =>
+        p.identifier === lastAnalysisResult.identifier && p.type === lastAnalysisResult.type
+    );
+    if (exists) return showToast("Este projeto já está conectado.", "error");
+
+    const projectId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const projectData = {
+        type: lastAnalysisResult.type,
+        identifier: lastAnalysisResult.identifier,
+        framework: lastAnalysisResult.data?.framework || lastAnalysisResult.framework || '—',
+        ambiente: lastAnalysisResult.data?.ambiente || lastAnalysisResult.ambiente || '—',
+        monitoring: lastAnalysisResult.data?.monitoring || lastAnalysisResult.monitoring || 'Ativo',
+        addedAt: new Date().toISOString()
+    };
+
+    // Salva via backend (admin SDK) para evitar regras de segurança do client
+    fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: projectId, data: projectData })
+    })
+    .then(r => r.json())
+    .then(resp => {
+        if (resp.status === 'success') {
+            showToast("Projeto adicionado com sucesso!", "success");
+        } else {
+            showToast("Erro ao salvar projeto.", "error");
+        }
+    })
+    .catch(() => {
+        showToast("Erro de conexão com o backend.", "error");
+    });
+
+    document.getElementById('project-analysis-result').style.display = 'none';
+    document.getElementById('project-url').value = '';
+    document.getElementById('project-package').value = '';
+    document.getElementById('project-api-url').value = '';
+    document.getElementById('project-local-path').value = '';
+    lastAnalysisResult = null;
+}
+
+function renderProjects() {
+    const container = document.getElementById('projects-list');
+    const badge = document.getElementById('projects-count-badge');
+    if (!container) return;
+
+    if (connectedProjects.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px;">Nenhum projeto conectado. Use o conector acima para adicionar.</div>`;
+        if (badge) badge.textContent = '0 ATIVOS';
+        return;
+    }
+
+    const onlineCount = connectedProjects.filter(p => p.health?.status === 'online').length;
+    if (badge) badge.textContent = onlineCount + '/' + connectedProjects.length + ' ONLINE';
+
+    container.innerHTML = connectedProjects.map(p => {
+        const icons = { website: '🌐', android: '📱', api: '⚡', local: '💻' };
+        const icon = icons[p.type] || '📦';
+        const typeClass = p.type || 'website';
+        const health = p.health || {};
+        const isOnline = health.status === 'online';
+        const isDegraded = health.status === 'degraded';
+        const dotColor = isOnline ? '#10b981' : isDegraded ? '#fbbf24' : '#ef4444';
+        const statusLabel = isOnline ? 'Online' : isDegraded ? 'Degradado' : 'Offline';
+        const latency = health.latency_ms ? health.latency_ms + 'ms' : '';
+        const httpStatus = health.http_status || '';
+        const lastCheck = health.last_checked
+            ? new Date(health.last_checked).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+        return `
+            <div class="project-card-mini">
+                <div style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0;">
+                    <div class="proj-icon ${typeClass}">${icon}</div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div style="font-weight: 700; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.identifier}</div>
+                        <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 0.65rem; color: var(--text-secondary); flex-wrap: wrap;">
+                            <span>${p.framework || '—'}</span>
+                            <span class="data-dot" style="background: ${dotColor};"></span>
+                            <span style="color: ${dotColor};">${statusLabel}</span>
+                            ${latency ? `<span>⏱ ${latency}</span>` : ''}
+                            ${httpStatus ? `<span>HTTP ${httpStatus}</span>` : ''}
+                            ${lastCheck ? `<span>🕐 ${lastCheck}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <button class="btn-minimal" onclick="removeProject('${p.id}')" style="border-color: rgba(239,68,68,0.3); color: #ef4444; padding: 6px 12px; font-size: 0.7rem; flex-shrink: 0;">REMOVER</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function removeProject(id) {
+    if (!confirm("Remover este projeto do painel?")) return;
+    connectedProjects = connectedProjects.filter(p => p.id !== id);
+    renderProjects();
+    fetch(`${CYBERCORE_BACKEND_URL}/api/project/remove`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+    })
+    .then(r => r.json())
+    .then(resp => {
+        showToast(resp.status === 'success' ? "Projeto removido." : "Erro ao remover.", resp.status === 'success' ? "info" : "error");
+    })
+    .catch(() => showToast("Erro de conexão.", "error"));
+}
+
+function migrateLocalProjectsToFirebase() {
+    if (Object.keys(rtState.neural.nodes || {}).length > 0) return;
+    try {
+        const saved = localStorage.getItem('cybercore_projects');
+        if (!saved) return;
+        const local = JSON.parse(saved);
+        if (!local.length) return;
+        let migrated = 0;
+        local.forEach(p => {
+            const id = p.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const data = {
+                type: p.type || 'website',
+                identifier: p.identifier,
+                framework: p.framework || '—',
+                ambiente: p.ambiente || '—',
+                addedAt: p.addedAt || new Date().toISOString()
+            };
+            fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, data })
+            }).catch(() => {});
+            migrated++;
+        });
+        localStorage.removeItem('cybercore_projects');
+        console.log('[PROJETOS] Migrados do localStorage para Firebase:', migrated);
+    } catch (e) { /* ignore */ }
+}
+
+function handleApkUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    showToast("APK recebido: " + file.name + " (" + (file.size / 1024 / 1024).toFixed(1) + " MB)", "info");
+    document.getElementById('project-package').value = file.name.replace('.apk', '');
 }

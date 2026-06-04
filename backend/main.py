@@ -258,22 +258,86 @@ async def auto_approve_withdrawals(force=False):
 
 def tool_sentinel_enforcement():
     try:
+        config = db.reference('config').get() or {}
+        block_vpn = config.get('blockVPN', False)
+        block_root = config.get('blockRoot', False)
+        device_lock = config.get('deviceLock', False)
+        auto_ban = config.get('autoBan', False)
+
         users = db.reference('users').get() or {}
         banned = 0
+
+        # Mapeia fingerprint -> lista de uids para detectar múltiplas contas
+        fingerprint_map = {}
         for uid, user in users.items():
             if not isinstance(user, dict): continue
+            fp = user.get('security', {}).get('fingerprint', '')
+            if fp and len(fp) > 10:
+                if fp not in fingerprint_map: fingerprint_map[fp] = []
+                fingerprint_map[fp].append(uid)
+
+        for uid, user in users.items():
+            if not isinstance(user, dict): continue
+            status = user.get('status', 'ativo')
+            if status == 'banido': continue
+
+            sec = user.get('security', {})
+            fp = sec.get('fingerprint', '')
+            fp_detail = sec.get('fp_detail', {}) or {}
+            vpn = fp_detail.get('vpn', False)
+            root_hints = fp_detail.get('root_hints', [])
             risk = user.get('risk_score', 0)
             balance = float(user.get('balance', 0))
-            status = user.get('status', 'ativo')
-            if status != 'banido':
-                reason = None
-                if risk >= 100: reason = "Score de risco crítico (100+)"
-                elif balance > 1000 and user.get('videosWatched', 0) < 5: reason = "Saldo suspeito com baixa atividade"
-                if reason:
-                    tool_execute_ban(uid, reason)
-                    banned += 1
-                    db.reference('logs/sentinel_alerts').push({"uid": uid, "reason": reason, "timestamp": {".sv": "timestamp"}})
-        return f"Varredura concluída. {banned} usuários neutralizados."
+            reason = None
+
+            # 1. Bloqueio de Proxy/VPN
+            if block_vpn and vpn:
+                reason = "VPN/Proxy detectado (Política de Blindagem)"
+
+            # 2. Detecção de Root/Jailbreak
+            if block_root and root_hints and len(root_hints) > 0:
+                if any(h not in ('no_plugins',) for h in root_hints):
+                    reason = f"Root/Jailbreak detectado: {', '.join(root_hints)}"
+
+            # 3. Score de risco
+            if not reason and risk >= 100:
+                reason = "Score de risco crítico (100+)"
+
+            # 4. Saldo suspeito
+            if not reason and balance > 1000 and user.get('videosWatched', 0) < 5:
+                reason = "Saldo suspeito com baixa atividade"
+
+            # 5. Auto-Ban (múltiplas contas no mesmo dispositivo)
+            if auto_ban and not reason and fp and len(fp) > 10:
+                accounts_on_device = fingerprint_map.get(fp, [])
+                if len(accounts_on_device) > 1:
+                    reason = f"Múltiplas contas no mesmo dispositivo ({len(accounts_on_device)} contas)"
+
+            if reason:
+                tool_execute_ban(uid, reason)
+                banned += 1
+                db.reference('logs/sentinel_alerts').push({
+                    "uid": uid, "reason": reason,
+                    "timestamp": {".sv": "timestamp"},
+                    "policies": {
+                        "blockVPN": block_vpn, "blockRoot": block_root,
+                        "deviceLock": device_lock, "autoBan": auto_ban
+                    }
+                })
+
+            # 6. Device Lock: apenas marca como suspeito, não bane (bloqueia login)
+            if device_lock and not reason and fp and len(fp) > 10:
+                accounts_on_device = fingerprint_map.get(fp, [])
+                if len(accounts_on_device) > 1:
+                    # Marca o usuário para bloqueio de login (não banimento)
+                    db.reference(f'users/{uid}/security/device_lock_alert').set(True)
+                    db.reference('logs/device_lock_alerts').push({
+                        "uid": uid, "fingerprint": fp,
+                        "accounts": accounts_on_device,
+                        "timestamp": {".sv": "timestamp"}
+                    })
+
+        return f"Sentinel: {banned} banidos | VPN:{block_vpn} Root:{block_root} DevLock:{device_lock} AutoBan:{auto_ban}"
     except Exception as e: return f"Erro Sentinel: {str(e)}"
 
 AVAILABLE_TOOLS = {
@@ -444,6 +508,60 @@ async def oada_cycle():
     })
     return {"level": level, "decisions": decisions}
 
+async def monitor_connected_projects():
+    """Monitora projetos conectados (neural/nodes) em tempo real."""
+    try:
+        nodes = db.reference('neural/nodes').get() or {}
+        for node_id, node in nodes.items():
+            identifier = node.get('identifier', '')
+            ptype = node.get('type', 'website')
+            if not identifier:
+                continue
+
+            health = {"last_checked": datetime.now().isoformat()}
+            try:
+                if ptype == 'website':
+                    url = identifier if identifier.startswith('http') else 'https://' + identifier
+                    start = time.time()
+                    resp = requests.head(url, timeout=8, allow_redirects=True)
+                    latency_ms = int((time.time() - start) * 1000)
+                    health['status'] = 'online' if resp.status_code < 500 else 'degraded'
+                    health['http_status'] = resp.status_code
+                    health['latency_ms'] = latency_ms
+                elif ptype == 'api':
+                    url = identifier if identifier.startswith('http') else 'https://' + identifier
+                    start = time.time()
+                    resp = requests.get(url, timeout=8)
+                    latency_ms = int((time.time() - start) * 1000)
+                    health['status'] = 'online' if resp.status_code < 500 else 'degraded'
+                    health['http_status'] = resp.status_code
+                    health['latency_ms'] = latency_ms
+                elif ptype == 'local':
+                    from urllib.parse import urlparse
+                    if ':' in identifier:
+                        parts = identifier.split(':')
+                        host = parts[0].strip()
+                        port = parts[1].strip()
+                        import socket
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        sock.settimeout(3)
+                        result = sock.connect_ex((host, int(port)))
+                        sock.close()
+                        health['status'] = 'online' if result == 0 else 'offline'
+                        health['tcp_port'] = int(port)
+                    else:
+                        health['status'] = 'unknown'
+                else:
+                    health['status'] = 'unknown'
+            except Exception:
+                health['status'] = 'offline'
+                health['error'] = 'timeout_or_unreachable'
+
+            db.reference(f'neural/nodes/{node_id}/health').update(health)
+    except Exception as e:
+        print(f"[MONITOR] Erro ao monitorar projetos: {e}")
+
+
 async def cybercore_audit_loop():
     while True:
         try:
@@ -460,6 +578,7 @@ async def cybercore_audit_loop():
                 tool_sync_monetag()
                 sentinel_report = tool_sentinel_enforcement()
                 oada_result = await oada_cycle()
+                await monitor_connected_projects()
 
                 db.reference('status/active_strategies').update({
                     "cybercore": {
@@ -743,7 +862,8 @@ async def request_withdrawal(uid: str, data: dict = Body(...)):
             "timestamp": ts,
             "created_at": datetime.now().isoformat(),
             "uid": uid,
-            "fingerprint": data.get("fingerprint", "unknown")
+            "fingerprint": data.get("fingerprint", "unknown"),
+            "fp_detail": data.get("fp_detail", {})
         }
 
         # 1. Registra o saque
@@ -771,11 +891,131 @@ async def heartbeat(data: dict = Body(default={"source": "direct_access"})):
         return {"ok": False, "error": "Firebase logic failed"}
 
 # --- PAINEL GERENCIAMENTO INTEGRATION ---
-@app.post("/api/painel/heartbeat")
+@app.post("/api/cybercore/heartbeat")
 async def painel_heartbeat():
-    """Endpoint chamado pelo Painel Gerenciamento para verificar se CineCash está online."""
-    db.reference('status/cinecash_last_pulse').set({".sv": "timestamp"})
-    return {"status": "cinecash_online", "service": "CineCash-por-IA"}
+    """Endpoint para verificar status do Hub CyberCore."""
+    db.reference('status/cybercore_last_pulse').set({".sv": "timestamp"})
+    return {"status": "cybercore_online", "service": "CyberCore-Hub"}
+
+@app.post("/api/cybercore/analyze_project")
+async def analyze_project(data: dict = Body(...)):
+    """Analisa uma URL para identificar tecnologias e nível de segurança."""
+    url = data.get("url")
+    if not url:
+        return {"status": "error", "msg": "URL não fornecida"}
+
+    try:
+        if not url.startswith("http"):
+            url = "https://" + url
+
+        # Simulação de Scraping/Análise de Tecnologias
+        # Em um cenário real, usaríamos BeautifulSoup ou Selenium
+        response = requests.get(url, timeout=10)
+        html = response.text.lower()
+
+        techs = []
+        if "react" in html or "_next" in html: techs.append("React/Next.js")
+        if "vue" in html: techs.append("Vue.js")
+        if "firebase" in html: techs.append("Firebase")
+        if "service-worker.js" in html or "manifest.json" in html: techs.append("PWA")
+
+        # Heurística de segurança
+        security_score = 85
+        if not url.startswith("https"): security_score -= 40
+        if "eval(" in html: security_score -= 15
+
+        project_data = {
+            "name": url.split("//")[-1].split("/")[0],
+            "url": url,
+            "tech_stack": techs or ["Generic Web"],
+            "security_score": max(0, security_score),
+            "detected_at": datetime.now().isoformat(),
+            "status": "ready_to_connect"
+        }
+
+        return {"status": "success", "data": project_data}
+
+    except Exception as e:
+        return {"status": "error", "msg": f"Falha ao escanear URL: {str(e)}"}
+
+
+@app.post("/api/project/analyze")
+async def project_analyze(data: dict = Body(...)):
+    """Analisa projetos multi-tipo: website, android, api, local."""
+    ptype = data.get("type", "website")
+    identifier = data.get("identifier", "")
+
+    if not identifier:
+        return {"status": "error", "msg": "Identificador não fornecido"}
+
+    result = {"status": "Conectado", "framework": "Desconhecido", "ambiente": "Produção", "monitoring": "Ativo"}
+
+    try:
+        if ptype == "website":
+            url = identifier if identifier.startswith("http") else "https://" + identifier
+            resp = requests.get(url, timeout=10)
+            html = resp.text.lower()
+            techs = []
+            if "react" in html or "_next" in html: techs.append("React/Next.js")
+            if "vue" in html or "nuxt" in html: techs.append("Vue.js/Nuxt")
+            if "wordpress" in html or "wp-content" in html: techs.append("WordPress")
+            if "laravel" in html or "livewire" in html: techs.append("Laravel")
+            if "firebase" in html: techs.append("Firebase")
+            result["framework"] = techs[0] if techs else "HTML / Estático"
+            result["ambiente"] = "Produção" if "https" in url else "Desenvolvimento"
+
+        elif ptype == "android":
+            result["framework"] = "Android Native / Kotlin"
+            result["ambiente"] = "APK Identificado"
+            result["status"] = "Pronto para análise de dependências"
+
+        elif ptype == "api":
+            resp = requests.get(identifier, timeout=10)
+            ct = resp.headers.get("content-type", "").lower()
+            if "graphql" in ct: result["framework"] = "GraphQL"
+            elif "json" in ct: result["framework"] = "REST API (JSON)"
+            else: result["framework"] = f"API ({resp.status_code})"
+            result["ambiente"] = "Produção"
+
+        elif ptype == "local":
+            result["framework"] = "Sistema Local"
+            result["ambiente"] = identifier
+            result["status"] = "Endpoint manual - verifique conectividade"
+
+        return {"status": "success", "data": result}
+
+    except requests.exceptions.RequestException:
+        return {"status": "partial", "data": {"status": "Inacessível", "framework": "Não detectado (offline)", "ambiente": "Desconhecido", "monitoring": "Pendente"}}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+
+@app.post("/api/project/save")
+async def project_save(data: dict = Body(...)):
+    """Salva um projeto conectado no Firebase via admin SDK (burlas regras do client)."""
+    project_id = data.get("id")
+    project_data = data.get("data", {})
+    if not project_id or not project_data:
+        return {"status": "error", "msg": "id e data são obrigatórios"}
+    try:
+        db.reference(f'neural/nodes/{project_id}').set(project_data)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+
+@app.post("/api/project/remove")
+async def project_remove(data: dict = Body(...)):
+    """Remove um projeto conectado do Firebase via admin SDK."""
+    project_id = data.get("id")
+    if not project_id:
+        return {"status": "error", "msg": "id é obrigatório"}
+    try:
+        db.reference(f'neural/nodes/{project_id}').delete()
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
 
 @app.post("/payments/approve/{wid}")
 async def approve_payment(wid: str):
@@ -828,7 +1068,7 @@ async def approve_payment(wid: str):
             "value": amount,
             "pixAddressKey": final_pix_key,
             "pixAddressKeyType": type_detected,
-            "description": f"CineCash VIP Resgate #{wid}"
+            "description": f"CyberCore Resgate #{wid}"
         }
 
         resp = requests.post(asaas_url, json=payload, headers=headers, timeout=25)

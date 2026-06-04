@@ -560,7 +560,9 @@ p.subtitle {
     bottom: 105px;
     right: 25px;
     width: 400px;
+    max-width: 90vw;
     height: 600px;
+    max-height: 70vh;
     background: rgba(10, 10, 15, 0.75);
     backdrop-filter: blur(40px) saturate(200%);
     -webkit-backdrop-filter: blur(40px) saturate(200%);
@@ -1387,10 +1389,26 @@ p.subtitle {
         font-size: 0.9rem;
     }
 
-    .chat-window {
-        width: calc(100% - 40px);
+    .cybercore-chat-container {
+        width: calc(100% - 30px);
+        right: 15px;
+        bottom: 90px;
+        height: 60vh;
+        max-height: 500px;
+        border-radius: 24px;
+    }
+
+    .cybercore-chat-trigger {
+        width: 55px;
+        height: 55px;
+        bottom: 20px;
         right: 20px;
-        height: 70vh;
+    }
+
+    .cybercore-msg {
+        max-width: 92%;
+        font-size: 0.8rem;
+        padding: 12px 15px;
     }
 }
 

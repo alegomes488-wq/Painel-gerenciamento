@@ -1257,6 +1257,7 @@ body::after {
   position: absolute;
   width: 90px; height: 90px;
   border-radius: 50%; display: flex;
+  flex-direction: column;
   align-items: center; justify-content: center;
   font-weight: 800; font-size: 10px; letter-spacing: 0.5px;
   text-transform: uppercase; z-index: 2;
@@ -1270,6 +1271,13 @@ body::after {
   text-align: center;
   padding: 10px;
 }
+
+.node-icon { font-size: 20px; margin-bottom: 5px; }
+.war-status { font-size: 8px; font-weight: 700; margin-top: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.status-offline { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.status-analyzing { background: rgba(232, 184, 48, 0.1); color: #E8B830; }
+
+.dynamic-node { width: 70px; height: 70px; font-size: 8px; border-color: var(--teal); }
 
 .central-ia {
   top: 50%; left: 50%;
@@ -3109,5 +3117,95 @@ body.ultra-premium-mode .nav-btn.active {
 }
 
 body.ultra-premium-mode .data-dot.cyan { background: var(--gold); box-shadow: 0 0 8px var(--gold-glow); }
+
+/* ─── PROJETO INTELLIGENCE ─── */
+.project-type-selector .proj-type-btn {
+    background: rgba(30, 158, 187, 0.08);
+    border: 1px solid rgba(30, 158, 187, 0.2);
+    color: var(--text-secondary);
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Inter', sans-serif;
+}
+.project-type-selector .proj-type-btn:hover {
+    background: rgba(30, 158, 187, 0.15);
+    border-color: var(--teal);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.project-type-selector .proj-type-btn.active {
+    background: rgba(30, 158, 187, 0.2);
+    border-color: var(--teal);
+    color: #fff;
+    box-shadow: 0 0 15px rgba(30, 158, 187, 0.2);
+}
+
+.proj-input-group label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.proj-input-group input[type="url"],
+.proj-input-group input[type="text"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.3s ease;
+    outline: none;
+}
+.proj-input-group input:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 15px rgba(30, 158, 187, 0.15);
+}
+
+.analysis-item {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.project-card-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.project-card-mini:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(30, 158, 187, 0.2);
+    transform: translateX(4px);
+}
+.project-card-mini .proj-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.project-card-mini .proj-icon.website { background: rgba(30, 158, 187, 0.15); }
+.project-card-mini .proj-icon.android { background: rgba(16, 185, 129, 0.15); }
+.project-card-mini .proj-icon.api { background: rgba(232, 184, 48, 0.15); }
+.project-card-mini .proj-icon.local { background: rgba(139, 92, 246, 0.15); }
 body.ultra-premium-mode .progress-fill { background: linear-gradient(90deg, #E8B830, #FFD700); }
 

@@ -79,9 +79,6 @@
                 <button class="nav-btn" onclick="showPanel('memory')" title="Memória Neural">
                     <span class="btn-icon">🧠</span>
                 </button>
-                <button class="nav-btn" onclick="showPanel('warroom')" title="Sala de Guerra" style="color:#ef4444;">
-                    <span class="btn-icon">⚔️</span>
-                </button>
                 <button class="nav-btn" onclick="showPanel('security')" title="Segurança">
                     <span class="btn-icon">🛡️</span>
                 </button>
@@ -308,92 +305,123 @@
                     </div>
                     
                     <div id="projects-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; position:relative;z-index:1;">
-                        <!-- CyberCore IA (Sempre presente) -->
-                        <div class="system-card premium-glass tech-border holo-shimmer">
+                        <!-- Conector Inteligente de Projetos -->
+                        <div class="system-card premium-glass tech-border holo-shimmer" id="project-connector-card">
                             <div class="system-header">
                                 <div>
-                                    <h3 style="font-size: 20px;">CYBERCORE IA</h3>
-                                    <div class="sys-badge" id="cinecash-status-badge">NODE ATIVO</div>
+                                    <h3 style="font-size: 20px;">INTELIGÊNCIA DE PROJETO</h3>
+                                    <div class="sys-badge" style="background: rgba(30, 158, 187, 0.15); color: var(--teal);">CONECTOR MULTI-PROJETO</div>
                                 </div>
-                                <label class="switch">
-                                    <input type="checkbox" id="toggle-cinecash-node" checked onchange="toggleSystem('active', this.checked)">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                            
-                            <div class="neural-bg" style="border-radius: 20px; padding: 20px; margin-bottom: 25px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <span style="font-size: 18px;">🛠️</span>
-                                        <div>
-                                            <span style="font-weight: 800; font-size: 14px; text-transform: uppercase; display: block;">Modo Manutenção</span>
-                                            <small id="maint-firebase-status" style="color: var(--text-secondary); font-size: 11px;">Verificando Firebase...</small>
-                                        </div>
-                                    </div>
-                                    <label class="switch">
-                                        <input type="checkbox" id="toggle-cinecash-maint" onchange="toggleSystem('maintenance', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <p style="font-size: 11px; color: var(--text-secondary); margin-top: 10px;">Ativa a tela de bloqueio com aviso de manutenção para este app.</p>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                                <div class="control-item">
-                                    <label>Versão do APK</label>
-                                    <input type="text" id="conf-version" placeholder="Ex: 1.0.4" onchange="updateConfig('version', this.value)">
+                            <div class="neural-bg" style="border-radius: 20px; padding: 20px; margin-bottom: 25px;">
+                                <div class="project-type-selector" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                                    <button class="proj-type-btn active" data-type="website" onclick="selectProjectType(this)">
+                                        <span>🌐</span> Website
+                                    </button>
+                                    <button class="proj-type-btn" data-type="android" onclick="selectProjectType(this)">
+                                        <span>📱</span> App Android
+                                    </button>
+                                    <button class="proj-type-btn" data-type="api" onclick="selectProjectType(this)">
+                                        <span>⚡</span> API
+                                    </button>
+                                    <button class="proj-type-btn" data-type="local" onclick="selectProjectType(this)">
+                                        <span>💻</span> Sistema Local
+                                    </button>
                                 </div>
-                                <div class="control-item" style="grid-column: span 2;">
-                                    <label>Token do Bot Telegram (Alertas IA)</label>
-                                    <input type="password" id="conf-telegram-token" placeholder="000000000:AA..." onchange="updateConfig('telegramToken', this.value)">
+
+                                <div id="project-input-area">
+                                    <div id="input-website" class="proj-input-group">
+                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">URL do Projeto</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="url" id="project-url" placeholder="https://meusite.com.br" style="flex: 1;">
+                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                                        </div>
+                                    </div>
+                                    <div id="input-android" class="proj-input-group" style="display:none;">
+                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Nome do Pacote ou Upload APK</label>
+                                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                            <input type="text" id="project-package" placeholder="com.empresa.app" style="flex: 1; min-width: 200px;">
+                                            <label class="btn-premium" style="padding: 12px 20px; cursor: pointer; background: rgba(30, 158, 187, 0.2); border-color: var(--teal);">
+                                                📤 Upload APK
+                                                <input type="file" accept=".apk" style="display:none;" onchange="handleApkUpload(this)">
+                                            </label>
+                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px;">🔍 ANALISAR</button>
+                                        </div>
+                                    </div>
+                                    <div id="input-api" class="proj-input-group" style="display:none;">
+                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">URL da API</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="url" id="project-api-url" placeholder="https://api.exemplo.com/v1" style="flex: 1;">
+                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                                        </div>
+                                    </div>
+                                    <div id="input-local" class="proj-input-group" style="display:none;">
+                                        <label style="font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Caminho do Diretório ou IP:Porta</label>
+                                        <div style="display: flex; gap: 10px;">
+                                            <input type="text" id="project-local-path" placeholder="C:\projetos\meu-sistema ou 192.168.1.100:3000" style="flex: 1;">
+                                            <button class="btn-premium" onclick="analisarProjeto()" style="padding: 12px 20px; white-space: nowrap;">🔍 ANALISAR</button>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="control-item">
-                                    <label>Chat ID</label>
-                                    <input type="text" id="conf-telegram-chatid" placeholder="Ex: -100123456" onchange="updateConfig('telegramChatId', this.value)">
-                                </div>
-                                <div class="control-item">
-                                    <label>Nível de Alerta (Risco %)</label>
-                                    <input type="number" id="conf-alert-level" value="50" onchange="updateConfig('alertLevel', this.value)">
+
+                                <div id="project-analysis-result" style="display:none; margin-top: 20px; padding: 20px; background: rgba(30, 158, 187, 0.05); border-radius: 16px; border: 1px solid rgba(30, 158, 187, 0.15);">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                        <div class="analysis-item">
+                                            <small style="color: var(--text-secondary);">Status</small>
+                                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                                                <span class="data-dot" style="background: #10b981;"></span>
+                                                <span id="analysis-status" style="font-weight: 700; color: #10b981;">Conectado</span>
+                                            </div>
+                                        </div>
+                                        <div class="analysis-item">
+                                            <small style="color: var(--text-secondary);">Framework</small>
+                                            <div id="analysis-framework" style="font-weight: 700; margin-top: 4px; font-family: 'JetBrains Mono', monospace;">—</div>
+                                        </div>
+                                        <div class="analysis-item">
+                                            <small style="color: var(--text-secondary);">Ambiente</small>
+                                            <div id="analysis-env" style="font-weight: 700; margin-top: 4px;">Produção</div>
+                                        </div>
+                                        <div class="analysis-item">
+                                            <small style="color: var(--text-secondary);">Monitoramento</small>
+                                            <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                                                <span class="data-dot" style="background: #10b981;"></span>
+                                                <span id="analysis-monitoring" style="font-weight: 700; color: #10b981;">Ativo</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn-premium" onclick="addCurrentProject()" style="margin-top: 15px; width: 100%; padding: 14px;">+ ADICIONAR PROJETO AO PAINEL</button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Hub Global Settings (Mocked in image) -->
+                        <!-- Projetos Conectados -->
                         <div class="system-card premium-glass tech-border holo-shimmer">
                             <div class="system-header">
-                                <h3 style="font-size: 20px;">Hub Global Settings</h3>
-                                <p class="sub-header" style="margin:0">Configurações compartilhadas</p>
+                                <h3 style="font-size: 20px;">PROJETOS CONECTADOS</h3>
+                                <div class="sys-badge" id="projects-count-badge" style="background: rgba(232, 184, 48, 0.15); color: var(--gold);">0 ATIVOS</div>
                             </div>
-                            
-                            <div style="display: flex; flex-direction: column; gap: 20px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <span style="font-size: 18px;">🛡️</span>
-                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Segurança de ID Único</span>
-                                    </div>
-                                    <label class="switch">
-                                        <input type="checkbox" checked onchange="updateConfig('deviceIdSecurity', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
+                            <div id="projects-list" style="display: flex; flex-direction: column; gap: 15px;">
+                                <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: 13px;">
+                                    Nenhum projeto conectado. Use o conector acima para adicionar.
                                 </div>
+                            </div>
+                        </div>
 
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <span style="font-size: 18px;">🚀</span>
-                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Ambiente de Produção</span>
-                                    </div>
-                                    <label class="switch">
-                                        <input type="checkbox" id="toggle-production" onchange="updateConfig('production', this.checked)">
-                                        <span class="slider"></span>
-                                    </label>
+                        <!-- Monitoramento Site/App -->
+                        <div id="monitor-card" class="system-card premium-glass tech-border holo-shimmer" style="grid-column: 1 / -1;">
+                            <div class="system-header">
+                                <h3 style="font-size: 20px;">📡 MONITORAMENTO SITE / APP</h3>
+                                <div class="sys-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">ATUALIZANDO A CADA 3S</div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 15px;">
+                                <div>
+                                    <h4 style="color: var(--gold); font-size: 12px; font-weight: 800; margin-bottom: 15px; letter-spacing: 0.5px;">📊 ESTRATÉGIAS EM EXECUÇÃO</h4>
+                                    <div id="monitor-strategies" class="strategy-list"></div>
                                 </div>
-
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-glass);">
-                                    <div style="display: flex; align-items: center; gap: 12px;">
-                                        <span style="font-size: 18px;">⚡</span>
-                                        <span style="font-weight: 700; font-size: 13px; text-transform: uppercase;">Gateway Asaas (API Key)</span>
-                                    </div>
-                                    <div class="sys-badge" id="asaas-status" style="background: rgba(74, 222, 128, 0.1); color: var(--success);">CONECTADO</div>
+                                <div>
+                                    <h4 style="color: var(--teal); font-size: 12px; font-weight: 800; margin-bottom: 15px; letter-spacing: 0.5px;">⚡ COMANDOS DISPARADOS</h4>
+                                    <div id="monitor-commands" class="command-stream"></div>
                                 </div>
                             </div>
                         </div>
@@ -492,61 +520,6 @@
                     </div>
 
 
-                </div>
-
-                <!-- Painel: Sala de Guerra -->
-                <div id="panel-warroom" class="panel-view">
-                    <div class="panel-scanner"></div>
-                    <div class="warroom-container" style="position:relative;z-index:1;">
-                        <div class="warroom-grid">
-                            <!-- Mapa de Atividade Global -->
-                            <div class="system-card premium-glass tech-border holo-shimmer warroom-map">
-                                <div class="system-header">
-                                    <h3><span class="data-dot cyan" style="margin-right:8px;"></span> REDE DE AGENTES NEXUS</h3>
-                                    <div class="ai-pulse-orb" style="background: #ef4444;"></div>
-                                </div>
-                                <div id="warroom-visual" class="warroom-visualizer">
-                                    <div class="node central-ia">CyberCore</div>
-                                    <div class="node agent-node sentinel">Sentinel</div>
-                                    <div class="node agent-node auditor">Auditor</div>
-                                    <div class="node agent-node nexus">Nexus</div>
-                                    <svg class="war-links">
-                                        <line id="link-sentinel" class="link-line" x1="50%" y1="50%" x2="20%" y2="20%"></line>
-                                        <line id="link-auditor" class="link-line" x1="50%" y1="50%" x2="80%" y2="20%"></line>
-                                        <line id="link-nexus" class="link-line" x1="50%" y1="50%" x2="50%" y2="80%"></line>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <!-- Feed de Decisões Estratégicas -->
-                            <div class="system-card premium-glass tech-border holo-shimmer warroom-feed">
-                                <div class="system-header">
-                                    <h3><span class="data-dot gold" style="margin-right:8px;"></span> ESTRATÉGIAS EM EXECUÇÃO</h3>
-                                </div>
-                                <div id="warroom-strategies" class="strategy-list">
-                                    <!-- Injetado via JS -->
-                                    <div class="strategy-card active">
-                                        <div class="strategy-icon">🚀</div>
-                                        <div class="strategy-info">
-                                            <h4>Otimização de ROI v4</h4>
-                                            <p>Ajustando CPM baseado em hits/hora</p>
-                                            <div class="strategy-progress"><div class="progress-fill" style="width: 85%;"></div></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Comandos em Tempo Real -->
-                            <div class="system-card premium-glass tech-border holo-shimmer warroom-terminal">
-                                <div class="system-header">
-                                    <h3><span class="data-dot teal" style="margin-right:8px;"></span> COMANDOS DISPARADOS</h3>
-                                </div>
-                                <div id="warroom-commands" class="command-stream">
-                                    <!-- Injetado via JS -->
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Painel: Segurança -->
@@ -744,13 +717,6 @@
                                 <input type="password" id="audit-asaas-key" placeholder="3867c0bd...">
                             </div>
                             <div class="control-item">
-                                <label>VAPID Key (Web Push)</label>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="audit-vapid-key" placeholder="B... (Firebase Console)" style="flex: 1;">
-                                    <button class="btn-minimal" onclick="testPushNotification()" style="white-space: nowrap; border-color: var(--primary); color: var(--primary);">🔔 Testar Push</button>
-                                </div>
-                            </div>
-                            <div class="control-item">
                                 <label>Backend URL (Hugging Face/FastAPI)</label>
                                 <input type="text" id="audit-backend-url" placeholder="https://user-space.hf.space">
                             </div>
@@ -837,13 +803,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sentinel&backgroundColor=ffd5dc" class="chat-avatar-mini">
-                                    <strong style="font-size:11px; color:var(--primary)">SISTEMA</strong>
-                                </div>
-                                <span>Núcleo CyberCore IA online. Aguardando diretivas de comando...</span>
-                            </div>
-                        </div>
 
                         <div class="agent-matrix-footer">
                             <span class="t-cursor">></span>
@@ -914,7 +873,7 @@
                             <text x="58" y="86" fill="#E8B830" font-size="4" font-family="monospace" opacity="0.25" class="binary-data data-2">10</text>
                         </svg>
                     </div>
-                    <h1 class="login-title"><span class="login-cyber">CyberCore</span> <span class="login-admin">Admin</span></h1>
+                    <h1 class="login-title"><span class="login-cyber">CyberCore</span> <span class="login-admin">Hub</span></h1>
                     <div class="login-badge">CONEXÃO SEGURA</div>
                 </div>
 
