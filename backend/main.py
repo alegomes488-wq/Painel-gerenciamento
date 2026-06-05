@@ -885,6 +885,49 @@ async def add_sentinel_log(data: dict = Body(...)):
     })
     return {"status": "success"}
 
+# --- LOCAL AGENT & NODES ---
+
+@app.post("/api/node/register")
+async def register_node(data: dict = Body(...)):
+    try:
+        name = data.get("name", "Novo Nó")
+        ptype = data.get("type", "local")
+        identifier = data.get("identifier", "localhost")
+
+        node_id = f"node_{int(time.time())}"
+        node_data = {
+            "name": name,
+            "type": ptype,
+            "identifier": identifier,
+            "connected_at": datetime.now().isoformat(),
+            "health": {"status": "online", "last_checked": datetime.now().isoformat()}
+        }
+        db.reference(f'neural/nodes/{node_id}').set(node_data)
+
+        # Log no Sentinel
+        db.reference('logs').push({
+            "message": f"Novo nó registrado: {name} ({ptype})",
+            "level": "INFO",
+            "timestamp": datetime.now().strftime('%H:%M:%S')
+        })
+
+        return {"status": "success", "node_id": node_id}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/node/heartbeat/{node_id}")
+async def node_heartbeat(node_id: str, data: dict = Body(...)):
+    try:
+        stats = data.get("stats", {})
+        db.reference(f'neural/nodes/{node_id}/health').update({
+            "status": "online",
+            "last_checked": datetime.now().isoformat(),
+            "stats": stats
+        })
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
 # --- STUDIO WORKSPACE API ---
 
 @app.get("/api/studio/files")

@@ -1153,14 +1153,15 @@
                         if (refLinkEl) refLinkEl.value = `https://cinecash.app/?ref=${u.uid}`;
 
                         updateUI();
-                        saveFCMToken(u.uid);
-                        requestNotificationPermission();
                         hideSplash();
                     } else {
                         signOut(auth);
                         hideSplash();
                     }
                 });
+
+                saveFCMToken(u.uid);
+                requestNotificationPermission();
 
                 // Heartbeat de Status (30s)
                 if (!heartbeatInterval) {
