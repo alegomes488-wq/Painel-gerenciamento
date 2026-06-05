@@ -110,12 +110,12 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # Mapeamento de Especialistas CyberCore
 AGENT_MODELS = {
     "ORCHESTRATOR": {"provider": "google", "model": "gemini-2.0-pro-exp"},
-    "BUILDER":      {"provider": "ollama", "model": "qwen2.5-coder:7b"},
-    "DESIGNER":     {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "BUILDER":      {"provider": "ollama",  "model": "qwen2.5-coder:latest"},
+    "DESIGNER":     {"provider": "google", "model": "gemini-2.0-flash"},
     "FULLSTACK":    {"provider": "groq",   "model": "deepseek-v3"},
     "PYTHON":       {"provider": "groq",   "model": "deepseek-v3"},
-    "JAVA":         {"provider": "google", "model": "gemini-2.0-pro-exp"},
-    "SOFTWARE":     {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "JAVA":         {"provider": "google", "model": "gemini-2.0-flash"},
+    "SOFTWARE":     {"provider": "google", "model": "gemini-2.0-flash"},
     "AUDITOR":      {"provider": "groq",   "model": "deepseek-v3"},
     "SECURITY":     {"provider": "groq",   "model": "deepseek-v3"}
 }
@@ -163,9 +163,13 @@ async def execute_single_agent(agent: str, prompt: str, uid: str):
     try:
         if provider == "groq" and GROQ_AVAILABLE:
             system_msg = f"Você é o especialista {agent} do CyberCore IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
-            return groq_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name) or "Falha no Groq"
+            return groq_generate(f"{system_msg}\n\nUsuário: {prompt}") or "Falha no Groq"
 
         elif provider == "google":
+            system_msg = f"Você é o especialista {agent} do CyberCore IA. Responda de forma técnica e precisa."
+            gemini_result = gemini_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name)
+            if not gemini_result.startswith("Erro Gemini"):
+                return gemini_result
             return await ask_ai(f"Atuando como {agent}: {prompt}", uid)
 
         elif provider == "ollama":
@@ -509,6 +513,26 @@ GROQ_MODEL_MAP = {
     "mixtral": "mixtral-8x7b-32768",
     "gemma2": "gemma2-9b-it",
 }
+
+def gemini_generate(prompt, model="gemini-2.0-flash"):
+    """Call Google Gemini with a specific model directly."""
+    config = db.reference('config').get() or {}
+    api_key = os.environ.get("GEMINI_API_KEY") or str(config.get('geminiKey', '')).strip()
+    if not api_key:
+        return "Gemini não configurado. Configure GEMINI_API_KEY."
+    try:
+        api_ver = "v1beta" if "flash" in model or "pro" in model else "v1"
+        url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model}:generateContent?key={api_key}"
+        payload = {
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        }
+        resp = requests.post(url, json=payload, timeout=60)
+        data = resp.json()
+        if resp.status_code == 200 and "candidates" in data:
+            return data["candidates"][0]["content"]["parts"][0].get("text", "Sem resposta.")
+        return f"Erro Gemini: {data.get('error', {}).get('message', str(data))}"
+    except Exception as e:
+        return f"Erro ao chamar Gemini: {str(e)}"
 
 def groq_generate(prompt, system_extra="", uid="admin_master"):
     if not GROQ_AVAILABLE:
@@ -941,16 +965,28 @@ async def ai_status():
             if gemini_key:
                 motor_ativo = "gemini"
 
+        # Check for Gemini key even if Groq is primary
+        gemini_config = db.reference('config').get() or {}
+        gemini_key_available = bool(os.environ.get("GEMINI_API_KEY") or str(gemini_config.get('geminiKey', '')).strip())
+
+        # Check if Ollama is running
+        ollama_online = False
+        try:
+            oresp = requests.get(OLLAMA_URL.replace("/api/generate", "/api/tags"), timeout=3)
+            ollama_online = oresp.status_code == 200
+        except:
+            pass
+
         return {
             "status": "online",
             "engine": "Groq/Gemini Hybrid",
             "motor_ativo": motor_ativo,
-            "independente_de_api_paga": GROQ_AVAILABLE,  # Groq Cloud Free Tier
+            "independente_de_api_paga": GROQ_AVAILABLE,
             "ambiente": "Produção" if HUB_MODE == "ADMIN" else "Desenvolvimento",
             "motores": {
                 "groq": {"ativo": GROQ_AVAILABLE},
-                "gemini": {"ativo": motor_ativo == "gemini" or (not GROQ_AVAILABLE and motor_ativo != "nenhum")},
-                "ollama": {"ativo": False}
+                "gemini": {"ativo": gemini_key_available},
+                "ollama": {"ativo": ollama_online}
             },
             "alert_level": compute_alert_level(),
             "last_audit": datetime.now().isoformat(),
@@ -1108,6 +1144,216 @@ async def studio_delete_file(filename: str):
         return {"status": "error", "msg": "Arquivo não encontrado."}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
+
+# --- PROJECT MANAGER & CREDIT SYSTEM ---
+
+DESKTOP_DIR = os.path.expanduser("~/Desktop")
+
+def get_agent_credits():
+    """Get credit limits and usage from Firebase."""
+    try:
+        data = db.reference('config/agent_credits').get() or {}
+        return {
+            "BUILDER":  {"limit": data.get("BUILDER", {}).get("limit", 50), "used": data.get("BUILDER", {}).get("used", 0)},
+            "DESIGNER": {"limit": data.get("DESIGNER", {}).get("limit", 50), "used": data.get("DESIGNER", {}).get("used", 0)},
+            "FULLSTACK": {"limit": data.get("FULLSTACK", {}).get("limit", 50), "used": data.get("FULLSTACK", {}).get("used", 0)},
+            "PYTHON":   {"limit": data.get("PYTHON", {}).get("limit", 50), "used": data.get("PYTHON", {}).get("used", 0)},
+            "JAVA":     {"limit": data.get("JAVA", {}).get("limit", 50), "used": data.get("JAVA", {}).get("used", 0)},
+            "SOFTWARE": {"limit": data.get("SOFTWARE", {}).get("limit", 50), "used": data.get("SOFTWARE", {}).get("used", 0)},
+        }
+    except:
+        return {a: {"limit": 50, "used": 0} for a in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]}
+
+def deduct_credit(agent):
+    """Deduct one credit for an agent usage."""
+    try:
+        ref = db.reference(f'config/agent_credits/{agent}')
+        data = ref.get() or {"used": 0, "limit": 50}
+        data["used"] = data.get("used", 0) + 1
+        ref.set(data)
+        return data["used"] <= data.get("limit", 50)
+    except:
+        return True
+
+def check_credits(agent):
+    """Check if agent has credits remaining."""
+    data = get_agent_credits()
+    a = data.get(agent, {"limit": 50, "used": 0})
+    return a["used"] < a["limit"]
+
+@app.get("/api/studio/credits")
+async def studio_credits():
+    return {"status": "success", "credits": get_agent_credits()}
+
+@app.post("/api/studio/credits/set-limit")
+async def studio_set_limit(data: dict = Body(...)):
+    agent = data.get("agent", "")
+    limit = data.get("limit", 50)
+    if agent not in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]:
+        return {"status": "error", "msg": "Agente inválido"}
+    try:
+        ref = db.reference(f'config/agent_credits/{agent}')
+        current = ref.get() or {"used": 0}
+        current["limit"] = max(1, int(limit))
+        ref.set(current)
+        return {"status": "success", "msg": f"Limite do {agent} atualizado para {limit}"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+# --- DECIDE ENGINE: escolhe Groq ou Ollama com base na complexidade ---
+def decide_engine(question):
+    """Retorna 'groq' para perguntas complexas, 'ollama' para simples."""
+    complex_keywords = [
+        "criar", "gerar", "desenvolver", "arquitetura", "estrutura",
+        "banco de dados", "api", "autenticação", "segurança",
+        "como implementar", "melhor prática", "design pattern",
+        "refatorar", "otimizar", "escalar", "deploy"
+    ]
+    q = question.lower()
+    score = sum(1 for kw in complex_keywords if kw in q)
+    return "groq" if score >= 2 else "ollama"
+
+# Store PM conversation history in memory (per-session)
+pm_sessions = {}
+
+@app.post("/api/studio/project-manager/chat")
+async def pm_chat(data: dict = Body(...)):
+    session_id = data.get("session_id", "default")
+    message = data.get("message", "")
+    mode = data.get("mode", "auto")  # auto | groq | ollama
+
+    if session_id not in pm_sessions:
+        pm_sessions[session_id] = {
+            "history": [],
+            "project": {"name": "", "path": "", "type": "", "existing": False}
+        }
+
+    session = pm_sessions[session_id]
+
+    # Decide engine
+    engine = mode if mode != "auto" else decide_engine(message)
+
+    system_prompt = """Você é o Project Manager da CyberCore IA, um assistente especializado em planejar projetos de software.
+
+SUA FUNÇÃO:
+- Faça perguntas objetivas e diretas sobre o projeto (nome, tipo, onde salvar)
+- Dê sugestões e exemplos práticos
+- Detecte se o usuário já tem um projeto iniciado
+- NÃO gere código completo — apenas planos, sugestões e direcionamentos
+- Quando o projeto estiver bem definido, avise que pode chamar os agentes especializados
+
+REGRAS:
+- Seja curto e objetivo (máx 3 parágrafos)
+- Responda em português brasileiro
+- Use tom amigável e didático
+- Se o usuário mencionar um projeto existente, pergunte o caminho da pasta"""
+
+    user_context = f"""Contexto atual do projeto:
+- Nome: {session['project']['name'] or 'não definido'}
+- Tipo: {session['project']['type'] or 'não definido'}
+- Caminho: {session['project']['path'] or 'não definido'}
+- Projeto existente: {'Sim' if session['project']['existing'] else 'Não'}
+
+Últimas mensagens:
+{chr(10).join([f"{m['role']}: {m['content'][:100]}" for m in session['history'][-6:]])}"""
+
+    full_prompt = f"{system_prompt}\n\n{user_context}\n\nUsuário: {message}"
+
+    try:
+        if engine == "groq" and GROQ_AVAILABLE:
+            answer = groq_generate(full_prompt, uid="pm_session")
+            if not answer:
+                answer = "Desculpe, não consegui processar sua solicitação no momento."
+        else:
+            # Ollama (mais leve)
+            resp = requests.post(OLLAMA_URL, json={
+                "model": "deepseek-coder:latest",
+                "prompt": full_prompt,
+                "stream": False
+            }, timeout=30)
+            if resp.status_code == 200:
+                answer = resp.json().get("response", "Sem resposta.")
+            else:
+                answer = "Não consegui processar. Vou usar o Groq como fallback."
+                if GROQ_AVAILABLE:
+                    answer = groq_generate(full_prompt, uid="pm_session") or answer
+    except Exception as e:
+        answer = f"Erro na comunicação: {str(e)}"
+
+    # Save to history
+    session["history"].append({"role": "user", "content": message})
+    session["history"].append({"role": "assistant", "content": answer})
+    if len(session["history"]) > 20:
+        session["history"] = session["history"][-20:]
+
+    return {
+        "status": "success",
+        "answer": answer,
+        "engine": engine,
+        "project": session["project"]
+    }
+
+@app.post("/api/studio/project-manager/update")
+async def pm_update(data: dict = Body(...)):
+    session_id = data.get("session_id", "default")
+    updates = data.get("project", {})
+    if session_id not in pm_sessions:
+        pm_sessions[session_id] = {"history": [], "project": {"name": "", "path": "", "type": "", "existing": False}}
+    pm_sessions[session_id]["project"].update(updates)
+    return {"status": "success", "project": pm_sessions[session_id]["project"]}
+
+@app.post("/api/studio/project-manager/dispatch")
+async def pm_dispatch(data: dict = Body(...)):
+    session_id = data.get("session_id", "default")
+    agent = data.get("agent", "BUILDER")
+    prompt = data.get("prompt", "")
+
+    if not check_credits(agent):
+        return {"status": "error", "msg": f"Agente {agent} sem créditos. Aumente o limite em Configurações."}
+
+    try:
+        resp = await execute_single_agent(agent, prompt, "admin_studio")
+        deduct_credit(agent)
+        return {"status": "success", "answer": resp, "agent": agent}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.get("/api/studio/detect")
+async def studio_detect(path: str = ""):
+    """Detecta projetos existentes no Desktop ou em path específico."""
+    try:
+        base = path if path else DESKTOP_DIR
+        if not os.path.exists(base):
+            return {"status": "error", "msg": "Caminho não encontrado"}
+        items = []
+        for entry in os.listdir(base):
+            full = os.path.join(base, entry)
+            if os.path.isdir(full):
+                # Detecta se parece um projeto
+                has_files = any(os.path.isfile(os.path.join(full, f)) for f in os.listdir(full)[:50])
+                if has_files:
+                    items.append({
+                        "name": entry,
+                        "path": full,
+                        "type": detect_project_type(full)
+                    })
+        return {"status": "success", "projects": items, "base": base}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+def detect_project_type(folder):
+    """Tenta detectar o tipo de projeto."""
+    files = os.listdir(folder)
+    if any(f.endswith('.html') for f in files): return "website"
+    if any(f.endswith('.py') for f in files): return "python"
+    if any(f.endswith('.java') or f.endswith('.apk') for f in files): return "android"
+    if any(f.endswith('.js') or f.endswith('.ts') for f in files): return "website"
+    return "unknown"
+
+@app.get("/api/studio/detect/check-path")
+async def studio_check_path(path: str = ""):
+    """Verifica se um caminho existe."""
+    return {"exists": os.path.exists(path), "path": path}
 
 # --- SERVE STATIC FILES ---
 # As rotas estáticas manuais foram removidas em favor dos mounts automáticos.

@@ -45,6 +45,168 @@ async function forceWakeUpBackend() {
 forceWakeUpBackend();
 setInterval(forceWakeUpBackend, 45000);
 
+// --- HEALTH CHECK REAL (STATUS DOS AGENTES) ---
+let backendOnline = false;
+
+async function checkBackendHealth() {
+    try {
+        const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/health` : '/health';
+        const resp = await fetch(url);
+        backendOnline = resp.ok;
+    } catch (e) {
+        backendOnline = false;
+    }
+    updateAgentStatus();
+}
+
+function updateAgentStatus() {
+    const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
+    const tagClass = backendOnline ? 'online' : 'offline';
+    const tagText = backendOnline ? '● ATIVO' : '● OFFLINE';
+    agents.forEach(a => {
+        const el = document.getElementById(`studio-status-${a}`);
+        if (el) {
+            el.className = `status-tag ${tagClass}`;
+            el.textContent = tagText;
+        }
+        // Also update overview cards
+        const ov = document.getElementById(`ov-status-${a}`);
+        if (ov) {
+            ov.className = `status-tag ${tagClass}`;
+            ov.textContent = tagText;
+        }
+    });
+}
+
+checkBackendHealth();
+setInterval(checkBackendHealth, 30000);
+
+// ===== PROJECT MANAGER (CHAT) =====
+let pmSessionId = 'pm_' + Date.now();
+let pmChatOpen = false;
+
+async function sendPM() {
+    const input = document.getElementById('pm-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = '';
+    addPMMessage(msg, 'user');
+    const container = document.getElementById('pm-messages');
+    container.innerHTML += '<div style="text-align:center;padding:8px;color:var(--text-secondary);font-size:10px;">🤔 Processando...</div>';
+    container.scrollTop = container.scrollHeight;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/project-manager/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: pmSessionId, message: msg })
+        });
+        const data = await resp.json();
+        // Remove "processing" indicator
+        const processing = container.querySelector('div:last-child');
+        if (processing && processing.textContent.includes('Processando')) processing.remove();
+        if (data.status === 'success') {
+            addPMMessage(data.answer, 'assistant', data.engine);
+            // Update project info bar
+            if (data.project) {
+                updatePMProjectBar(data.project);
+            }
+            // Update engine badge
+            const badge = document.getElementById('pm-engine-badge');
+            if (badge && data.engine) {
+                badge.style.display = 'inline-block';
+                badge.textContent = data.engine === 'groq' ? '⚡ Groq' : '🖥️ Ollama';
+            }
+        } else {
+            container.innerHTML += `<div style="color:#ef4444;font-size:11px;padding:8px;">[ERRO] ${data.msg || 'Falha na comunicação'}</div>`;
+        }
+    } catch (e) {
+        const processing = container.querySelector('div:last-child');
+        if (processing && processing.textContent.includes('Processando')) processing.remove();
+        container.innerHTML += `<div style="color:#ef4444;font-size:11px;padding:8px;">[ERRO] Falha ao conectar com o backend.</div>`;
+    }
+    container.scrollTop = container.scrollHeight;
+}
+
+function addPMMessage(text, role, engine) {
+    const container = document.getElementById('pm-messages');
+    const isUser = role === 'user';
+    const icon = isUser ? '👤' : '🤖';
+    const bgColor = isUser ? 'rgba(0,243,255,0.05)' : 'rgba(232,184,48,0.05)';
+    const borderColor = isUser ? 'rgba(0,243,255,0.1)' : 'rgba(232,184,48,0.1)';
+    const engineTag = engine ? `<span style="font-size:8px;color:var(--text-muted);margin-left:8px;">[${engine === 'groq' ? '⚡Groq' : '🖥️Ollama'}]</span>` : '';
+    container.innerHTML += `
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+            <span style="font-size:16px;">${icon}</span>
+            <div style="flex:1;background:${bgColor};border:1px solid ${borderColor};border-radius:12px;padding:10px 14px;color:${isUser ? '#fff' : 'var(--text-secondary)'};line-height:1.5;font-size:12px;white-space:pre-wrap;">${text}${engineTag}</div>
+        </div>
+    `;
+}
+
+function updatePMProjectBar(project) {
+    const bar = document.getElementById('pm-project-bar');
+    const nameEl = document.getElementById('pm-project-name-display');
+    const typeEl = document.getElementById('pm-project-type-display');
+    const pathEl = document.getElementById('pm-project-path-display');
+    if (!bar || !nameEl) return;
+    if (project.name) {
+        bar.style.display = 'flex';
+        nameEl.textContent = project.name;
+        typeEl.textContent = project.type ? `(${project.type})` : '';
+        pathEl.textContent = project.path || '';
+    }
+}
+
+function togglePMChat() {
+    pmChatOpen = !pmChatOpen;
+    const body = document.getElementById('pm-chat-body');
+    const icon = document.getElementById('pm-toggle-icon');
+    if (body) body.style.display = pmChatOpen ? 'block' : 'none';
+    if (icon) icon.textContent = pmChatOpen ? '▲' : '▼';
+}
+
+function pmQuickAction(action) {
+    const input = document.getElementById('pm-input');
+    if (!input) return;
+    input.value = action;
+    sendPM();
+}
+
+// ===== CREDIT SYSTEM =====
+async function loadCredits() {
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/credits`);
+        const data = await resp.json();
+        if (data.status !== 'success') return;
+        const credits = data.credits;
+        // Update credit badges on each agent card
+        const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
+        agents.forEach(a => {
+            const c = credits[a] || { limit: 50, used: 0 };
+            const el = document.getElementById(`credit-${a}`);
+            if (el) {
+                const remaining = c.limit - c.used;
+                const color = remaining <= 5 ? '#ef4444' : remaining <= 15 ? '#fbbf24' : '#10b981';
+                el.innerHTML = `<span style="color:${color};">●</span> ${remaining}/${c.limit}`;
+            }
+        });
+        // Update header credits display
+        const display = document.getElementById('studio-credits-display');
+        if (display) {
+            const total = agents.reduce((s, a) => s + (credits[a]?.limit || 50), 0);
+            const used = agents.reduce((s, a) => s + (credits[a]?.used || 0), 0);
+            display.innerHTML = `<span style="font-size:10px;color:var(--text-secondary);font-weight:700;">💳 ${used}/${total}</span>`;
+        }
+    } catch (e) {
+        console.warn("Credits offline");
+    }
+}
+
+// Load credits on startup and every 30s
+loadCredits();
+setInterval(loadCredits, 30000);
+
 let rtState = {
     users: {},
     config: {},

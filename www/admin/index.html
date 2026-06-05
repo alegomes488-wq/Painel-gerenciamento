@@ -165,10 +165,51 @@
                 <!-- Painel: STUDIO (Antigo Terminal) -->
                 <div id="panel-studio" class="panel-view">
                     <div class="studio-container">
-                        <div class="studio-header">
-                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: var(--gold);">CYBERCORE STUDIO</h2>
-                            <p style="font-size: 10px; color: var(--text-secondary);">AMBIENTE DE DESENVOLVIMENTO NEURAL</p>
+                        <div class="studio-header" style="display:flex;align-items:center;justify-content:space-between;">
+                            <div>
+                                <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: var(--gold);">CYBERCORE STUDIO</h2>
+                                <p style="font-size: 10px; color: var(--text-secondary);">AMBIENTE DE DESENVOLVIMENTO NEURAL</p>
+                            </div>
+                            <div id="studio-credits-display" style="display:flex;gap:8px;align-items:center;"></div>
                         </div>
+
+                        <!-- Project Manager Chat -->
+                        <div class="system-card premium-glass tech-border" style="margin-bottom:20px;padding:0;overflow:hidden;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--border-glass);cursor:pointer;" onclick="togglePMChat()">
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span style="font-size:16px;">🤖</span>
+                                    <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">PROJECT MANAGER</span>
+                                    <span id="pm-engine-badge" style="font-size:8px;padding:2px 8px;border-radius:4px;background:rgba(0,243,255,0.1);color:var(--cyan);font-weight:700;display:none;">⚡ Groq</span>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span id="pm-status-dot" style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                    <span id="pm-toggle-icon" style="font-size:12px;color:var(--text-secondary);">▼</span>
+                                </div>
+                            </div>
+                            <div id="pm-chat-body" style="display:none;">
+                                <div id="pm-messages" style="height:250px;overflow-y:auto;padding:15px 20px;font-size:12px;font-family:var(--font-mono);display:flex;flex-direction:column;gap:10px;">
+                                    <div style="display:flex;gap:10px;align-items:flex-start;">
+                                        <span style="font-size:16px;">🤖</span>
+                                        <div style="background:rgba(232,184,48,0.05);border:1px solid rgba(232,184,48,0.1);border-radius:12px;padding:10px 14px;color:var(--text-secondary);line-height:1.5;">
+                                            Olá! Sou o Project Manager. Me diga: <strong style="color:#fff;">qual projeto você quer criar ou continuar hoje?</strong>
+                                            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                                                <button class="btn-minimal" onclick="pmQuickAction('Quero criar um site novo')" style="font-size:10px;">🌐 Criar site</button>
+                                                <button class="btn-minimal" onclick="pmQuickAction('Quero criar um app Android')" style="font-size:10px;">🤖 App Android</button>
+                                                <button class="btn-minimal" onclick="pmQuickAction('Quero uma API')" style="font-size:10px;">☁️ Criar API</button>
+                                                <button class="btn-minimal" onclick="pmQuickAction('Detectar projetos existentes')" style="font-size:10px;">📂 Projeto existente</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:10px;padding:12px 20px;border-top:1px solid var(--border-glass);">
+                                    <input type="text" id="pm-input" placeholder="Digite sua mensagem..." style="flex:1;padding:10px 14px;border-radius:10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-glass);color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')sendPM()">
+                                    <button class="btn-premium" onclick="sendPM()" style="padding:10px 20px;border-radius:10px;font-size:11px;font-weight:800;">ENVIAR</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Credit Bar -->
+                        <div id="studio-credit-bar" style="display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap;"></div>
 
                         <div class="agents-grid">
                             <div class="agent-card builder" onclick="selectAgent('BUILDER')">
@@ -177,6 +218,8 @@
                                     <span class="agent-name">BUILDER</span>
                                     <small>Páginas & UI</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-BUILDER" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-BUILDER" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
                             <div class="agent-card designer" onclick="selectAgent('DESIGNER')">
                                 <div class="agent-icon">🎨</div>
@@ -184,6 +227,8 @@
                                     <span class="agent-name">DESIGNER</span>
                                     <small>UI / UX Expert</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-DESIGNER" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-DESIGNER" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
                             <div class="agent-card fullstack" onclick="selectAgent('FULLSTACK')">
                                 <div class="agent-icon">⚡</div>
@@ -191,6 +236,8 @@
                                     <span class="agent-name">FULLSTACK</span>
                                     <small>Sistemas Web</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-FULLSTACK" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-FULLSTACK" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
                             <div class="agent-card python" onclick="selectAgent('PYTHON')">
                                 <div class="agent-icon">🐍</div>
@@ -198,6 +245,8 @@
                                     <span class="agent-name">PYTHON CORE</span>
                                     <small>Automações</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-PYTHON" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-PYTHON" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
                             <div class="agent-card java" onclick="selectAgent('JAVA')">
                                 <div class="agent-icon">☕</div>
@@ -205,6 +254,8 @@
                                     <span class="agent-name">JAVA CORE</span>
                                     <small>Apps Android</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-JAVA" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-JAVA" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
                             <div class="agent-card software" onclick="selectAgent('SOFTWARE')">
                                 <div class="agent-icon">🏛️</div>
@@ -212,7 +263,17 @@
                                     <span class="agent-name">SOFTWARE</span>
                                     <small>Arquitetura</small>
                                 </div>
+                                <span class="status-tag" id="studio-status-SOFTWARE" style="font-size:7px;padding:2px 6px;margin-top:5px;display:inline-block;">● VERIFICANDO</span>
+                                <span class="credit-badge" id="credit-SOFTWARE" style="font-size:7px;padding:1px 5px;margin-top:2px;display:inline-block;border-radius:4px;background:rgba(0,0,0,0.3);color:var(--text-secondary);"></span>
                             </div>
+                        </div>
+
+                        <!-- Project Info Bar -->
+                        <div id="pm-project-bar" style="display:none;margin-bottom:15px;padding:10px 16px;border-radius:10px;background:rgba(0,243,255,0.03);border:1px solid rgba(0,243,255,0.1);font-size:11px;">
+                            <span style="font-weight:800;color:var(--cyan);">📁 PROJETO ATUAL:</span>
+                            <span id="pm-project-name-display" style="color:#fff;font-weight:700;margin-left:6px;"></span>
+                            <span id="pm-project-type-display" style="color:var(--text-secondary);margin-left:6px;"></span>
+                            <span id="pm-project-path-display" style="color:var(--text-secondary);margin-left:10px;font-size:10px;"></span>
                         </div>
 
                         <!-- Prompt Master -->
@@ -333,37 +394,37 @@
                                     <div class="agent-icon" style="font-size: 20px;">🏗️</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">BUILDER</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Páginas & Interfaces</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-BUILDER" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                                 <div class="agent-card designer" onclick="showPanel('studio'); selectAgent('DESIGNER')" style="padding: 15px 10px; border-radius: 12px;">
                                     <div class="agent-icon" style="font-size: 20px;">🎨</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">DESIGNER</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">UI / UX Design</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-DESIGNER" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                                 <div class="agent-card fullstack" onclick="showPanel('studio'); selectAgent('FULLSTACK')" style="padding: 15px 10px; border-radius: 12px;">
                                     <div class="agent-icon" style="font-size: 20px;">⚡</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">FULLSTACK</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Sistemas Completos</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-FULLSTACK" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                                 <div class="agent-card python" onclick="showPanel('studio'); selectAgent('PYTHON')" style="padding: 15px 10px; border-radius: 12px;">
                                     <div class="agent-icon" style="font-size: 20px;">🐍</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">PYTHON CORE</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Automações & Scripts</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-PYTHON" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                                 <div class="agent-card java" onclick="showPanel('studio'); selectAgent('JAVA')" style="padding: 15px 10px; border-radius: 12px;">
                                     <div class="agent-icon" style="font-size: 20px;">🤖</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">JAVA CORE</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Apps Android</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-JAVA" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                                 <div class="agent-card software" onclick="showPanel('studio'); selectAgent('SOFTWARE')" style="padding: 15px 10px; border-radius: 12px;">
                                     <div class="agent-icon" style="font-size: 20px;">🏛️</div>
                                     <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">SOFTWARE</span>
                                     <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Arquitetura & Docs</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
+                                    <span class="status-tag online" id="ov-status-SOFTWARE" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
                                 </div>
                             </div>
                             
@@ -557,73 +618,128 @@
 
                 <div id="panel-analytics" class="panel-view">
                     <div class="panel-scanner"></div>
-                    <div class="dashboard-container">
-
-                        <!-- Linha 1: Cards Superiores -->
-                        <div class="card telemetry-card card-tech holo-shimmer">
-                            <span class="tech-corner" style="position:absolute;top:0;right:0;width:100%;height:100%;pointer-events:none;"></span>
-                            <div class="card-header">
-                                <span class="icon-pulse">📡</span> PING DA REDE
-                            </div>
-                            <div class="value ping-value glow-text-cyan" id="tele-ping">8ms</div>
-                            <div class="progress-bar"><div class="progress-fill ping-fill" style="width: 20%;"></div></div>
-                        </div>
-
-                        <div class="card telemetry-card card-tech holo-shimmer">
-                            <div class="card-header">
-                                <span class="icon-pulse">🧠</span> CARGA CYBERCORE IA
-                            </div>
-                            <div class="value cpu-value glow-text-cyan" id="tele-cpu">3.9%</div>
-                            <div class="progress-bar"><div class="progress-fill cpu-fill" style="width: 3.9%;"></div></div>
-                        </div>
-
-                        <div class="card telemetry-card card-tech holo-shimmer">
-                            <div class="card-header">
-                                <span class="icon-pulse">💾</span> CACHE SENTINEL
-                            </div>
-                            <div class="value ram-value glow-text-cyan" id="tele-ram">131MB</div>
-                            <div class="progress-bar"><div class="progress-fill ram-fill" style="width: 60%;"></div></div>
-                        </div>
-
-                        <!-- Linha 3: Métricas Financeiras e Gráfico -->
-                        <div style="grid-column: span 3; display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
-                            <div class="card card-tech holo-shimmer" style="height: 100%;">
-                                <div class="card-header">💰 TOTAL EM BANCA (ESTIMADO)</div>
-                                <div class="value glow-value" id="stat-profit-brl-total">R$ 0,00</div>
-                            </div>
-                            <div class="system-card premium-glass tech-border" style="padding: 20px; height: 300px;">
-                                <div class="system-header" style="margin-bottom: 10px;">
-                                    <h3 style="font-size: 14px; letter-spacing: 1px;">📈 EVOLUÇÃO DE LUCROS (7 DIAS)</h3>
+                    <div style="display:flex;flex-direction:column;gap:20px;position:relative;z-index:1;">
+                        <!-- Header -->
+                        <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">📊</div>
+                                        <div>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_ANALYTICS] // ANALYTICS & TELEMETRIA</h3>
+                                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">NÚCLEO ESTÁVEL</span>
+                                                <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
+                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento de infraestrutura em tempo real</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <canvas id="profitChart" style="max-height: 220px;"></canvas>
+                                <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:rgba(0,243,255,0.08);border:1px solid rgba(0,243,255,0.15);">
+                                    <span style="font-size:14px;">👤</span>
+                                    <span style="font-size:11px;font-weight:800;color:var(--cyan);">Alegomes488</span>
+                                    <span style="font-size:9px;color:var(--text-muted);font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(0,243,255,0.1);">Acesso Master</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="card card-tech holo-shimmer">
-                            <div class="card-header">👥 USUÁRIOS ATIVOS</div>
-                            <div class="value glow-text" id="stat-users">0</div>
-                            <div class="sub-value" id="stat-users-week" style="color: #10b981;"></div>
+                        <!-- Telemetry Cards -->
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;">
+                            <div class="system-card premium-glass tech-border" style="padding:20px;position:relative;overflow:hidden;">
+                                <div style="position:absolute;top:0;right:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(0,243,255,0.4),transparent);"></div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">📡 PING DA REDE</span>
+                                    <span style="font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(0,243,255,0.1);color:var(--cyan);font-weight:700;">LATÊNCIA</span>
+                                </div>
+                                <div style="font-size:32px;font-weight:900;font-family:var(--font-mono);color:#fff;margin-bottom:8px;" id="tele-ping">8ms</div>
+                                <div style="height:4px;border-radius:4px;background:rgba(255,255,255,0.05);overflow:hidden;">
+                                    <div class="ping-fill" style="width:20%;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--cyan),#00f3ff);transition:width 0.5s;"></div>
+                                </div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;position:relative;overflow:hidden;">
+                                <div style="position:absolute;top:0;right:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(232,184,48,0.4),transparent);"></div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">🧠 CARGA CYBERCORE IA</span>
+                                    <span style="font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(232,184,48,0.1);color:var(--gold);font-weight:700;">CPU</span>
+                                </div>
+                                <div style="font-size:32px;font-weight:900;font-family:var(--font-mono);color:#fff;margin-bottom:8px;" id="tele-cpu">3.9%</div>
+                                <div style="height:4px;border-radius:4px;background:rgba(255,255,255,0.05);overflow:hidden;">
+                                    <div class="cpu-fill" style="width:3.9%;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),#fbbf24);transition:width 0.5s;"></div>
+                                </div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;position:relative;overflow:hidden;">
+                                <div style="position:absolute;top:0;right:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(16,185,129,0.4),transparent);"></div>
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">💾 CACHE SENTINEL</span>
+                                    <span style="font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(16,185,129,0.1);color:#10b981;font-weight:700;">RAM</span>
+                                </div>
+                                <div style="font-size:32px;font-weight:900;font-family:var(--font-mono);color:#fff;margin-bottom:8px;" id="tele-ram">131MB</div>
+                                <div style="height:4px;border-radius:4px;background:rgba(255,255,255,0.05);overflow:hidden;">
+                                    <div class="ram-fill" style="width:60%;height:100%;border-radius:4px;background:linear-gradient(90deg,#10b981,#34d399);transition:width 0.5s;"></div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="card card-tech holo-shimmer">
-                            <div class="card-header">💰 LUCRO MONETAG (BRUTO)</div>
-                            <div class="value glow-text" id="stat-profit-usd" style="color: #10b981;">$ 0.00</div>
-                            <div class="sub-value" id="stat-profit-brl">R$ 0,00</div>
+                        <!-- Banca + Profit Chart -->
+                        <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
+                            <div class="system-card premium-glass tech-border" style="padding:25px;display:flex;flex-direction:column;justify-content:center;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                    <span style="font-size:14px;">💰</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">TOTAL EM BANCA (ESTIMADO)</span>
+                                </div>
+                                <div style="font-size:36px;font-weight:900;font-family:var(--font-mono);background:linear-gradient(135deg,#fff,var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;" id="stat-profit-brl-total">R$ 0,00</div>
+                                <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+                                    <span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan);"></span>
+                                    <span style="font-size:10px;color:var(--text-muted);">Baseado em hits × CPM × dólar</span>
+                                </div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                    <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">📈 EVOLUÇÃO DE LUCROS (7 DIAS)</span>
+                                    <span style="font-size:9px;padding:2px 8px;border-radius:4px;background:rgba(232,184,48,0.1);color:var(--gold);font-weight:700;">REAL-TIME</span>
+                                </div>
+                                <div style="height:220px;">
+                                    <canvas id="profitChart" style="max-height:210px;"></canvas>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="card card-tech holo-shimmer">
-                            <div class="card-header">💹 LUCRO LÍQUIDO REAL</div>
-                            <div class="value glow-text" id="stat-net-profit" style="color: #f43f5e;">R$ 0,00</div>
-                            <div class="sub-value">Receita - Dívida</div>
+                        <!-- Metric Cards -->
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;">
+                            <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                    <span style="font-size:18px;">👥</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">USUÁRIOS ATIVOS</span>
+                                </div>
+                                <div style="font-size:28px;font-weight:900;font-family:var(--font-mono);color:#fff;" id="stat-users">0</div>
+                                <div style="font-size:10px;font-weight:700;margin-top:4px;" id="stat-users-week"></div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                    <span style="font-size:18px;">💰</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">LUCRO MONETAG (BRUTO)</span>
+                                </div>
+                                <div style="font-size:20px;font-weight:900;font-family:var(--font-mono);color:#10b981;" id="stat-profit-usd">$ 0.00</div>
+                                <div style="font-size:14px;font-weight:700;font-family:var(--font-mono);color:var(--text-secondary);margin-top:2px;" id="stat-profit-brl">R$ 0,00</div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                    <span style="font-size:18px;">💹</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">LUCRO LÍQUIDO REAL</span>
+                                </div>
+                                <div style="font-size:28px;font-weight:900;font-family:var(--font-mono);" id="stat-net-profit">R$ 0,00</div>
+                                <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Receita - Dívida</div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                                    <span style="font-size:18px;">📉</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">DÍVIDA ACUMULADA</span>
+                                </div>
+                                <div style="font-size:28px;font-weight:900;font-family:var(--font-mono);color:#f43f5e;" id="stat-balance">R$ 0,00</div>
+                                <div style="font-size:9px;color:var(--text-muted);margin-top:2px;">Total em Contas</div>
+                            </div>
                         </div>
-
-                        <!-- Linha 4: Dívida + Agent Status + Log -->
-                        <div class="card card-tech holo-shimmer">
-                            <div class="card-header">💰 DÍVIDA ACUMULADA</div>
-                            <div class="value glow-value" id="stat-balance">R$ 0,00</div>
-                            <div class="sub-value">Total em Contas</div>
-                        </div>
-
                     </div>
                 </div>
 
@@ -1374,14 +1490,14 @@
                 <div class="login-body">
                     <div class="p-input-group login-input-group">
                         <label><span class="input-icon">✉</span> E-MAIL DE ACESSO</label>
-                        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email">
+                        <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="email" onkeydown="if(event.key==='Enter'){event.preventDefault();login()}">
                         <div class="input-line"></div>
                     </div>
 
                     <div class="p-input-group login-input-group">
                         <label><span class="input-icon">🔑</span> CHAVE DE ACESSO</label>
                         <div class="password-wrapper">
-                            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+                            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter'){event.preventDefault();login()}">
                             <span class="toggle-pass" onclick="togglePass('login-pass')">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             </span>
@@ -1395,10 +1511,7 @@
                         <svg class="btn-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                     </button>
 
-                    <!-- BYPASS PARA DESENVOLVEDOR (APARECE APENAS NO LOCALHOST) -->
-                    <div id="dev-bypass-area" style="margin-top: 15px; text-align: center;">
-                        <button onclick="bypassLogin()" style="background: transparent; border: 1px solid rgba(232,184,48,0.3); color: var(--gold); padding: 8px 15px; border-radius: 8px; font-size: 10px; cursor: pointer; font-weight: 800; letter-spacing: 1px;">⚡ BYPASS DESENVOLVEDOR</button>
-                    </div>
+
                 </div>
 
                 <div class="login-footer">
