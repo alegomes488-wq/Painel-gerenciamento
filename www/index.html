@@ -1518,35 +1518,41 @@
             }
 
             list.innerHTML = '';
-            list.className = 'referrals-list-container'; // Estilo de container
+            list.className = 'referrals-list-container';
             referrals.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'referral-item glass-premium';
-                item.style.display = 'flex';
-                item.style.justifyContent = 'space-between';
-                item.style.alignItems = 'center';
                 item.style.padding = '12px';
                 item.style.marginBottom = '10px';
                 item.style.borderRadius = '12px';
                 item.style.border = '1px solid rgba(255,255,255,0.05)';
 
                 const vids = r.videosWatched || 0;
-                const status = vids >= 15 ? 'Ativo' : `${vids}/15`;
-                const statusClass = vids >= 15 ? 'status-active' : 'status-pending';
-                const statusColor = vids >= 15 ? '#10b981' : '#fbbf24';
+                const target = 25;
+                const progress = Math.min(100, (vids / target) * 100);
+                const isActive = vids >= target;
 
                 item.innerHTML = `
-                    <div class="referral-user-info" style="display: flex; align-items: center; gap: 10px;">
-                        <div class="referral-avatar" style="width: 35px; height: 35px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;">
-                            ${(r.firstname || r.fullname || "U")[0].toUpperCase()}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="referral-user-info" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="referral-avatar" style="width: 35px; height: 35px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem;">
+                                ${(r.firstname || r.fullname || "U")[0].toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="referral-name" style="font-size: 0.85rem; font-weight: 700;">${r.fullname || "Usuário"}</div>
+                                <div style="font-size: 0.65rem; color: var(--text-muted);">${r.username || ''}</div>
+                            </div>
                         </div>
-                        <div>
-                            <div class="referral-name" style="font-size: 0.85rem; font-weight: 700;">${r.fullname || "Usuário"}</div>
-                            <div style="font-size: 0.65rem; color: var(--text-muted);">${r.username || ''}</div>
+                        <div style="font-size: 0.7rem; font-weight: 800; color: ${isActive ? '#10b981' : '#fbbf24'}; background: ${isActive ? '#10b981' : '#fbbf24'}15; padding: 4px 10px; border-radius: 20px;">
+                            ${isActive ? '✅ ATIVO' : '⏳ ' + vids + '/' + target}
                         </div>
                     </div>
-                    <div class="referral-status ${statusClass}" style="font-size: 0.7rem; font-weight: 800; color: ${statusColor}; background: ${statusColor}15; padding: 4px 10px; border-radius: 20px;">
-                        ${status}
+                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${progress}%; height: 100%; background: ${isActive ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #7c3aed, #f472b6)'}; border-radius: 3px; transition: width 0.5s ease;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted); margin-top: 4px;">
+                        <span>${vids} anúncios</span>
+                        <span>Meta: ${target}</span>
                     </div>
                 `;
                 list.appendChild(item);

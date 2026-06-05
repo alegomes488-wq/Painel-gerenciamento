@@ -121,13 +121,27 @@ AGENT_MODELS = {
 }
 
 async def ask_ai_specialized(agent: str, prompt: str, uid="admin_master"):
+    # --- ORCHESTRATOR 2.0: INTENT DETECTION ---
+    if agent == "ORCHESTRATOR":
+        detection_prompt = f"""Analise a seguinte solicitação do usuário e determine qual o melhor especialista CyberCore para resolvê-la.
+Solicitação: "{prompt}"
+
+Responda APENAS o nome de UM dos seguintes agentes:
+BUILDER (Para HTML/CSS/UI), PYTHON (Scripts/Backend), JAVA (Android), FULLSTACK (Sistemas completos), DESIGNER (UI/UX), SECURITY (Segurança), AUDITOR (Revisão), SOFTWARE (Documentação).
+Se for uma conversa geral, responda ORCHESTRATOR."""
+
+        detected_agent = await ask_ai(detection_prompt, uid="system_router")
+        detected_agent = detected_agent.strip().upper()
+        if detected_agent in AGENT_MODELS:
+            agent = detected_agent
+            print(f"[ORCHESTRATOR] Delegando para: {agent}")
+
     config = AGENT_MODELS.get(agent, AGENT_MODELS["ORCHESTRATOR"])
     provider = config["provider"]
     model_name = config["model"]
 
     try:
         if provider == "groq" and GROQ_AVAILABLE:
-            # Custom prompt para cada especialista
             system_msg = f"Você é o especialista {agent} do CyberCore IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
             return groq_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name) or "Falha no Groq"
 
@@ -839,6 +853,37 @@ async def ai_chat(data: dict = Body(...)):
     uid = data.get("uid", "admin_master")
     answer = await ask_ai(prompt, uid)
     return {"answer": answer}
+
+# --- SENTINEL LOGS ---
+@app.get("/api/sentinel/logs")
+async def sentinel_logs():
+    try:
+        # Pega os últimos 20 logs reais do Firebase
+        logs = db.reference('logs').order_by_key().limit_to_last(20).get() or {}
+        log_list = []
+        for lid, ldata in logs.items():
+            if isinstance(ldata, dict):
+                log_list.append({
+                    "id": lid,
+                    "time": ldata.get("timestamp", datetime.now().isoformat()),
+                    "msg": ldata.get("message", "Sem descrição"),
+                    "level": ldata.get("level", "INFO")
+                })
+        return {"logs": log_list[::-1]}
+    except Exception as e:
+        return {"logs": [{"time": "-", "msg": f"Erro Sentinel: {str(e)}", "level": "ERROR"}]}
+
+@app.post("/api/sentinel/log")
+async def add_sentinel_log(data: dict = Body(...)):
+    msg = data.get("message")
+    level = data.get("level", "INFO")
+    if not msg: return {"status": "error"}
+    db.reference('logs').push({
+        "message": msg,
+        "level": level,
+        "timestamp": datetime.now().strftime('%H:%M:%S')
+    })
+    return {"status": "success"}
 
 # --- STUDIO WORKSPACE API ---
 

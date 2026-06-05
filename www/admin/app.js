@@ -1787,24 +1787,24 @@ function updateChart() {
 }
 
 function injectSentinelLogs() {
-    const logs = [
-        "VARREDURA COMPLETA: 0 ameaças",
-        "TRÁFEGO ANALISADO: 142 req/min",
-        "BACKUP NEURAL EXECUTADO",
-        "SENTINEL: Bloqueado IP Suspeito 192.168.1.10",
-        "AUDITORIA: Saque verificado com sucesso",
-        "SISTEMA: Carga do núcleo estável (2.4%)",
-        "NEXUS: Padrão de comportamento aprendido [ID: 882]",
-        "SEGURANÇA: Protocolo SSL/TLS renovado"
-    ];
     const logContainer = document.getElementById('analysisLog');
     if (!logContainer) return;
 
-    const line = document.createElement('div');
-    line.className = 'log-entry';
-    line.innerHTML = `<small>[${new Date().toLocaleTimeString()}]</small> <span>${logs[Math.floor(Math.random() * logs.length)]}</span>`;
-    logContainer.prepend(line);
-    if (logContainer.childNodes.length > 6) logContainer.lastChild.remove();
+    fetch(`${CYBERCORE_BACKEND_URL}/api/sentinel/logs`)
+        .then(r => r.json())
+        .then(data => {
+            logContainer.innerHTML = ''; // Limpa os logs simulados
+            data.logs.slice(0, 8).forEach(log => {
+                const line = document.createElement('div');
+                line.className = 'log-entry';
+                const color = log.level === 'ERROR' ? '#ff4d4d' : (log.level === 'WARNING' ? '#ffcc00' : '#00ffd2');
+                line.innerHTML = `<small style="color:#888">[${log.time}]</small> <span style="color:${color}">${log.msg}</span>`;
+                logContainer.appendChild(line);
+            });
+        })
+        .catch(err => {
+            console.error("Erro Sentinel:", err);
+        });
 }
 
 function updateWarRoom() {
