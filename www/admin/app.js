@@ -68,7 +68,6 @@ function initRealTimeSystem() {
 
     setInterval(updateTelemetria, 3000);
     setInterval(checkPythonCoreStatus, 5000);
-    setInterval(updateChart, 2000);
     setInterval(updateSentinelStatus, 5000);
     setInterval(updateWarRoom, 3000);
     setInterval(checkAIEngineStatus, 15000);
@@ -209,7 +208,6 @@ function initRealTimeSystem() {
         nexusBody.scrollTop = nexusBody.scrollHeight;
     });
 
-    initPerformanceChart();
     initProfitChart();
     console.log("[NEXUS] Telemetria de Gráficos Iniciada");
 }
@@ -1661,120 +1659,6 @@ function toggleSystem(type, status) {
     updateConfig(type, status);
 }
 
-function initPerformanceChart() {
-    const ctx = document.getElementById('performanceChart')?.getContext('2d');
-    if (!ctx) return;
-
-    window.perfChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: [],
-            datasets: [
-                {
-                    label: 'Receita Real',
-                    data: [],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#10b981'
-                },
-                {
-                    label: 'Previsão IA',
-                    data: [],
-                    borderColor: '#E8B830',
-                    backgroundColor: 'rgba(232, 184, 48, 0.05)',
-                    borderDash: [5, 5],
-                    fill: false,
-                    tension: 0.3,
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#E8B830'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: { color: '#94a3b8', font: { size: 11 }, usePointStyle: true, padding: 15 }
-                }
-            },
-            scales: {
-                x: { display: true, grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 6 } },
-                y: { display: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { size: 9 }, callback: v => 'R$' + v.toFixed(0) } }
-            }
-        }
-    });
-
-    // Escuta dados reais do Firebase
-    hubDb.ref('config/profit_history').on('value', snap => {
-        const data = snap.val();
-        if (!data || !Array.isArray(data) || data.length === 0) return;
-        updateChartWithRealData(data);
-    });
-}
-
-function calcPredictions(values, ahead = 5) {
-    if (values.length < 3) return [];
-    const n = values.length;
-    const sumX = (n - 1) * n / 2;
-    const sumY = values.reduce((a, b) => a + b, 0);
-    const sumXY = values.reduce((a, v, i) => a + i * v, 0);
-    const sumX2 = values.reduce((a, i) => a + i * i, 0);
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX) || 0;
-    const intercept = (sumY - slope * sumX) / n;
-    const lastIdx = n - 1;
-    const preds = [];
-    for (let i = 1; i <= ahead; i++) {
-        preds.push(Math.max(0, slope * (lastIdx + i) + intercept));
-    }
-    return preds;
-}
-
-function updateChartWithRealData(data) {
-    if (!window.perfChart) return;
-
-    const revenues = data.map(d => d.v || 0);
-    const profits = data.map(d => d.p || 0);
-    const times = data.map(d => {
-        if (!d.t) return '';
-        const date = new Date(d.t * 1000);
-        return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
-    });
-
-    // Dataset 1: Receita Real (v)
-    const realValues = revenues;
-    // Dataset 2: Previsão IA
-    const predictions = calcPredictions(realValues, 5);
-    const fullLabels = [...times];
-    for (let i = 1; i <= predictions.length; i++) {
-        fullLabels.push('+' + (i * 30) + '\'');
-    }
-
-    const realData = [...realValues, ...Array(predictions.length).fill(null)];
-    const predData = [...Array(realValues.length).fill(null), ...predictions];
-
-    window.perfChart.data.labels = fullLabels;
-    window.perfChart.data.datasets[0].data = realData;
-    window.perfChart.data.datasets[1].data = predData;
-    window.perfChart.update('none');
-
-    // Atualiza badge de status
-    const badge = document.querySelector('.badge-ia');
-    if (badge && realValues.length >= 2) {
-        const last = realValues[realValues.length - 1];
-        const prev = realValues[realValues.length - 2];
-        const trend = last >= prev ? '📈' : '📉';
-        const pct = prev > 0 ? (((last - prev) / prev) * 100).toFixed(1) : '0.0';
-        const signal = last >= prev ? '+' : '';
-        badge.textContent = `PREVISÃO IA ATIVA ${trend} ${signal}${pct}%`;
-    }
-}
-
 function initProfitChart() {
     const ctx = document.getElementById('profitChart')?.getContext('2d');
     if (!ctx) return;
@@ -1868,34 +1752,6 @@ function updateProfitChartWithRealData(data) {
     window.profitChart.data.datasets[0].data = values;
     window.profitChart.data.datasets[0].backgroundColor = colors;
     window.profitChart.update('none');
-}
-
-function updateChart() {
-    // 1. Gráfico de Linha (Fluxo em Tempo Real) - atualizado via listener Firebase
-    if (window.perfChart) {
-        const chart = window.perfChart;
-        const realDataset = chart.data.datasets[0].data;
-        const labels = chart.data.labels;
-
-        // Se não houver dados reais, gera pulsação de monitoramento (Visual Live)
-        if (realDataset.length === 0 || realDataset.every(v => v === 0 || v === null)) {
-            const now = new Date();
-            const timeStr = now.getHours().toString().padStart(2, '0') + ':' +
-                          now.getMinutes().toString().padStart(2, '0') + ':' +
-                          now.getSeconds().toString().padStart(2, '0');
-
-            if (labels.length > 15) {
-                labels.shift();
-                realDataset.shift();
-            }
-
-            labels.push(timeStr);
-            // Simula variação de tráfego IA
-            const val = (Math.random() * 0.4) - 0.2;
-            realDataset.push(val);
-            chart.update('quiet');
-        }
-    }
 }
 
 function updateWarRoom() {
