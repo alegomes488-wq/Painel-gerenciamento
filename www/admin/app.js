@@ -226,6 +226,20 @@ function filterWatchProjects(type) {
 }
 
 function showPanel(id, filterType = null) {
+    // 1. Gerenciamento Visual do Menu Lateral (Nav Groups)
+    document.querySelectorAll('.nav-group').forEach(group => {
+        const btn = group.querySelector('.nav-link');
+        // Identifica se este grupo deve estar expandido
+        const isWatchGroup = btn && btn.id === 'btn-nav-watch' && (id === 'watch' || ['saques', 'users', 'security', 'terminal'].includes(id));
+        const isStudioGroup = btn && btn.id === 'btn-nav-studio' && (id === 'studio');
+
+        if (isWatchGroup || isStudioGroup || (btn && btn.id === `btn-nav-${id}`)) {
+            group.classList.add('expanded');
+        } else {
+            group.classList.remove('expanded');
+        }
+    });
+
     document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active-watch'));
@@ -237,31 +251,38 @@ function showPanel(id, filterType = null) {
     if (target) {
         target.classList.add('active');
         
-        // Find corresponding sidebar nav-link or sub-link
-        const navBtn = document.getElementById('btn-nav-' + id);
+        // Find corresponding sidebar nav-link
+        const navBtn = document.getElementById('btn-nav-' + id) || (['saques', 'users', 'security', 'terminal'].includes(id) ? document.getElementById('btn-nav-watch') : null);
+
         if (navBtn) {
-            if (id === 'watch') {
+            if (navBtn.id === 'btn-nav-watch') {
                 navBtn.classList.add('active-watch');
             } else {
                 navBtn.classList.add('active');
             }
         }
         
-        // Handle filter type for Watch
+        // Handle sub-links active states
+        if (filterType || ['saques', 'users', 'security', 'terminal'].includes(id)) {
+            const subLinks = document.querySelectorAll(`.sub-nav .sub-link`);
+            subLinks.forEach(link => {
+                const text = link.textContent.toLowerCase();
+                if (filterType && text.includes(filterType)) {
+                     link.classList.add('active', 'active-watch');
+                } else if (id === 'saques' && text.includes('saques')) {
+                     link.classList.add('active', 'active-watch');
+                } else if (id === 'users' && text.includes('usuários')) {
+                     link.classList.add('active', 'active-watch');
+                } else if (id === 'security' && text.includes('alertas')) {
+                     link.classList.add('active', 'active-watch');
+                } else if (id === 'terminal' && text.includes('logs')) {
+                     link.classList.add('active', 'active-watch');
+                }
+            });
+        }
+
         if (id === 'watch') {
-            if (filterType) {
-                // Set active sub-link
-                const subLinks = document.querySelectorAll(`.sub-nav span`);
-                subLinks.forEach(link => {
-                    if (link.textContent.toLowerCase().includes(filterType)) {
-                        link.classList.add('active');
-                        link.classList.add('active-watch');
-                    }
-                });
-                filterWatchProjects(filterType);
-            } else {
-                filterWatchProjects(null);
-            }
+            filterWatchProjects(filterType);
         }
         
         const titleMap = {
@@ -1205,8 +1226,7 @@ function showToast(msg, type = 'info') {
 function updateTelemetria() {
     updateNeuralActivity();
     updateAIPanelStats();
-    const ping = Math.floor(Math.random() * 20) + 15;
-    updateEl('tele-ping', `${ping}ms`);
+    // Apenas atualiza UI neural, não sobrescreve ping real (feito pelo updateWarRoom)
 }
 
 function updateNeuralActivity() {
@@ -1884,6 +1904,8 @@ function updateWarRoom() {
             if (pingFill) pingFill.style.width = `${Math.min((data.ping / 200) * 100, 100)}%`;
             const cpuFill = document.querySelector('.cpu-fill');
             if (cpuFill) cpuFill.style.width = `${data.cpu || 0}%`;
+            const ramFill = document.querySelector('.ram-fill');
+            if (ramFill) ramFill.style.width = `${Math.min(parseFloat(data.ram || '0') / 10, 100)}%`;
 
             if (data.status === 'online') {
                 // Sugestão 2: War Room (Telemetria)
