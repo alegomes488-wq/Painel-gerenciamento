@@ -68,7 +68,6 @@ function initRealTimeSystem() {
 
     setInterval(updateTelemetria, 3000);
     setInterval(checkPythonCoreStatus, 5000);
-    setInterval(injectSentinelLogs, 4000);
     setInterval(updateChart, 2000);
     setInterval(updateSentinelStatus, 5000);
     setInterval(updateWarRoom, 3000);
@@ -1899,27 +1898,6 @@ function updateChart() {
     }
 }
 
-function injectSentinelLogs() {
-    const logContainer = document.getElementById('analysisLog');
-    if (!logContainer) return;
-
-    fetch(`${CYBERCORE_BACKEND_URL}/api/sentinel/logs`)
-        .then(r => r.json())
-        .then(data => {
-            logContainer.innerHTML = ''; // Limpa os logs simulados
-            data.logs.slice(0, 8).forEach(log => {
-                const line = document.createElement('div');
-                line.className = 'log-entry';
-                const color = log.level === 'ERROR' ? '#ff4d4d' : (log.level === 'WARNING' ? '#ffcc00' : '#00ffd2');
-                line.innerHTML = `<small style="color:#888">[${log.time}]</small> <span style="color:${color}">${log.msg}</span>`;
-                logContainer.appendChild(line);
-            });
-        })
-        .catch(err => {
-            console.error("Erro Sentinel:", err);
-        });
-}
-
 function updateWarRoom() {
     // Atualiza ambos: monitor no painel de projetos + war room legacy
     const strategiesEl = document.getElementById('monitor-strategies') || document.getElementById('warroom-strategies');
@@ -1943,22 +1921,11 @@ function updateWarRoom() {
             if (ramFill) ramFill.style.width = `${Math.min(parseFloat(data.ram || '0') / 10, 100)}%`;
 
             if (data.status === 'online') {
-                // Sugestão 2: War Room (Telemetria)
-                updateEl('stat-latency', `${data.latency_ms}ms`);
-                updateEl('stat-anomalies', data.anomalies);
-
                 const dot = document.getElementById('python-core-ping');
                 if (dot) {
                     dot.style.background = '#10b981';
                     dot.style.boxShadow = '0 0 12px #10b981';
                 }
-
-                // Sugestão 1: Alerta da Sentinela Preditiva
-                if (data.anomalies > 0 && (!window._lastAnomalyCount || data.anomalies > window._lastAnomalyCount)) {
-                    addFloatingNotification('⚠️', 'SENTINELA', `${data.anomalies} contas suspeitas detectadas pelo ROI.`, 'error');
-                    if (window.audioError) window.audioError.play().catch(() => {});
-                }
-                window._lastAnomalyCount = data.anomalies;
             }
         }).catch(() => {});
 

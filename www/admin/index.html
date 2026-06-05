@@ -585,15 +585,6 @@
                             <div class="progress-bar"><div class="progress-fill ram-fill" style="width: 60%;"></div></div>
                         </div>
 
-                        <!-- Linha 2: Banner de Monitoramento -->
-                        <div class="card full-width-card holo-shimmer" style="background: linear-gradient(135deg, rgba(232,184,48,0.08), rgba(30,158,187,0.05), transparent);">
-                            <div>
-                                <div class="card-header"><span class="data-dot gold" style="margin-right:6px;"></span> AGENTE CYBERCORE IA MONITORANDO</div>
-                                <p style="font-size: 12px; color: #9ca3af; margin: 5px 0 0 0;">Analisando tráfego e requisições de PIX em tempo real...</p>
-                            </div>
-                            <button class="btn-report" onclick="generateAIReport()">RELATÓRIO IA</button>
-                        </div>
-
                         <!-- Linha 3: Métricas Financeiras e Gráfico -->
                         <div style="grid-column: span 3; display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
                             <div class="card card-tech holo-shimmer" style="height: 100%;">
@@ -631,21 +622,6 @@
                             <div class="card-header">💰 DÍVIDA ACUMULADA</div>
                             <div class="value glow-value" id="stat-balance">R$ 0,00</div>
                             <div class="sub-value">Total em Contas</div>
-                        </div>
-
-                        <div class="card card-tech holo-shimmer" style="grid-column: span 2;">
-                            <div class="agent-status" style="margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-                                <div style="display: flex; align-items: center;">
-                                    <span id="python-core-ping" class="data-dot gold" style="margin-right:8px;"></span>
-                                    <span id="python-core-status" style="color: #10b981; font-weight: 700;">ONLINE</span>
-                                    <span style="opacity: 0.6; margin-left: 8px;">AGENTE CYBERCORE IA MONITORANDO</span>
-                                </div>
-                                <div style="display: flex; gap: 15px; font-size: 11px; font-weight: 700; color: var(--primary);">
-                                    <span>LATÊNCIA: <span id="stat-latency">--ms</span></span>
-                                    <span>ANOMALIAS: <span id="stat-anomalies" style="color:var(--danger)">0</span></span>
-                                </div>
-                            </div>
-                            <div id="analysisLog"></div>
                         </div>
 
                         <!-- Linha 5: Fluxo de Caixa & Performance -->
