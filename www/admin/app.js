@@ -1765,41 +1765,100 @@ function updateChartWithRealData(data) {
 function initProfitChart() {
     const ctx = document.getElementById('profitChart')?.getContext('2d');
     if (!ctx) return;
+
+    const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const today = new Date().getDay();
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+        labels.push(dayNames[(today - i + 7) % 7]);
+    }
+
     window.profitChart = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+            labels: labels,
             datasets: [{
                 label: 'Lucro (R$)',
-                data: [450, 680, 520, 940, 810, 1200, 1050],
-                backgroundColor: '#00f3ff',
-                borderRadius: 5
+                data: [0, 0, 0, 0, 0, 0, 0],
+                backgroundColor: [],
+                borderRadius: 6,
+                borderSkipped: false,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => `R$ ${parseFloat(ctx.raw || 0).toFixed(2)}`
+                    }
+                }
+            },
             scales: {
-                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8', callback: v => 'R$' + v.toFixed(0) }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8' }
+                }
             }
         }
     });
+
+    // Escuta dados reais de lucro dos últimos 7 dias
+    hubDb.ref('config/profit_history').on('value', snap => {
+        const data = snap.val();
+        if (!data || !Array.isArray(data)) return;
+        updateProfitChartWithRealData(data);
+    });
+}
+
+function updateProfitChartWithRealData(data) {
+    if (!window.profitChart) return;
+
+    // Agrupa por dia nos últimos 7 dias
+    const now = Date.now() / 1000;
+    const sevenDaysAgo = now - 7 * 86400;
+    const dayBuckets = {};
+
+    for (let i = 0; i < 7; i++) {
+        const d = new Date((sevenDaysAgo + i * 86400) * 1000);
+        const key = d.toISOString().split('T')[0];
+        dayBuckets[key] = 0;
+    }
+
+    data.forEach(d => {
+        if (!d.t) return;
+        const ts = typeof d.t === 'number' ? d.t : d.t;
+        if (ts < sevenDaysAgo) return;
+        const key = new Date(ts * 1000).toISOString().split('T')[0];
+        if (dayBuckets[key] !== undefined) {
+            dayBuckets[key] += d.v || 0;
+        }
+    });
+
+    const values = Object.values(dayBuckets);
+    const maxVal = Math.max(...values, 1);
+
+    const colors = values.map(v => {
+        const pct = v / maxVal;
+        if (pct > 0.7) return '#10b981';
+        if (pct > 0.4) return '#22c55e';
+        if (pct > 0.1) return '#34d399';
+        return '#6ee7b7';
+    });
+
+    window.profitChart.data.datasets[0].data = values;
+    window.profitChart.data.datasets[0].backgroundColor = colors;
+    window.profitChart.update('none');
 }
 
 function updateChart() {
-    // 1. Gráfico de Barras (Lucro Semanal)
-    if (window.profitChart && window.profitChart.data) {
-        const data = window.profitChart.data;
-        if (data.datasets && data.datasets[0]) {
-            data.datasets[0].data.shift();
-            data.datasets[0].data.push(Math.floor(Math.random() * 500) + 200);
-            window.profitChart.update('none');
-        }
-    }
-
-    // 2. Gráfico de Linha (Fluxo em Tempo Real)
+    // 1. Gráfico de Linha (Fluxo em Tempo Real) - atualizado via listener Firebase
     if (window.perfChart) {
         const chart = window.perfChart;
         const realDataset = chart.data.datasets[0].data;
