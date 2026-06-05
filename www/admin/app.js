@@ -775,44 +775,6 @@ function renderGlobalStats() {
     updateEl('stat-profit-usd', `$ ${(revenueBrl / dollar).toFixed(2)}`);
     updateEl('stat-profit-brl', `R$ ${revenueBrl.toFixed(2)}`);
     updateEl('stat-balance', `R$ ${totalDebt.toFixed(2)}`);
-
-    renderROI(users);
-}
-
-function renderROI(users) {
-    // Categoriza usuários por canal
-    const channels = { afiliados: [], ads: [], organico: [] };
-    users.forEach(u => {
-        const ref = (u.referredBy || '').toLowerCase();
-        if (ref.includes('afiliado')) channels.afiliados.push(u);
-        else if (ref.includes('ads') || ref.includes('ad')) channels.ads.push(u);
-        else channels.organico.push(u);
-    });
-
-    const config = [
-        { key: 'afiliados', color: '#E8B830', costPerUser: 15 },
-        { key: 'ads', color: '#fbbf24', costPerUser: 25 },
-        { key: 'organico', color: '#3b82f6', costPerUser: 5 }
-    ];
-
-    config.forEach(c => {
-        const channelUsers = channels[c.key];
-        const totalRevenue = channelUsers.reduce((s, u) => s + parseFloat(u.revenue_generated || 0), 0);
-        const totalCost = channelUsers.length * c.costPerUser;
-        const roi = totalCost > 0 ? ((totalRevenue - totalCost) / totalCost) * 100 : 0;
-        const barWidth = Math.min(100, Math.max(0, roi));
-
-        // Porcentagem de mudança (simulada com base na receita)
-        const prevRevenue = channelUsers.reduce((s, u) => s + parseFloat(u.last_month_revenue || u.revenue_generated || 0) * 0.7, 0);
-        const change = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
-        const changeColor = change >= 0 ? '#10b981' : '#ef4444';
-        const changeSignal = change >= 0 ? '+' : '';
-
-        updateEl(`roi-${c.key}-pct`, `${roi.toFixed(0)}% ROI`);
-        updateEl(`roi-${c.key}-bar`, null, (el) => { if (el) el.style.width = `${barWidth}%`; });
-        updateEl(`roi-${c.key}-rev`, `R$ ${totalRevenue.toFixed(2)}`);
-        updateEl(`roi-${c.key}-chg`, `${changeSignal}${change.toFixed(1)}%`, (el) => { if (el) el.style.color = changeColor; });
-    });
 }
 
 function renderUsersTable() {
