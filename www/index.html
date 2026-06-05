@@ -552,13 +552,28 @@
         const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
 
         const NEXUS_KNOWLEDGE = {
-            "sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
-            "como sacar": "Para sacar, você precisa atingir o valor mínimo de R$ 0,50. Vá na aba 'Intercâmbio', insira sua chave PIX e solicite o resgate.",
-            "como funciona": "O CineCash utiliza o processamento da IA CyberCore para validar anúncios. Você processa os anúncios, nossa IA analisa os dados e você recebe uma parte do lucro em saldo real.",
-            "me mostre o site": "Com certeza! Vou te mostrar o site. No topo você vê seu saldo, no meio o botão de processar anúncios e embaixo suas estatísticas de hoje.",
-            "indicacao": "Cada amigo que você convida e fica ativo rende R$ 0,50 de bônus direto no seu saldo!",
-            "dúvidas": "Eu sou o Nexus, seu guia. Posso te ajudar com saques, problemas técnicos ou te mostrar como ganhar mais. O que deseja saber?",
-            "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela."
+            "sacar": "Para sacar, vá na aba 'Intercâmbio', insira sua chave PIX e solicite. Valores disponíveis: R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 e R$ 50,00. Mínimo de saque: R$ 0,50. Tipos de chave: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (10-13 dígitos) ou chave aleatória (EVP).",
+            "como sacar": "Vá em Intercâmbio, escolha o valor, informe sua chave PIX com o tipo correto e solicite. O pagamento é processado via Asaas.",
+            "intercambio": "A aba Intercâmbio é onde você solicita saques. Escolha entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Informe sua chave PIX (CPF, CNPJ, email, telefone ou aleatória) e confirme.",
+            "como funciona": "O CineCash usa IA para validar anúncios. Você processa os anúncios no botão principal, a IA analisa os dados e você recebe parte do lucro em saldo real. Seu saldo atual é exibido no topo.",
+            "me mostre o site": "Claro! O site tem 4 abas: Início (processar anúncios e ver saldo), Intercâmbio (sacar via PIX), Convites (convidar amigos e ganhar bônus) e Histórico (transações).",
+            "indicacao": "Sistema de convites: cada amigo que você convida, ao assistir 25 anúncios, rende R$ 0,20 no seu saldo. A cada 5 amigos válidos, você ganha R$ 1,00 extra de bônus!",
+            "convites": "Na aba Convites você encontra seu link único para compartilhar. Cada amigo que se cadastrar e assistir 25 anúncios rende R$ 0,20. A cada 5 válidos, +R$ 1,00 de bônus.",
+            "dúvidas": "Eu sou o Nexus, seu guia CineCash. Posso ajudar com: saques, bônus diário, convites, processar anúncios, metas, ou qualquer dúvida sobre a plataforma.",
+            "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela.",
+            "saldo": "Seu saldo atual aparece no topo da página. Você ganha saldo processando anúncios, com bônus diário e com indicações de amigos.",
+            "anúncios": "Clique no botão principal 'Processar Anúncios' para ativar a IA. Cada anúncio processado equivale a uma validação da rede neural. Você pode ver seu progresso nas metas.",
+            "processar": "O botão principal 'Processar Anúncios' ativa a rede neural CyberCore para validar campanhas. Cada clique rende créditos que se acumulam em saldo real.",
+            "bonus diario": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
+            "bônus diário": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
+            "metas": "O sistema de metas acompanha seu progresso de anúncios processados: 150 ads → R$ 0,50 | 900 ads → R$ 3,00 | 1500 ads → R$ 5,00 | 3000 ads → R$ 10,00 | 15000 ads → R$ 50,00.",
+            "historico": "Na aba Histórico você vê todas as suas transações: saques solicitados, status (Pendente, Pago, Recusado) e bônus recebidos.",
+            "pix": "Tipos de chave PIX aceitos: CPF (11 números), CNPJ (14 números), e-mail, telefone (com DDD, 10-13 dígitos) e chave aleatória (EVP - formato UUID).",
+            "chave pix": "Para sacar, informe sua chave PIX no tipo correto: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (com DDD) ou chave aleatória.",
+            "banido": "Se seu status for 'banido', você não pode acessar o sistema. Entre em contato com o suporte para mais informações.",
+            "termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
+            "aceitar termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
+            "renda": "Você ganha de 3 formas: 1) Processando anúncios (via IA CyberCore), 2) Bônus diário de R$ 0,20 (fins de semana), 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5)."
         };
 
         // --- SISTEMA DESPERTADOR (WAKE-UP) ---

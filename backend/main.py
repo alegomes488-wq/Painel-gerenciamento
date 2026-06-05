@@ -510,11 +510,74 @@ GROQ_MODEL_MAP = {
     "gemma2": "gemma2-9b-it",
 }
 
-def groq_generate(prompt, model="llama3:latest"):
+def groq_generate(prompt, system_extra="", uid="admin_master"):
     if not GROQ_AVAILABLE:
         return None
     try:
-        groq_model = GROQ_MODEL_MAP.get(model, "llama-3.3-70b-versatile")
+        groq_model = GROQ_MODEL_MAP.get(model := "llama3:latest", "llama-3.3-70b-versatile")
+
+        # Busca dados do usuário para contexto
+        user_context = ""
+        if uid and uid != "admin_master" and uid != "guest":
+            try:
+                u = db.reference(f'users/{uid}').get()
+                if u:
+                    user_context = f"""CONTEXTO DO USUÁRIO:
+- Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
+- Saldo: R$ {float(u.get('balance', 0)):.2f}
+- Anúncios processados: {u.get('videosWatched', 0)}
+- Status: {u.get('status', 'ativo')}
+"""
+            except:
+                pass
+
+        system_prompt = f"""Você é o Agente Nexus, um assistente virtual especializado no CineCash, uma plataforma que paga usuários para processar anúncios via IA.
+
+REGRAS GERAIS:
+1. Responda SEMPRE em português brasileiro, de forma amigável, didática e motivacional.
+2. Trate o usuário com respeito e paciência, como um tutor.
+3. NUNCA invente informações — se não souber, diga que vai verificar.
+4. Pode usar [COMMAND:NAVIGATE:nome_da_aba] para sugerir navegação: inicio, intercambio, convites, historico.
+5. Pode usar [COMMAND:START_TOUR] para iniciar o tour guiado.
+
+PLATAFORMA CINECASH:
+- 4 abas principais: Início (dashboard), Intercâmbio (saques), Convites (indicações), Histórico (transações)
+- Anúncios: o usuário clica em "Processar Anúncios" no dashboard para validar campanhas via IA
+- Saldo: exibido no topo, acumulado por anúncios, bônus diário e indicações
+- Saque mínimo: R$ 0,50 via PIX
+- Valores de saque: R$ 0,50 | R$ 3,00 | R$ 5,00 | R$ 10,00 | R$ 50,00
+
+BÔNUS DIÁRIO:
+- Valor: R$ 0,20
+- Disponível apenas em finais de semana (sábado e domingo)
+- 1 vez por dia, botão "COLETAR BÔNUS" na aba Início
+
+METAS (progresso de anúncios → valor de saque liberado):
+- 150 anúncios → R$ 0,50
+- 900 anúncios → R$ 3,00
+- 1500 anúncios → R$ 5,00
+- 3000 anúncios → R$ 10,00
+- 15000 anúncios → R$ 50,00
+
+SISTEMA DE CONVITES (INDICAÇÕES):
+- Cada amigo convidado que assistir 25 anúncios rende R$ 0,20
+- A cada 5 amigos válidos, bônus extra de R$ 1,00
+- O link de convite fica na aba Convites
+
+TIPOS DE CHAVE PIX:
+- CPF: 11 dígitos
+- CNPJ: 14 dígitos
+- E-mail: formato padrão
+- Telefone: 10 a 13 dígitos (com DDD)
+- Chave aleatória (EVP): formato UUID
+
+PROCESSAMENTO DE PAGAMENTOS:
+- Os saques são processados via gateway Asaas
+- Status: Pendente → Pago ou Recusado
+- Aprovação manual pelo administrador
+
+{user_context}"""
+
         headers = {
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json",
@@ -522,7 +585,7 @@ def groq_generate(prompt, model="llama3:latest"):
         payload = {
             "model": groq_model,
             "messages": [
-                {"role": "system", "content": "Você é o CyberCore IA Elite. Responda em PT-BR de forma técnica e autoritária."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.7,
@@ -538,8 +601,24 @@ def groq_generate(prompt, model="llama3:latest"):
 
 async def ask_ai(prompt: str, uid="admin_master"):
     try:
+        # Busca dados do usuário para contexto
+        user_context = ""
+        if uid and uid != "admin_master" and uid != "guest":
+            try:
+                u = db.reference(f'users/{uid}').get()
+                if u:
+                    user_context = f"""
+DADOS DO USUÁRIO ATUAL:
+- Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
+- Saldo: R$ {float(u.get('balance', 0)):.2f}
+- Anúncios processados: {u.get('videosWatched', 0)}
+- Status: {u.get('status', 'ativo')}
+"""
+            except:
+                pass
+
         # Prioridade 1: Groq (mais rápido, gratuito, sempre disponível)
-        groq_result = groq_generate(prompt)
+        groq_result = groq_generate(prompt, uid=uid)
         if groq_result:
             try:
                 history_ref = db.reference(f'ai_memory/{uid}')
@@ -560,7 +639,21 @@ async def ask_ai(prompt: str, uid="admin_master"):
             history = history_ref.get() or []
             contents = [{"role": m["role"], "parts": [{"text": m["text"]}]} for m in history[-10:]]
             contents.append({"role": "user", "parts": [{"text": prompt}]})
-            system_prompt = "Você é o CyberCore IA Elite. Use ferramentas para gerir o sistema CineCash. Responda em PT-BR de forma técnica e autoritária."
+            system_prompt = f"""Você é o Agente Nexus do CineCash, especialista na plataforma.
+
+REGRAS:
+- Responda em PT-BR de forma amigável, didática e motivacional.
+- Use [COMMAND:NAVIGATE:inicio|intercambio|convites|historico] para sugerir navegação.
+- Use [COMMAND:START_TOUR] para iniciar o tour guiado.
+
+SOBRE O CINECASH:
+- 4 abas: Início (dashboard/processar anúncios), Intercâmbio (saques PIX), Convites (indicações), Histórico (transações)
+- Saque mínimo: R$ 0,50. Valores: R$ 0,50 | R$ 3,00 | R$ 5,00 | R$ 10,00 | R$ 50,00
+- Bônus diário: R$ 0,20 apenas em fins de semana
+- Metas: 150→R$0,50 | 900→R$3,00 | 1500→R$5,00 | 3000→R$10,00 | 15000→R$50,00
+- Convites: R$ 0,20 por amigo válido (25 ads), +R$ 1,00 a cada 5 amigos
+
+{user_context}"""
 
             for model in ("gemini-2.0-flash", "gemini-1.5-flash"):
                 api_ver = "v1beta" if model == "gemini-2.0-flash" else "v1"
