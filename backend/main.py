@@ -102,6 +102,52 @@ def memory_recall(uid: str, query: str = ""):
     except:
         return []
 
+# --- CONFIGURAÇÃO DE PROVEDORES IA ---
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+OLLAMA_URL = "http://localhost:11434/api/generate"
+
+# Mapeamento de Especialistas CyberCore
+AGENT_MODELS = {
+    "ORCHESTRATOR": {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "BUILDER":      {"provider": "ollama", "model": "qwen2.5-coder:7b"},
+    "DESIGNER":     {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "FULLSTACK":    {"provider": "groq",   "model": "deepseek-v3"},
+    "PYTHON":       {"provider": "groq",   "model": "deepseek-v3"},
+    "JAVA":         {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "SOFTWARE":     {"provider": "google", "model": "gemini-2.0-pro-exp"},
+    "AUDITOR":      {"provider": "groq",   "model": "deepseek-v3"},
+    "SECURITY":     {"provider": "groq",   "model": "deepseek-v3"}
+}
+
+async def ask_ai_specialized(agent: str, prompt: str, uid="admin_master"):
+    config = AGENT_MODELS.get(agent, AGENT_MODELS["ORCHESTRATOR"])
+    provider = config["provider"]
+    model_name = config["model"]
+
+    try:
+        if provider == "groq" and GROQ_AVAILABLE:
+            # Custom prompt para cada especialista
+            system_msg = f"Você é o especialista {agent} do CyberCore IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
+            return groq_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name) or "Falha no Groq"
+
+        elif provider == "google":
+            # Reutiliza a lógica do Gemini já existente no ask_ai original
+            return await ask_ai(f"Atuando como {agent}: {prompt}", uid)
+
+        elif provider == "ollama":
+            # Chamada Local Ollama (Qwen)
+            try:
+                resp = requests.post(OLLAMA_URL, json={"model": model_name, "prompt": prompt, "stream": False}, timeout=60)
+                if resp.status_code == 200:
+                    return resp.json().get("response", "Erro na resposta Ollama")
+            except:
+                return "Ollama Local Offline. Tente iniciar o serviço."
+
+        return await ask_ai(prompt, uid) # Fallback para o motor padrão
+    except Exception as e:
+        return f"Erro no Agente {agent}: {str(e)}"
+
 # --- UTILITÁRIOS ---
 
 def get_dollar_rate():
@@ -778,11 +824,19 @@ async def ai_status():
         print(f"[AI STATUS] Erro: {e}")
         return {"status": "degraded", "error": str(e)}
 
+@app.post("/api/ai/chat")
+async def ai_chat_specialized(data: dict = Body(...)):
+    prompt = data.get("prompt", "")
+    agent = data.get("agent", "ORCHESTRATOR")
+    uid = data.get("uid", "admin_master")
+
+    answer = await ask_ai_specialized(agent, prompt, uid)
+    return {"answer": answer, "agent": agent}
+
 @app.post("/ai/chat")
 async def ai_chat(data: dict = Body(...)):
     prompt = data.get("prompt", "")
     uid = data.get("uid", "admin_master")
-    history = data.get("history", [])
     answer = await ask_ai(prompt, uid)
     return {"answer": answer}
 
@@ -967,22 +1021,45 @@ async def video_complete(uid: str):
         new_balance = current_balance + 0.15
         new_videos = current_videos + 1
 
-        # Promoção de Referência: Ao atingir 15 vídeos, o padrinho (sponsor) ganha +1 validReferral
-        if new_videos == 15:
+        # Sistema de Indicação: Ao atingir 25 anúncios, o padrinho ganha R$ 0,20 + bônus a cada 5 indicados
+        if new_videos == 25:
             sponsor_uid = user_data.get('referredBy')
             if sponsor_uid:
                 sponsor_ref = db.reference(f'users/{sponsor_uid}')
                 sponsor_data = sponsor_ref.get()
                 if sponsor_data:
-                    current_valid = sponsor_data.get('validReferrals', 0)
-                    sponsor_ref.update({"validReferrals": current_valid + 1})
+                    current_valid = int(sponsor_data.get('validReferrals', 0))
+                    new_valid = current_valid + 1
+                    sponsor_balance = float(sponsor_data.get('balance', 0))
+                    current_bonus = float(sponsor_data.get('referralBonus', 0))
+
+                    # Bônus base de R$ 0,20 por indicado
+                    bonus_amount = 0.20
+                    extra_bonus = 0
+
+                    # Bônus extra de R$ 1,00 a cada 5 indicados
+                    if new_valid % 5 == 0:
+                        extra_bonus = 1.00
+
+                    total_bonus = bonus_amount + extra_bonus
+
+                    sponsor_ref.update({
+                        "validReferrals": new_valid,
+                        "balance": sponsor_balance + total_bonus,
+                        "referralBonus": current_bonus + total_bonus
+                    })
+
                     # Log da bonificação
-                    db.reference('logs/referrals').push({
+                    log_data = {
                         "sponsor": sponsor_uid,
                         "referral": uid,
                         "action": "BONUS_CONVERTED",
+                        "bonus": bonus_amount,
+                        "extra_bonus": extra_bonus,
+                        "total_bonus": total_bonus,
                         "timestamp": {".sv": "timestamp"}
-                    })
+                    }
+                    db.reference('logs/referrals').push(log_data)
 
         user_ref.update({
             "balance": new_balance,

@@ -344,7 +344,7 @@ function renderCmdProjectsTable() {
                 <td style="padding: 10px 12px; opacity: 0.7;">${p.type.toUpperCase()}</td>
                 <td style="padding: 10px 12px; color: ${color}; font-weight: 800;">● ${statusLabel}</td>
                 <td style="padding: 10px 12px;">${health.uptime || '99.98%'}</td>
-                <td style="padding: 10px 12px; color: #10b981; font-weight: 800;">${health.perf || '96'}</td>
+                <td style="padding: 10px 12px; color: #10b981; font-weight: 800;">${health.latency_ms ? (health.latency_ms < 100 ? '99' : (health.latency_ms < 500 ? '92' : '78')) : '96'}</td>
                 <td style="padding: 10px 12px; opacity: 0.6;">${lastCheck}</td>
             </tr>
         `;
@@ -412,6 +412,13 @@ function cmdGerarEquipe() {
     .then(resp => {
         if (resp.status === 'success') {
             showToast(`Projeto '${name}' criado e adicionado ao painel!`, "success");
+
+            // Invoca o Studio para gerar os arquivos base
+            showPanel('studio');
+            document.getElementById('studio-prompt').value = `Scaffold inicial para o projeto ${name} (${type}): ${desc}`;
+            selectAgent(type === 'android' ? 'JAVA' : (type === 'python' ? 'PYTHON' : 'BUILDER'));
+            setTimeout(generateTeam, 1000);
+
             document.getElementById('cmd-project-name').value = '';
             document.getElementById('cmd-project-desc').value = '';
         }
@@ -424,10 +431,14 @@ function sendCmdOrchestratorCommand() {
     
     showToast("🔮 Orchestrator processando diretiva...", "info");
     
-    fetch(`${CYBERCORE_BACKEND_URL}/ai/chat`, {
+    fetch(`${CYBERCORE_BACKEND_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: cmd, uid: currentUser?.uid || "admin_master" })
+        body: JSON.stringify({
+            prompt: cmd,
+            agent: 'ORCHESTRATOR',
+            uid: currentUser?.uid || "admin_master"
+        })
     })
     .then(r => r.json())
     .then(data => {
@@ -475,34 +486,12 @@ async function generateTeam() {
         try {
             const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
 
-            // Refinamento de Prompts por Agente
-            let agentContext = "";
-            switch(selectedAgent) {
-                case 'BUILDER':
-                    agentContext = "Você é um Especialista Front-end e UI Builder. Foco em HTML5, CSS3 moderno (Glassmorphism, Neon) e estruturação de interfaces.";
-                    break;
-                case 'DESIGNER':
-                    agentContext = "Você é um Senior UI/UX Designer. Foco em paleta de cores, tipografia, efeitos visuais avançados e experiência do usuário premium.";
-                    break;
-                case 'PYTHON':
-                    agentContext = "Você é um Especialista Python Core. Foco em automações, scripts de backend, processamento de dados e integração de APIs.";
-                    break;
-                case 'FULLSTACK':
-                    agentContext = "Você é um Desenvolvedor Fullstack. Foco na integração completa entre frontend e backend (Node/Python).";
-                    break;
-                case 'SOFTWARE':
-                    agentContext = "Você é um Arquiteto de Software. Foco em padrões de projeto, escalabilidade e estrutura de diretórios eficiente.";
-                    break;
-                default:
-                    agentContext = "Você é um Arquiteto de Software sênior.";
-            }
-
-            const resp = await fetch(`${baseUrl}/ai/chat`, {
+            const resp = await fetch(`${baseUrl}/api/ai/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: `${agentContext} Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
-                    history: [],
+                    agent: selectedAgent,
+                    prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
                     uid: 'admin_studio'
                 })
             });
@@ -519,7 +508,7 @@ async function generateTeam() {
             }
 
             if (Object.keys(files).length > 0) {
-                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe (BUILDER, DESIGNER, FULLSTACK) gerou ${Object.keys(files).length} arquivos.</div>`;
+                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe (${selectedAgent}) gerou ${Object.keys(files).length} arquivos.</div>`;
                 for (const [filename, content] of Object.entries(files)) {
                     await fetch(`${baseUrl}/api/studio/save-file`, {
                         method: 'POST',
@@ -694,12 +683,13 @@ function renderWatchProjects() {
         const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
         const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
         const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
+        const tech = p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A');
 
         return `
             <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}">
                 <div>
                     <div style="font-weight: 800; font-size: 13px; color: white;">${p.name || p.identifier}</div>
-                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">TYPE: ${p.type.toUpperCase()} | FW: ${p.framework}</div>
+                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">TYPE: ${p.type.toUpperCase()} | STACK: ${tech}</div>
                 </div>
                 <div style="text-align: right;">
                     <div style="font-family: 'JetBrains Mono'; font-size: 11px; color: ${color};">
@@ -883,8 +873,15 @@ async function sendIACommand() {
     termList.scrollTop = termList.scrollHeight;
 
     let agentId = 'cmo';
-    if (cmd.includes('saque') || cmd.includes('financeiro')) agentId = 'cfo';
-    if (cmd.includes('segurança') || cmd.includes('varredura')) agentId = 'coo';
+    let backendAgent = 'ORCHESTRATOR';
+    if (cmd.includes('saque') || cmd.includes('financeiro')) {
+        agentId = 'cfo';
+        backendAgent = 'AUDITOR';
+    }
+    if (cmd.includes('segurança') || cmd.includes('varredura')) {
+        agentId = 'coo';
+        backendAgent = 'SECURITY';
+    }
 
     updateAgentStatus(agentId, 'ANALYZING');
 
@@ -959,6 +956,7 @@ async function sendIACommand() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     prompt: rawCmd,
+                    agent: backendAgent,
                     history: terminalHistory.slice(-15),
                     uid: currentUser?.uid || 'admin'
                 })
@@ -974,11 +972,12 @@ async function sendIACommand() {
         // 2. Fallback: Backend Local
         if (!answer && CYBERCORE_BACKEND_URL) {
             try {
-                const resp = await fetch(`${CYBERCORE_BACKEND_URL}/ai/chat`, {
+                const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/ai/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: rawCmd,
+                        agent: backendAgent,
                         history: terminalHistory.slice(-15),
                         uid: currentUser?.uid || 'admin'
                     })
