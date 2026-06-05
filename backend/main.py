@@ -121,24 +121,44 @@ AGENT_MODELS = {
 }
 
 async def ask_ai_specialized(agent: str, prompt: str, uid="admin_master"):
-    # --- ORCHESTRATOR 2.0: INTENT DETECTION ---
+    # --- ORCHESTRATOR 2.5: PIPELINE & DELEGATION ---
     if agent == "ORCHESTRATOR":
-        detection_prompt = f"""Analise a seguinte solicitação do usuário e determine qual o melhor especialista CyberCore para resolvê-la.
-Solicitação: "{prompt}"
+        pipeline_prompt = f"""Analise a solicitação: "{prompt}"
+Determine a sequência de especialistas CyberCore necessários para resolver isso 100%.
+Responda APENAS uma lista separada por vírgula em ordem de execução.
+Opções: BUILDER, PYTHON, JAVA, FULLSTACK, DESIGNER, SECURITY, AUDITOR, SOFTWARE.
 
-Responda APENAS o nome de UM dos seguintes agentes:
-BUILDER (Para HTML/CSS/UI), PYTHON (Scripts/Backend), JAVA (Android), FULLSTACK (Sistemas completos), DESIGNER (UI/UX), SECURITY (Segurança), AUDITOR (Revisão), SOFTWARE (Documentação).
-Se for uma conversa geral, responda ORCHESTRATOR."""
+Exemplo de resposta: DESIGNER, BUILDER, SECURITY"""
 
-        detected_agent = await ask_ai(detection_prompt, uid="system_router")
-        detected_agent = detected_agent.strip().upper()
-        if detected_agent in AGENT_MODELS:
-            agent = detected_agent
-            print(f"[ORCHESTRATOR] Delegando para: {agent}")
+        plan_raw = await ask_ai(pipeline_prompt, uid="system_router")
+        if plan_raw:
+            agents_sequence = [a.strip().upper() for a in plan_raw.split(",") if a.strip().upper() in AGENT_MODELS]
+            if agents_sequence:
+                print(f"[ORCHESTRATOR] Plano de Ação: {' -> '.join(agents_sequence)}")
+                final_output = f"🔮 **Plano CyberCore Ativado:** {' → '.join(agents_sequence)}\n\n"
 
+                current_context = prompt
+                for i, step_agent in enumerate(agents_sequence):
+                    print(f"[PIPELINE] Executando Passo {i+1}: {step_agent}")
+
+                    # Para o primeiro agente, usamos o prompt original.
+                    # Para os seguintes, passamos o resultado anterior como contexto.
+                    if i == 0:
+                        step_prompt = prompt
+                    else:
+                        step_prompt = f"Com base no progresso anterior:\n{step_result}\n\nContinue a tarefa: {prompt}"
+
+                    step_result = await execute_single_agent(step_agent, step_prompt, uid)
+                    final_output += f"### Passo {i+1}: {step_agent}\n{step_result}\n\n---\n\n"
+
+                return final_output
+
+    return await execute_single_agent(agent, prompt, uid)
+
+async def execute_single_agent(agent: str, prompt: str, uid: str):
     config = AGENT_MODELS.get(agent, AGENT_MODELS["ORCHESTRATOR"])
-    provider = config["provider"]
-    model_name = config["model"]
+    provider = config.get("provider", "google")
+    model_name = config.get("model", "gemini-2.0-pro-exp")
 
     try:
         if provider == "groq" and GROQ_AVAILABLE:
@@ -146,11 +166,9 @@ Se for uma conversa geral, responda ORCHESTRATOR."""
             return groq_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name) or "Falha no Groq"
 
         elif provider == "google":
-            # Reutiliza a lógica do Gemini já existente no ask_ai original
             return await ask_ai(f"Atuando como {agent}: {prompt}", uid)
 
         elif provider == "ollama":
-            # Chamada Local Ollama (Qwen)
             try:
                 resp = requests.post(OLLAMA_URL, json={"model": model_name, "prompt": prompt, "stream": False}, timeout=60)
                 if resp.status_code == 200:
@@ -158,7 +176,7 @@ Se for uma conversa geral, responda ORCHESTRATOR."""
             except:
                 return "Ollama Local Offline. Tente iniciar o serviço."
 
-        return await ask_ai(prompt, uid) # Fallback para o motor padrão
+        return await ask_ai(prompt, uid)
     except Exception as e:
         return f"Erro no Agente {agent}: {str(e)}"
 
@@ -764,18 +782,31 @@ async def test_push(data: dict = Body(...)):
 
 @app.post("/api/nexus/report")
 async def nexus_report(data: dict = Body(...)):
-    """Recebe dados do Agente Nexus e encaminha ao Painel via Firebase."""
+    """Recebe dados do Agente Nexus ou Local e encaminha ao Painel via Firebase."""
     try:
         uid = data.get("uid")
         if not uid: return {"status": "ignored"}
 
-        # Escreve no mesmo path que o Painel Gerenciamento lê
-        db.reference(f'logs/nexus/{uid}').push({"report": data, "received_at": datetime.now().isoformat()})
+        source = data.get("source", "nexus")
+        telemetry = data.get("telemetry", data) # Fallback para compatibilidade
 
-        # Também escreve em agent_data para o dashboard neural do Painel
+        # 1. Se for Telemetria de Nó Local
+        if source == "local_node":
+            node_id = uid
+            db.reference(f'neural/nodes/{node_id}/health').update({
+                "status": telemetry.get("status", "online"),
+                "latency_ms": telemetry.get("latency_ms", 0),
+                "cpu": telemetry.get("cpu_usage", 0),
+                "ram": telemetry.get("ram_usage", 0),
+                "last_checked": datetime.now().isoformat(),
+                "metrics": telemetry
+            })
+            return {"status": "processed", "node_sync": "active"}
+
+        # 2. Lógica Original Nexus (Monitoramento de Usuário)
+        db.reference(f'logs/nexus/{uid}').push({"report": data, "received_at": datetime.now().isoformat()})
         db.reference('agent_data/incoming').push({"agent_id": "nexus_cinecash", "type": "telemetry", "payload": data, "received_at": datetime.now().isoformat()})
 
-        # Fraude (mesma lógica anterior, mas agora loga no path do Painel)
         user_ref = db.reference(f'users/{uid}')
         user_data = user_ref.get()
         if user_data:

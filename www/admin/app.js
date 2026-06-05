@@ -275,7 +275,8 @@ function showPanel(id, filterType = null) {
             security: '[SYS_SENTINEL] // SEGURANÇA',
             settings: '[SYS_CONFIG] // CONFIGURAÇÕES',
             saques: '[SYS_FINANCE] // SAQUES PIX',
-            terminal: '[SYS_TERMINAL] // LOGS'
+            terminal: '[SYS_TERMINAL] // LOGS',
+            audit: '[SYS_AUDIT] // AUDITORIA NEXUS'
         };
         const titleEl = document.getElementById('current-panel-name');
         if (titleEl) titleEl.textContent = titleMap[id] || '[SYS_TERMINAL]';
@@ -283,6 +284,13 @@ function showPanel(id, filterType = null) {
         if (id === 'watch') renderWatchProjects();
         if (id === 'studio') listStudioFiles();
         if (id === 'overview') renderCmdProjectsTable();
+        if (id === 'audit') {
+            // Garante que os logs do Nexus apareçam no painel de Auditoria
+            const auditLog = document.getElementById('logs-nexus');
+            if (auditLog && auditLog.children.length === 0) {
+                 initNexusAgent();
+            }
+        }
     }
 }
 
@@ -681,22 +689,53 @@ function renderWatchProjects() {
         const isOnline = health.status === 'online';
         const isDegraded = health.status === 'degraded';
         const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
+
+        // Dados de telemetria estendidos
+        const cpu = health.cpu !== undefined ? health.cpu + '%' : '--';
+        const ram = health.ram !== undefined ? health.ram + '%' : '--';
         const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
+
         const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
         const tech = p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A');
 
         return `
-            <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}">
-                <div>
-                    <div style="font-weight: 800; font-size: 13px; color: white;">${p.name || p.identifier}</div>
-                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">TYPE: ${p.type.toUpperCase()} | STACK: ${tech}</div>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-family: 'JetBrains Mono'; font-size: 11px; color: ${color};">
-                        ${isOnline ? '✓ ONLINE' : (isDegraded ? '⚠ DEGRADADO' : '✗ OFFLINE')}
+            <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}; position: relative; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-weight: 800; font-size: 13px; color: white;">${p.name || p.identifier}</div>
+                        <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px; text-transform: uppercase;">
+                            TYPE: ${p.type.toUpperCase()} | STACK: ${tech}
+                        </div>
                     </div>
-                    <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px;">LATENCY: ${latency}</div>
+                    <div style="text-align: right;">
+                        <div style="font-family: 'JetBrains Mono'; font-size: 11px; color: ${color}; font-weight: 900;">
+                            ${isOnline ? '✓ ONLINE' : (isDegraded ? '⚠ DEGRADADO' : '✗ OFFLINE')}
+                        </div>
+                        <div style="font-size: 9px; opacity: 0.6; margin-top: 2px;">LATENCY: ${latency}</div>
+                    </div>
                 </div>
+
+                <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="mini-stat">
+                        <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px;">
+                            <span>CPU</span> <span>${cpu}</span>
+                        </div>
+                        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width: ${cpu}; background: ${color}"></div></div>
+                    </div>
+                    <div class="mini-stat">
+                        <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px;">
+                            <span>RAM</span> <span>${ram}</span>
+                        </div>
+                        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width: ${ram}; background: ${color}"></div></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 10px; display: flex; gap: 5px;">
+                     <button onclick="showPanel('studio'); document.getElementById('studio-prompt').value='Analisar logs do nó ${p.id}'" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">DEBUG</button>
+                     <button onclick="copyToClipboard('${p.token || ''}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">TOKEN</button>
+                </div>
+
+                ${isOnline ? '<div class="pulse-ring"></div>' : ''}
             </div>
         `;
     }).join('');
@@ -1258,6 +1297,25 @@ function initNexusAgent() {
             el.innerText = logs[Math.floor(Math.random() * logs.length)];
         }
     }, 5000);
+
+    // Monitor de Auditoria em tempo real para Logs do Nexus
+    hubDb.ref('agent_data/incoming').limitToLast(5).on('child_added', snap => {
+        const data = snap.val();
+        if (!data || data.type !== 'telemetry') return;
+
+        // Se estivermos no painel de Auditoria ou Studio, injetar log visual
+        const auditLog = document.getElementById('logs-nexus');
+        if (auditLog && data.payload) {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.style.borderLeft = '2px solid var(--teal)';
+            const time = new Date(data.received_at).toLocaleTimeString();
+            line.innerHTML = `<span>[${time}]</span> <strong style="color:var(--teal)">AUDIT:</strong> ${data.payload.uid} sync detectado.`;
+            auditLog.appendChild(line);
+            if (auditLog.children.length > 20) auditLog.removeChild(auditLog.firstChild);
+            auditLog.scrollTop = auditLog.scrollHeight;
+        }
+    });
 }
 
 // ============ AUTH ============
@@ -2031,8 +2089,111 @@ function toggleUserBan(uid, shouldBan) {
 }
 
 function approveWithdrawal(uid, wid) {
+    const history = rtState.history || {};
+    const userWs = history[uid] || {};
+    const w = userWs[wid] || {};
+    const user = rtState.users[uid] || {};
+    const pixKey = w.pixKey || '';
+    const pixType = w.pixType || 'EVP';
+    const fullname = w.fullname || user.fullname || user.email || 'Usuário';
+    const amount = parseFloat(w.amount || 0);
+
+    document.getElementById('pix-modal-uid').value = uid;
+    document.getElementById('pix-modal-wid').value = wid;
+    document.getElementById('pix-modal-user').textContent = fullname;
+    document.getElementById('pix-modal-amount').textContent = `R$ ${amount.toFixed(2)}`;
+    document.getElementById('pix-modal-type').value = pixType;
+    document.getElementById('pix-modal-key').value = pixKey;
+    document.getElementById('btn-pix-confirmar').disabled = true;
+    document.getElementById('btn-pix-confirmar').style.opacity = '0.4';
+    document.getElementById('btn-pix-confirmar').style.pointerEvents = 'none';
+    document.getElementById('pix-modal-validacao').innerHTML = '';
+
+    document.getElementById('modal-validar-pix').style.display = 'flex';
+    validatePixKey();
+}
+
+function closePixModal() {
+    document.getElementById('modal-validar-pix').style.display = 'none';
+}
+
+function getPixValidation(key, type) {
+    const cleaned = key.replace(/\s/g, '');
+    switch (type) {
+        case 'CPF': {
+            const digits = cleaned.replace(/\D/g, '');
+            if (digits.length === 11) return { valid: true, formatted: digits };
+            return { valid: false, msg: `CPF deve ter 11 dígitos (tem ${digits.length})` };
+        }
+        case 'CNPJ': {
+            const digits = cleaned.replace(/\D/g, '');
+            if (digits.length === 14) return { valid: true, formatted: digits };
+            return { valid: false, msg: `CNPJ deve ter 14 dígitos (tem ${digits.length})` };
+        }
+        case 'EMAIL': {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (emailRegex.test(cleaned)) return { valid: true, formatted: cleaned };
+            return { valid: false, msg: 'E-mail inválido' };
+        }
+        case 'PHONE': {
+            const digits = cleaned.replace(/\D/g, '');
+            if (digits.length >= 10 && digits.length <= 13) return { valid: true, formatted: digits };
+            return { valid: false, msg: `Telefone deve ter 10 a 13 dígitos (tem ${digits.length})` };
+        }
+        case 'EVP': {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            const base64Regex = /^[A-Za-z0-9+/=]{32,}$/;
+            if (uuidRegex.test(cleaned) || base64Regex.test(cleaned)) return { valid: true, formatted: cleaned };
+            return { valid: false, msg: 'Chave aleatória inválida (formato UUID ou base64)' };
+        }
+        default:
+            return { valid: false, msg: 'Tipo de chave desconhecido' };
+    }
+}
+
+function validatePixKey() {
+    const key = document.getElementById('pix-modal-key').value.trim();
+    const type = document.getElementById('pix-modal-type').value;
+    const result = getPixValidation(key, type);
+    const el = document.getElementById('pix-modal-validacao');
+    const btn = document.getElementById('btn-pix-confirmar');
+
+    if (!key) {
+        el.innerHTML = '<span style="color:var(--text-muted);">Digite a chave PIX</span>';
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.pointerEvents = 'none';
+        return;
+    }
+
+    if (result.valid) {
+        el.innerHTML = `<span style="color:#10b981;">✅ Chave ${type} válida</span>`;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+    } else {
+        el.innerHTML = `<span style="color:#ef4444;">❌ ${result.msg}</span>`;
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.pointerEvents = 'none';
+    }
+}
+
+function confirmarTransferencia() {
+    const uid = document.getElementById('pix-modal-uid').value;
+    const wid = document.getElementById('pix-modal-wid').value;
+    const key = document.getElementById('pix-modal-key').value.trim();
+    const type = document.getElementById('pix-modal-type').value;
+
+    const result = getPixValidation(key, type);
+    if (!result.valid) {
+        showToast('❌ Chave PIX inválida para o tipo selecionado.', 'error');
+        return;
+    }
+
     const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/payments/approve/${wid}` : `/payments/approve/${wid}`;
 
+    closePixModal();
     showToast('🚀 Iniciando auditoria e liquidação...', 'info');
 
     fetch(url, { method: 'POST' })
@@ -2042,7 +2203,6 @@ function approveWithdrawal(uid, wid) {
                 showToast('✅ Liquidação confirmada via Asaas!', 'success');
             } else {
                 showToast(`❌ Falha: ${data.msg}`, 'error');
-                // Se falhou no Sentinel, o log já estará na Sala de Guerra
             }
         })
         .catch(() => showToast('Erro de conexão com o Núcleo.', 'error'));

@@ -14,8 +14,8 @@ class CyberCoreLocalAgent:
         self.agent_id = agent_id
         self.hub_url = hub_url
         self.is_running = False
-        self.telemetry_interval = 30 # seconds
-        self.node_id = None # Set by hub if needed
+        self.telemetry_interval = 15 # Reduzido para maior precisão no "Watch"
+        self.node_id = agent_id
 
     def get_system_metrics(self):
         try:
@@ -23,58 +23,89 @@ class CyberCoreLocalAgent:
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage('/')
 
+            # Detecção de rede
+            net = psutil.net_io_counters()
+
             return {
+                "status": "online",
                 "cpu_usage": cpu,
                 "ram_usage": memory.percent,
                 "ram_total_gb": round(memory.total / (1024**3), 2),
                 "disk_usage": disk.percent,
+                "net_sent_mb": round(net.bytes_sent / (1024**2), 2),
+                "net_recv_mb": round(net.bytes_recv / (1024**2), 2),
                 "platform": platform.system(),
                 "platform_release": platform.release(),
                 "hostname": socket.gethostname(),
                 "local_ip": socket.gethostbyname(socket.gethostname()),
                 "uptime_seconds": time.time() - psutil.boot_time(),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "latency_ms": self.measure_latency()
             }
         except Exception as e:
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
+
+    def measure_latency(self):
+        try:
+            start = time.time()
+            requests.get(f"{self.hub_url}/health", timeout=5)
+            return int((time.time() - start) * 1000)
+        except:
+            return 999
 
     def report_telemetry(self):
         metrics = self.get_system_metrics()
         payload = {
-            "agent_id": self.agent_id,
-            "type": "local_telemetry",
-            "payload": metrics
+            "uid": self.agent_id,
+            "type": "local_agent_telemetry",
+            "telemetry": metrics,
+            "source": "local_node"
         }
         try:
-            # We reuse the nexus/report logic or a dedicated endpoint
-            requests.post(f"{self.hub_url}/api/nexus/report", json={
-                "uid": f"agent_{self.agent_id}",
-                "telemetry": metrics,
-                "source": "local_agent"
-            }, timeout=10)
-            return True
+            response = requests.post(f"{self.hub_url}/api/nexus/report", json=payload, timeout=10)
+            if response.status_code == 200:
+                # Se o Hub enviar comandos na resposta, podemos processá-los aqui
+                data = response.json()
+                if "command" in data:
+                    self.execute_command(data["command"])
+                return True
+            return False
         except Exception as e:
-            print(f"Error reporting telemetry: {e}")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Connection Error: {e}")
             return False
 
-    def check_commands(self):
-        """Check for pending commands from the hub (long polling or dedicated endpoint)"""
-        # Placeholder for command execution logic
+    def execute_command(self, cmd_data):
+        print(f"📥 Executing Command: {cmd_data.get('action')}")
+        # Lógica para executar scripts, restart, etc.
         pass
 
     def run(self):
-        print(f"🚀 CyberCore Local Agent '{self.agent_id}' started.")
-        print(f"🔗 Connected to Hub: {self.hub_url}")
+        print("\n" + "="*50)
+        print("   ⚛️  CYBERCORE LOCAL AGENT - NODE ACTIVE")
+        print("="*50)
+        print(f"   ID: {self.agent_id}")
+        print(f"   HUB: {self.hub_url}")
+        print(f"   INT: {self.telemetry_interval}s")
+        print("="*50 + "\n")
+
         self.is_running = True
 
-        while self.is_running:
-            success = self.report_telemetry()
-            if success:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Telemetry reported.")
-            else:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Failed to report telemetry.")
+        # Registro inicial
+        self.report_telemetry()
 
-            time.sleep(self.telemetry_interval)
+        while self.is_running:
+            start_time = time.time()
+            success = self.report_telemetry()
+
+            if success:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 📡 Heartbeat OK | Latency: {self.measure_latency()}ms")
+            else:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] ⚠️ Hub Unreachable. Retrying...")
+
+            # Mantém o intervalo exato
+            elapsed = time.time() - start_time
+            sleep_time = max(0, self.telemetry_interval - elapsed)
+            time.sleep(sleep_time)
 
 if __name__ == "__main__":
     import argparse
