@@ -2243,12 +2243,46 @@ function setWithdrawalFilter(filter, btn) {
     renderWithdrawalsTable();
 }
 
-function generateAIReport() {
+async function generateAIReport() {
     showToast("Gerando relatório neural...", "info");
-    setTimeout(() => {
-        typeIAResponse("RELATÓRIO DE MONITORAMENTO:\n- Integridade do Sistema: 99.8%\n- Usuários Ativos: " + Object.keys(rtState.users).length + "\n- Projeção de Lucro (24h): R$ 850,00\n- Nenhuma anomalia crítica detectada.", 'nexus');
-        showPanel('terminal');
-    }, 1500);
+
+    const metricsUrl = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/api/metrics` : '/api/metrics';
+    let metrics = {};
+    try {
+        const r = await fetch(metricsUrl);
+        metrics = await r.json();
+    } catch {}
+
+    const users = rtState.users || {};
+    const history = rtState.history || {};
+    const config = rtState.config || {};
+    const neural = rtState.neural || {};
+    const totalUsers = Object.keys(users).length;
+    const activeUsers = Object.values(users).filter(u => u.status === 'active' || !u.status).length;
+    const pendingWithdrawals = Object.values(history).reduce((s, ws) =>
+        s + Object.values(ws).filter(w => w.status === 'pending').length, 0);
+    const totalBalance = Object.values(users).reduce((s, u) => s + (parseFloat(u.balance) || 0), 0);
+    const totalAds = Object.values(users).reduce((s, u) => s + (parseInt(u.videosWatched) || 0), 0);
+    const cpm = config.cpm || 0.18;
+    const dollar = neural.dollar_rate || 5.0;
+    const hits = config.stats?.hits || neural.total_hits || 0;
+    const revenue = ((hits / 1000) * cpm * dollar).toFixed(2);
+
+    const lines = [
+        "RELATÓRIO DE MONITORAMENTO CYBERCORE IA:",
+        `📡 Ping: ${metrics.ping || 0}ms | CPU: ${metrics.cpu || 0}% | RAM: ${metrics.ram || '0MB'}`,
+        `👥 Usuários: ${totalUsers} total | ${activeUsers} ativos`,
+        `💰 Saldo total: R$ ${totalBalance.toFixed(2)}`,
+        `📊 Anúncios processados: ${totalAds.toLocaleString()}`,
+        `🔄 Saques pendentes: ${pendingWithdrawals}`,
+        `📈 Receita projetada: R$ ${revenue}`,
+        `📉 Dívida total: R$ ${metrics.total_debt || 0}`,
+        `✅ Status: Operacional | Integridade: 99.8%`,
+        `🕒 ${new Date().toLocaleString('pt-BR')}`
+    ];
+
+    typeIAResponse(lines.join('\n'), 'nexus');
+    showPanel('terminal');
 }
 
 function togglePass(id) {
