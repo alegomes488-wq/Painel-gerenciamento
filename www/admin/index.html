@@ -1103,54 +1103,120 @@
                 <!-- Painel: Configurações (NEW Centralizado) -->
                 <div id="panel-settings" class="panel-view">
                     <div class="panel-scanner"></div>
-                    <div class="system-card premium-glass tech-border holo-shimmer" style="position:relative;z-index:1;">
-                        <div class="system-header">
-                            <h3 style="font-size: 20px;"><span class="data-dot gold" style="margin-right:8px;"></span> Configurações de Conexão & Núcleo</h3>
+                    <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;">
+                        <!-- Header -->
+                        <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(232,184,48,0.2),rgba(232,184,48,0.05));border:1px solid rgba(232,184,48,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">⚙️</div>
+                                        <div>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot gold"></span> [SYS_CONFIG] // CONFIGURAÇÕES</h3>
+                                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">NÚCLEO ESTÁVEL</span>
+                                                <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
+                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento de infraestrutura em tempo real</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:rgba(232,184,48,0.08);border:1px solid rgba(232,184,48,0.15);">
+                                    <span style="font-size:14px;">👤</span>
+                                    <span style="font-size:11px;font-weight:800;color:var(--gold);">Alegomes488</span>
+                                    <span style="font-size:9px;color:var(--text-muted);font-weight:600;padding:2px 8px;border-radius:4px;background:rgba(232,184,48,0.1);">Acesso Master</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 25px;">
-                            <div class="control-item">
-                                <label>Ganhos Monetag (USD)</label>
-                                <input type="number" id="audit-base-profit" step="0.01">
+
+                        <!-- Corpo Configurações -->
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                            <!-- Coluna 1 -->
+                            <div style="display:flex;flex-direction:column;gap:20px;">
+                                <!-- Monetag -->
+                                <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                        <span style="font-size:16px;">📊</span>
+                                        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">MONETAG</span>
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Ganhos Monetag (USD)</label>
+                                        <input type="number" id="audit-base-profit" step="0.01" placeholder="0.00" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Valor CPM (USD)</label>
+                                        <input type="number" id="audit-cpm" step="0.01" placeholder="0.18" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group">
+                                        <label>Monetag Zone ID (Anúncios)</label>
+                                        <input type="text" id="audit-monetag-id" placeholder="Ex: 7894561" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                </div>
+
+                                <!-- IA Core -->
+                                <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                        <span style="font-size:16px;">🧠</span>
+                                        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">IA CORE</span>
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Chave Gemini AI (Cérebro)</label>
+                                        <input type="password" id="audit-gemini-key" placeholder="AIzaSy..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Chave Groq AI (Prioritário)</label>
+                                        <input type="password" id="audit-groq-key" placeholder="gsk_..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="control-item">
-                                <label>Valor CPM (USD)</label>
-                                <input type="number" id="audit-cpm" step="0.01">
+
+                            <!-- Coluna 2 -->
+                            <div style="display:flex;flex-direction:column;gap:20px;">
+                                <!-- Notificações -->
+                                <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                        <span style="font-size:16px;">🔔</span>
+                                        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">NOTIFICAÇÕES</span>
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Telegram Bot Token</label>
+                                        <input type="password" id="audit-telegram-token" placeholder="7123456:ABC..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Telegram Chat ID</label>
+                                        <input type="text" id="audit-telegram-chatid" placeholder="123456789" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group">
+                                        <label>WhatsApp Admin (Notificações)</label>
+                                        <input type="text" id="audit-whatsapp" placeholder="5585991623168" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                </div>
+
+                                <!-- Pagamentos -->
+                                <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                        <span style="font-size:16px;">💳</span>
+                                        <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">PAGAMENTOS</span>
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>Chave API Asaas (Pagamento)</label>
+                                        <input type="password" id="audit-asaas-key" placeholder="3867c0bd..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group">
+                                        <label>Backend URL (Hugging Face/FastAPI)</label>
+                                        <input type="text" id="audit-backend-url" placeholder="https://user-space.hf.space" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="control-item">
-                                <label>Monetag Zone ID (Anúncios)</label>
-                                <input type="text" id="audit-monetag-id" placeholder="Ex: 7894561">
+                        </div>
+
+                        <!-- Botão Salvar -->
+                        <div class="system-card premium-glass tech-border" style="padding:20px;display:flex;align-items:center;justify-content:space-between;">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981;animation:pulse-dot 2s infinite;"></div>
+                                <span style="font-size:11px;color:var(--text-secondary);">As alterações são salvas instantaneamente no Firebase</span>
                             </div>
-                            <div class="control-item">
-                                <label>Chave Gemini AI (Cérebro)</label>
-                                <input type="password" id="audit-gemini-key" placeholder="AIzaSy...">
-                            </div>
-                            <div class="control-item">
-                                <label>Chave Groq AI (Prioritário)</label>
-                                <input type="password" id="audit-groq-key" placeholder="gsk_...">
-                            </div>
-                            <div class="control-item">
-                                <label>Telegram Bot Token</label>
-                                <input type="password" id="audit-telegram-token" placeholder="7123456:ABC...">
-                            </div>
-                            <div class="control-item">
-                                <label>Telegram Chat ID</label>
-                                <input type="text" id="audit-telegram-chatid" placeholder="123456789">
-                            </div>
-                            <div class="control-item">
-                                <label>WhatsApp Admin (Notificações)</label>
-                                <input type="text" id="audit-whatsapp" placeholder="5585991623168">
-                            </div>
-                            <div class="control-item">
-                                <label>Chave API Asaas (Pagamento)</label>
-                                <input type="password" id="audit-asaas-key" placeholder="3867c0bd...">
-                            </div>
-                            <div class="control-item">
-                                <label>Backend URL (Hugging Face/FastAPI)</label>
-                                <input type="text" id="audit-backend-url" placeholder="https://user-space.hf.space">
-                            </div>
-                            <div style="display: flex; align-items: flex-end;">
-                                <button id="btn-save-config" class="btn-premium" onclick="saveAuditParameters()">SALVAR CONFIGURAÇÕES</button>
-                            </div>
+                            <button id="btn-save-config" class="btn-premium" onclick="saveAuditParameters()" style="padding:14px 40px;font-size:13px;letter-spacing:1.5px;background:linear-gradient(135deg,rgba(232,184,48,0.2),rgba(232,184,48,0.05));border:1px solid rgba(232,184,48,0.3);border-radius:12px;color:var(--gold);font-weight:800;cursor:pointer;transition:all 0.3s;font-family:var(--font-mono);" onmouseover="this.style.background='linear-gradient(135deg,rgba(232,184,48,0.3),rgba(232,184,48,0.1))';this.style.boxShadow='0 0 20px rgba(232,184,48,0.15)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(232,184,48,0.2),rgba(232,184,48,0.05))';this.style.boxShadow='none'">💾 SALVAR CONFIGURAÇÕES</button>
                         </div>
                     </div>
                 </div>
