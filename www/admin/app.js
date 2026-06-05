@@ -770,11 +770,25 @@ function renderGlobalStats() {
     const dollar = rtState.status?.financial_realtime?.rate || 5.25;
 
     const revenueBrl = (hits / 1000) * cpm * dollar;
+    const netProfit = revenueBrl - totalDebt;
     updateEl('stat-profit-brl-total', `R$ ${revenueBrl.toFixed(2)}`);
     updateEl('stat-users', users.length);
     updateEl('stat-profit-usd', `$ ${(revenueBrl / dollar).toFixed(2)}`);
     updateEl('stat-profit-brl', `R$ ${revenueBrl.toFixed(2)}`);
     updateEl('stat-balance', `R$ ${totalDebt.toFixed(2)}`);
+    updateEl('stat-net-profit', `R$ ${netProfit.toFixed(2)}`);
+    const netEl = document.getElementById('stat-net-profit');
+    if (netEl) netEl.style.color = netProfit >= 0 ? '#10b981' : '#f43f5e';
+
+    // Variação semanal de usuários (compara com criação de conta)
+    const weekAgo = Date.now() - 7 * 86400000;
+    const weekStart = users.filter(u => (u.createdAt || u.created_at || 0) < weekAgo).length;
+    const weekChange = weekStart > 0 ? ((users.length - weekStart) / weekStart) * 100 : 0;
+    const weekEl = document.getElementById('stat-users-week');
+    if (weekEl) {
+        weekEl.textContent = weekChange >= 0 ? `+${weekChange.toFixed(0)}% esta semana` : `${weekChange.toFixed(0)}% esta semana`;
+        weekEl.style.color = weekChange >= 0 ? '#10b981' : '#ef4444';
+    }
 }
 
 function renderUsersTable() {
