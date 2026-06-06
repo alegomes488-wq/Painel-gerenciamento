@@ -390,7 +390,7 @@ function showPanel(id, filterType = null) {
         const btn = group.querySelector('.nav-link');
         // Identifica se este grupo deve estar expandido
         const isWatchGroup = btn && btn.id === 'btn-nav-watch' && (id === 'watch' || ['saques', 'users', 'security', 'terminal'].includes(id));
-        const isStudioGroup = btn && btn.id === 'btn-nav-studio' && (id === 'studio');
+        const isStudioGroup = btn && btn.id === 'btn-nav-studio' && (id === 'studio' || ['orchestrator', 'bridge', 'memory'].includes(id));
 
         if (isWatchGroup || isStudioGroup || (btn && btn.id === `btn-nav-${id}`)) {
             group.classList.add('expanded');
@@ -411,7 +411,9 @@ function showPanel(id, filterType = null) {
         target.classList.add('active');
         
         // Find corresponding sidebar nav-link
-        const navBtn = document.getElementById('btn-nav-' + id) || (['saques', 'users', 'security', 'terminal'].includes(id) ? document.getElementById('btn-nav-watch') : null);
+        const navBtn = document.getElementById('btn-nav-' + id) ||
+                       (['saques', 'users', 'security', 'terminal'].includes(id) ? document.getElementById('btn-nav-watch') : null) ||
+                       (['orchestrator', 'bridge', 'memory'].includes(id) ? document.getElementById('btn-nav-studio') : null);
 
         if (navBtn) {
             if (navBtn.id === 'btn-nav-watch') {
@@ -422,7 +424,7 @@ function showPanel(id, filterType = null) {
         }
         
         // Handle sub-links active states
-        if (filterType || ['saques', 'users', 'security', 'terminal'].includes(id)) {
+        if (filterType || ['saques', 'users', 'security', 'terminal', 'orchestrator', 'bridge', 'memory'].includes(id)) {
             const subLinks = document.querySelectorAll(`.sub-nav .sub-link`);
             subLinks.forEach(link => {
                 const text = link.textContent.toLowerCase();
@@ -436,6 +438,8 @@ function showPanel(id, filterType = null) {
                      link.classList.add('active', 'active-watch');
                 } else if (id === 'terminal' && text.includes('logs')) {
                      link.classList.add('active', 'active-watch');
+                } else if (['orchestrator', 'bridge', 'memory'].includes(id) && text.includes(id)) {
+                     link.classList.add('active', 'active-studio');
                 }
             });
         }
@@ -443,7 +447,11 @@ function showPanel(id, filterType = null) {
         if (id === 'watch') {
             filterWatchProjects(filterType);
         }
-        
+
+        if (id === 'studio') listStudioFiles();
+        if (id === 'orchestrator') document.getElementById('orch-input')?.focus();
+        if (id === 'memory') loadMemoryExplorer();
+
         const titleMap = {
             overview: '[SYS_DASHBOARD] // COMMAND CENTER',
             analytics: '[SYS_ANALYTICS] // ANALYTICS & TELEMETRIA',
@@ -650,6 +658,13 @@ let selectedAgent = 'BUILDER'; // Default agent
 function selectAgent(agent) {
     selectedAgent = agent;
     showToast(`Agente ${agent} selecionado no Studio.`, "info");
+
+    // Mostra/Esconde ações específicas de Java
+    const javaActions = document.getElementById('java-build-actions');
+    if (javaActions) {
+        javaActions.style.display = agent === 'JAVA' ? 'flex' : 'none';
+    }
+
     const terminal = document.getElementById('studio-output');
     const body = document.getElementById('studio-terminal-body');
     if (terminal) terminal.style.display = 'block';
@@ -667,24 +682,50 @@ async function generateTeam() {
     const body = document.getElementById('studio-terminal-body');
     if (terminal) terminal.style.display = 'block';
 
+    const gptmakerAgentId = localStorage.getItem('gptmakerAgentId');
+
     if (body) {
-        body.innerHTML += `<div style="color: #fff; margin-top: 15px; font-family: 'JetBrains Mono'; font-size: 12px;">[SISTEMA] Convocando Equipe Neural CyberCore (${selectedAgent}) para: "${prompt}"</div>`;
+        const source = gptmakerAgentId ? 'GPT Maker' : selectedAgent;
+        body.innerHTML += `<div style="color: #fff; margin-top: 15px; font-family: 'JetBrains Mono'; font-size: 12px;">[SISTEMA] Convocando ${source} para: "${prompt}"</div>`;
         body.scrollTop = body.scrollHeight;
 
         try {
             const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+            let answer = '';
 
-            const resp = await fetch(`${baseUrl}/api/ai/chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agent: selectedAgent,
-                    prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
-                    uid: 'admin_studio'
-                })
-            });
-            const data = await resp.json();
-            const answer = data.answer || "";
+            if (gptmakerAgentId) {
+                // Use GPT Maker API
+                const resp = await fetch(`${baseUrl}/api/ai/gptmaker/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: gptmakerAgentId,
+                        prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
+                        context_id: 'cybercore_studio'
+                    })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    answer = data.message || '';
+                } else {
+                    body.innerHTML += `<div style="color: #ef4444; font-family: 'JetBrains Mono'; font-size: 12px;">[GPT MAKER ERRO] ${data.msg || 'Falha na comunicação'}</div>`;
+                    body.scrollTop = body.scrollHeight;
+                    return;
+                }
+            } else {
+                // Use CyberCore native agents
+                const resp = await fetch(`${baseUrl}/api/ai/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent: selectedAgent,
+                        prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
+                        uid: 'admin_studio'
+                    })
+                });
+                const data = await resp.json();
+                answer = data.answer || "";
+            }
 
             // Tenta extrair JSON
             let files = {};
@@ -696,7 +737,7 @@ async function generateTeam() {
             }
 
             if (Object.keys(files).length > 0) {
-                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe (${selectedAgent}) gerou ${Object.keys(files).length} arquivos.</div>`;
+                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe gerou ${Object.keys(files).length} arquivos.</div>`;
                 for (const [filename, content] of Object.entries(files)) {
                     await fetch(`${baseUrl}/api/studio/save-file`, {
                         method: 'POST',
@@ -715,6 +756,75 @@ async function generateTeam() {
             body.innerHTML += `<div style="color: #ef4444; font-family: 'JetBrains Mono'; font-size: 12px;">[ERRO] Falha crítica na comunicação com o backend Studio.</div>`;
         }
         body.scrollTop = body.scrollHeight;
+    }
+}
+
+// --- GPT MAKER STUDIO INTEGRATION ---
+async function loadGptmakerWorkspaces() {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const select = document.getElementById('gptmaker-workspace-select');
+    if (!select) return;
+    select.innerHTML = '<option>Carregando...</option>';
+    try {
+        const resp = await fetch(`${baseUrl}/api/ai/gptmaker/workspaces`);
+        const data = await resp.json();
+        if (data.status === 'success' && data.workspaces && data.workspaces.length > 0) {
+            select.innerHTML = '<option value="">Selecione um workspace</option>';
+            data.workspaces.forEach(ws => {
+                const id = ws.id || ws._id || ws.workspaceId || '';
+                const name = ws.name || ws.title || id;
+                select.innerHTML += `<option value="${id}">${name}</option>`;
+            });
+            if (data.workspaces.length === 1) {
+                select.value = data.workspaces[0].id || data.workspaces[0]._id || '';
+                loadGptmakerAgents(select.value);
+            }
+        } else {
+            select.innerHTML = '<option value="">Nenhum workspace encontrado</option>';
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+}
+
+async function loadGptmakerAgents(workspaceId) {
+    if (!workspaceId) return;
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const select = document.getElementById('gptmaker-agent-select');
+    if (!select) return;
+    select.innerHTML = '<option>Carregando...</option>';
+    try {
+        const resp = await fetch(`${baseUrl}/api/ai/gptmaker/agents/${workspaceId}`);
+        const data = await resp.json();
+        if (data.status === 'success' && data.agents && data.agents.length > 0) {
+            select.innerHTML = '<option value="">Selecione um agente</option>';
+            data.agents.forEach(agent => {
+                const id = agent.id || agent._id || agent.agentId || '';
+                const name = agent.name || agent.title || id;
+                select.innerHTML += `<option value="${id}">${name}</option>`;
+            });
+        } else {
+            select.innerHTML = '<option value="">Nenhum agente encontrado</option>';
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Erro ao carregar</option>';
+    }
+}
+
+function selectGptmakerAgent() {
+    const agentId = document.getElementById('gptmaker-agent-select')?.value;
+    if (agentId) {
+        localStorage.setItem('gptmakerAgentId', agentId);
+        const badge = document.getElementById('gptmaker-agent-badge');
+        if (badge) {
+            badge.textContent = `🤖 GPT Maker Agent: ${agentId}`;
+            badge.style.display = 'inline-flex';
+        }
+        showToast(`GPT Maker agent ID ${agentId} vinculado ao Studio!`, "success");
+    } else {
+        localStorage.removeItem('gptmakerAgentId');
+        const badge = document.getElementById('gptmaker-agent-badge');
+        if (badge) badge.style.display = 'none';
     }
 }
 
@@ -853,6 +963,52 @@ function closeEditor() {
     document.getElementById('studio-editor').value = "";
     document.getElementById('current-file-name').textContent = "nenhum arquivo aberto";
     document.getElementById('current-file-icon').textContent = "📄";
+}
+
+async function buildJavaProject(type) {
+    const terminal = document.getElementById('studio-output');
+    const body = document.getElementById('studio-terminal-body');
+    if (terminal) terminal.style.display = 'block';
+
+    // Obtém contexto do projeto atual se disponível
+    const currentProjectName = document.getElementById('pm-project-name-display')?.textContent || "";
+    const currentProjectPath = document.getElementById('pm-project-path-display')?.textContent || "";
+
+    const msg = type === 'apk' ? 'Iniciando build de APK assinado...' : 'Iniciando compilação de JAR...';
+    if (body) {
+        body.innerHTML += `<div style="color: var(--cyan); margin-top: 15px; font-family: 'JetBrains Mono'; font-size: 12px;">[SYSTEM] ${msg}</div>`;
+        if (currentProjectName) {
+            body.innerHTML += `<div style="color: var(--text-secondary); font-size: 10px; margin-bottom: 10px;">Contexto: Projeto ${currentProjectName} em ${currentProjectPath}</div>`;
+        }
+        body.scrollTop = body.scrollHeight;
+    }
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        let prompt = type === 'apk' ? "Build and sign APK" : "Compile project to JAR";
+
+        if (currentProjectName) {
+            prompt += ` for project "${currentProjectName}" located at "${currentProjectPath}"`;
+        }
+
+        const resp = await fetch(`${baseUrl}/api/ai/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                agent: 'JAVA',
+                prompt: prompt,
+                uid: 'admin_studio'
+            })
+        });
+
+        const data = await resp.json();
+        if (body) {
+            body.innerHTML += `<div style="color: #fff; margin-top: 5px; font-family: 'JetBrains Mono'; font-size: 11px; white-space: pre-wrap;">${data.answer || 'Sem resposta do agente.'}</div>`;
+            body.scrollTop = body.scrollHeight;
+        }
+    } catch (e) {
+        showToast("Erro ao solicitar build.", "error");
+    }
 }
 
 function renderWatchProjects() {
@@ -1709,6 +1865,7 @@ function loadAuditInputs(config) {
         'audit-monetag-id': merged.monetag_zone_id,
         'audit-gemini-key': merged.gemini_key || merged.geminiKey,
         'audit-groq-key': merged.groqKey,
+        'audit-gptmaker-key': merged.gptmakerKey,
         'audit-telegram-token': merged.telegramToken,
         'audit-telegram-chatid': merged.telegramChatId,
         'audit-whatsapp': merged.admin_whatsapp,
@@ -1728,6 +1885,7 @@ function saveAuditParameters() {
         'monetag_zone_id': document.getElementById('audit-monetag-id').value,
         'geminiKey': document.getElementById('audit-gemini-key').value,
         'groqKey': document.getElementById('audit-groq-key').value,
+        'gptmakerKey': document.getElementById('audit-gptmaker-key').value,
         'telegramToken': document.getElementById('audit-telegram-token').value,
         'telegramChatId': document.getElementById('audit-telegram-chatid').value,
         'admin_whatsapp': document.getElementById('audit-whatsapp').value,

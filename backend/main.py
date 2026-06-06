@@ -534,6 +534,61 @@ def gemini_generate(prompt, model="gemini-2.0-flash"):
     except Exception as e:
         return f"Erro ao chamar Gemini: {str(e)}"
 
+# --- GPT MAKER API ---
+GPTMAKER_BASE = "https://api.gptmaker.ai/v2"
+
+def _get_gptmaker_token():
+    config = db.reference('config').get() or {}
+    token = os.environ.get("GPTMAKER_API_KEY") or str(config.get('gptmakerKey', '')).strip()
+    return token
+
+def _gptmaker_headers():
+    token = _get_gptmaker_token()
+    if not token:
+        return None
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+def gptmaker_list_workspaces():
+    headers = _gptmaker_headers()
+    if not headers:
+        return {"status": "error", "msg": "GPT Maker token não configurado."}
+    try:
+        resp = requests.get(f"{GPTMAKER_BASE}/workspaces", headers=headers, timeout=15)
+        if resp.status_code == 200:
+            return {"status": "success", "workspaces": resp.json()}
+        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
+    except Exception as e:
+        return {"status": "error", "msg": f"Falha ao conectar GPT Maker: {str(e)}"}
+
+def gptmaker_list_agents(workspace_id: str):
+    headers = _gptmaker_headers()
+    if not headers:
+        return {"status": "error", "msg": "GPT Maker token não configurado."}
+    try:
+        resp = requests.get(f"{GPTMAKER_BASE}/workspace/{workspace_id}/agents", headers=headers, timeout=15)
+        if resp.status_code == 200:
+            return {"status": "success", "agents": resp.json()}
+        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
+    except Exception as e:
+        return {"status": "error", "msg": f"Falha ao conectar GPT Maker: {str(e)}"}
+
+def gptmaker_conversation(agent_id: str, prompt: str, context_id: str = "cybercore_studio"):
+    headers = _gptmaker_headers()
+    if not headers:
+        return {"status": "error", "msg": "GPT Maker token não configurado."}
+    try:
+        payload = {
+            "contextId": context_id,
+            "prompt": prompt
+        }
+        resp = requests.post(f"{GPTMAKER_BASE}/agent/{agent_id}/conversation", json=payload, headers=headers, timeout=60)
+        if resp.status_code == 200:
+            data = resp.json()
+            return {"status": "success", "message": data.get("message", ""), "images": data.get("images", []), "audios": data.get("audios", []), "documents": data.get("documents", [])}
+        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
+    except Exception as e:
+        return {"status": "error", "msg": f"Falha ao conversar com GPT Maker: {str(e)}"}
+
 def groq_generate(prompt, system_extra="", uid="admin_master"):
     if not GROQ_AVAILABLE:
         return None
@@ -977,6 +1032,10 @@ async def ai_status():
         except:
             pass
 
+        # Check GPT Maker
+        gptmaker_token = _get_gptmaker_token()
+        gptmaker_available = bool(gptmaker_token)
+
         return {
             "status": "online",
             "engine": "Groq/Gemini Hybrid",
@@ -986,7 +1045,8 @@ async def ai_status():
             "motores": {
                 "groq": {"ativo": GROQ_AVAILABLE},
                 "gemini": {"ativo": gemini_key_available},
-                "ollama": {"ativo": ollama_online}
+                "ollama": {"ativo": ollama_online},
+                "gptmaker": {"ativo": gptmaker_available}
             },
             "alert_level": compute_alert_level(),
             "last_audit": datetime.now().isoformat(),
@@ -998,14 +1058,43 @@ async def ai_status():
         print(f"[AI STATUS] Erro: {e}")
         return {"status": "degraded", "error": str(e)}
 
+from core.agent_manager import AgentManager
+
+# Inicializa o AgentManager Global
+agent_manager = AgentManager()
+
 @app.post("/api/ai/chat")
 async def ai_chat_specialized(data: dict = Body(...)):
     prompt = data.get("prompt", "")
     agent = data.get("agent", "ORCHESTRATOR")
     uid = data.get("uid", "admin_master")
 
+    # Primeiro, tentamos o AgentManager se o agente não for o ORCHESTRATOR
+    if agent != "ORCHESTRATOR":
+        res = agent_manager.execute({"agent": agent.lower() + "_core" if "core" not in agent.lower() else agent.lower(), "prompt": prompt, "id": uid})
+        if res.get("status") == "success":
+            return {"answer": res.get("answer"), "agent": agent}
+
     answer = await ask_ai_specialized(agent, prompt, uid)
     return {"answer": answer, "agent": agent}
+
+# --- GPT MAKER API ENDPOINTS ---
+@app.get("/api/ai/gptmaker/workspaces")
+async def gptmaker_workspaces():
+    return gptmaker_list_workspaces()
+
+@app.get("/api/ai/gptmaker/agents/{workspace_id}")
+async def gptmaker_agents(workspace_id: str):
+    return gptmaker_list_agents(workspace_id)
+
+@app.post("/api/ai/gptmaker/chat")
+async def gptmaker_chat(data: dict = Body(...)):
+    agent_id = data.get("agent_id", "")
+    prompt = data.get("prompt", "")
+    context_id = data.get("context_id", "cybercore_studio")
+    if not agent_id or not prompt:
+        return {"status": "error", "msg": "agent_id e prompt são obrigatórios."}
+    return gptmaker_conversation(agent_id, prompt, context_id)
 
 @app.post("/ai/chat")
 async def ai_chat(data: dict = Body(...)):
@@ -1045,7 +1134,125 @@ async def add_sentinel_log(data: dict = Body(...)):
     })
     return {"status": "success"}
 
-# --- LOCAL AGENT & NODES ---
+# --- CYBERCORE ORCHESTRATION & BRIDGE ---
+
+@app.post("/api/cybercore/orchestrate")
+async def cybercore_orchestrate(data: dict = Body(...)):
+    """Orquestrador Central: Recebe comandos estratégicos e delega para agentes especializados."""
+    prompt = data.get("prompt", "")
+    uid = data.get("uid", "admin_master")
+
+    # 1. Registro na Memória de Logs
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "event": "orchestration_start",
+        "prompt": prompt,
+        "uid": uid
+    }
+    try:
+        log_path = os.path.join(PROJECT_ROOT, "memory", "logs", f"log_{datetime.now().strftime('%Y%m%d')}.json")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(log_entry) + "\n")
+    except: pass
+
+    # 2. Chamada para a "Mente" (GPT Maker ou Pipeline Local)
+    # Aqui simulamos a inteligência que quebra o problema em tarefas para os agentes.
+    plan_prompt = f"""Atue como CEO Digital da CyberCore IA.
+Analise o pedido estratégico: "{prompt}"
+Crie um plano de execução técnico detalhado.
+Responda em formato JSON:
+{{
+  "project": "Nome do Projeto",
+  "analysis": "Breve análise estratégica",
+  "tasks": [
+    {{ "agent": "DESIGNER", "task": "Descrição da tarefa UI/UX" }},
+    {{ "agent": "BUILDER", "task": "Descrição da tarefa de construção" }},
+    {{ "agent": "FULLSTACK", "task": "Descrição da tarefa de integração/API" }}
+  ]
+}}
+Retorne APENAS o JSON."""
+
+    plan_raw = await ask_ai_specialized("ORCHESTRATOR", plan_prompt, uid)
+
+    try:
+        # Tenta extrair e limpar o JSON da resposta
+        json_start = plan_raw.find('{')
+        json_end = plan_raw.rfind('}') + 1
+        plan = json.loads(plan_raw[json_start:json_end])
+
+        # 3. Distribuição Automática (Execução em Background ou Sequencial)
+        execution_results = []
+        for task in plan.get("tasks", []):
+            agent = task.get("agent")
+            task_desc = task.get("task")
+            # Executa o agente especializado
+            res = await execute_single_agent(agent, f"Executor da tarefa: {task_desc}. Contexto do Projeto: {plan.get('project')}", uid)
+            execution_results.append({ "agent": agent, "status": "completed", "output": res[:100] + "..." })
+
+        # 4. Salva o projeto na Memória
+        project_name = plan.get("project", "Novo Projeto").lower().replace(" ", "_")
+        project_memory_path = os.path.join(PROJECT_ROOT, "memory", "projects", f"{project_name}.json")
+        with open(project_memory_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "name": plan.get("project"),
+                "created_at": datetime.now().isoformat(),
+                "original_prompt": prompt,
+                "plan": plan,
+                "results": execution_results
+            }, f, indent=4)
+
+        return {
+            "status": "success",
+            "answer": f"🔮 **Plano '{plan.get('project')}' Ativado!**\n\n{plan.get('analysis')}\n\n**Execução:**\n" +
+                      "\n".join([f"✅ {r['agent']}: {r['output']}" for r in execution_results]),
+            "plan": plan
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "answer": f"Falha na orquestração: {str(e)}\n\nResposta bruta da IA:\n{plan_raw}",
+            "raw": plan_raw
+        }
+
+@app.get("/api/cybercore/memory/stats")
+async def get_memory_stats():
+    """Retorna estatísticas da estrutura de memória."""
+    try:
+        projects_dir = os.path.join(PROJECT_ROOT, "memory", "projects")
+        projects = os.listdir(projects_dir) if os.path.exists(projects_dir) else []
+        return {
+            "projects_count": len(projects),
+            "last_project": projects[-1].replace('.json', '') if projects else None,
+            "memory_status": "synced"
+        }
+    except:
+        return {"projects_count": 0, "memory_status": "error"}
+
+@app.get("/api/cybercore/memory/list/{category}")
+async def list_memory_items(category: str):
+    """Lista itens de uma categoria específica da memória."""
+    valid_categories = ["projects", "agents", "architecture", "logs"]
+    if category not in valid_categories:
+        return {"items": []}
+
+    path = os.path.join(PROJECT_ROOT, "memory", category)
+    if not os.path.exists(path):
+        return {"items": []}
+
+    items = os.listdir(path)
+    return {"items": [i.replace('.json', '') for i in items if i.endswith('.json') or i.endswith('.log')]}
+
+@app.get("/api/cybercore/memory/read/{category}/{name}")
+async def read_memory_item(category: str, name: str):
+    """Lê o conteúdo de um item da memória."""
+    path = os.path.join(PROJECT_ROOT, "memory", category, f"{name}.json")
+    if not os.path.exists(path):
+        path = os.path.join(PROJECT_ROOT, "memory", category, f"{name}.log")
+        if not os.path.exists(path):
+            return {"content": "Arquivo não encontrado."}
+
+    with open(path, "r", encoding="utf-8") as f:
+        return {"content": f.read()}
 
 @app.post("/api/node/register")
 async def register_node(data: dict = Body(...)):

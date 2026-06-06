@@ -100,6 +100,9 @@
                         <span>🚀</span> CyberCore Studio
                     </button>
                     <div class="sub-nav">
+                        <span class="sub-link" onclick="showPanel('orchestrator')">Orchestrator <small class="badge-new">NOVO</small></span>
+                        <span class="sub-link" onclick="showPanel('bridge')">Bridge <small class="badge-new">NOVO</small></span>
+                        <span class="sub-link" onclick="showPanel('memory')">Memory <small class="badge-new">NOVO</small></span>
                         <span class="sub-link" onclick="selectAgentFromNav('BUILDER')">Builder</span>
                         <span class="sub-link" onclick="selectAgentFromNav('DESIGNER')">Designer</span>
                         <span class="sub-link" onclick="selectAgentFromNav('FULLSTACK')">Fullstack</span>
@@ -287,6 +290,38 @@
                             </div>
                         </div>
 
+                        <!-- GPT Maker Config (collapsible) -->
+                        <div class="system-card premium-glass tech-border" style="margin-bottom:20px;padding:12px 18px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-size:12px;">🧠</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);">GPT MAKER</span>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span id="gptmaker-agent-badge" style="font-size:8px;padding:2px 8px;border-radius:4px;background:rgba(232,184,48,0.1);color:var(--gold);font-weight:700;display:none;"></span>
+                                    <span style="font-size:10px;color:var(--text-secondary);">▾</span>
+                                </div>
+                            </div>
+                            <div style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-glass);">
+                                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+                                    <div style="flex:1;min-width:180px;">
+                                        <label style="font-size:8px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;display:block;margin-bottom:4px;">WORKSPACE</label>
+                                        <select id="gptmaker-workspace-select" style="width:100%;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;outline:none;" onchange="loadGptmakerAgents(this.value)">
+                                            <option>Configure a chave em Configurações</option>
+                                        </select>
+                                    </div>
+                                    <div style="flex:1;min-width:180px;">
+                                        <label style="font-size:8px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;display:block;margin-bottom:4px;">AGENTE GPT MAKER</label>
+                                        <select id="gptmaker-agent-select" style="width:100%;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;outline:none;">
+                                            <option>Selecione workspace primeiro</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn-minimal" onclick="loadGptmakerWorkspaces()" style="padding:8px 14px;font-size:9px;">⟳ LISTAR</button>
+                                    <button class="btn-minimal" onclick="selectGptmakerAgent()" style="padding:8px 14px;font-size:9px;background:rgba(232,184,48,0.1);color:var(--gold);">✓ VINCULAR</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Workspace de Arquivos (Explorer + Editor) -->
                         <div class="studio-workspace" style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-top: 30px;">
                             <!-- File Explorer -->
@@ -311,6 +346,10 @@
                                         <span id="current-file-name" style="font-size: 12px; font-weight: 800; color: var(--gold);">nenhum arquivo aberto</span>
                                     </div>
                                     <div style="display: flex; gap: 10px;">
+                                        <div id="java-build-actions" style="display: none; gap: 10px; padding-right: 10px; border-right: 1px solid rgba(255,255,255,0.1);">
+                                            <button class="btn-minimal" onclick="buildJavaProject('apk')" style="color: var(--cyan); font-weight: 800; font-size: 10px;">🔨 BUILD APK</button>
+                                            <button class="btn-minimal" onclick="buildJavaProject('jar')" style="color: var(--cyan); font-weight: 800; font-size: 10px;">📦 COMPILE JAR</button>
+                                        </div>
                                         <button class="btn-minimal" onclick="saveCurrentFile()" style="color: var(--success); font-weight: 800;">SALVAR</button>
                                         <button class="btn-minimal" onclick="closeEditor()" style="color: var(--danger);">FECHAR</button>
                                     </div>
@@ -327,50 +366,118 @@
 
                 <!-- Painel: WATCH (Antigo Auditoria/Sala de Guerra) -->
                 <div id="panel-watch" class="panel-view">
-                    <div class="watch-container">
-                        <div class="watch-header">
-                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: #00f3ff;">CYBERCORE WATCH</h2>
-                            <p style="font-size: 10px; color: var(--text-secondary);">CENTRO DE OPERAÇÕES DE REDE (NOC)</p>
-                        </div>
+                    <!-- ... existing watch content ... -->
+                </div>
 
-                        <div class="watch-agents-grid">
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">SENTINEL</span>
-                                <small>MONITORAMENTO</small>
+                <!-- Painel: CYBERCORE ORCHESTRATOR (CEO) -->
+                <div id="panel-orchestrator" class="panel-view">
+                    <div class="studio-container">
+                        <div class="studio-header">
+                            <div>
+                                <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: var(--gold);">CYBERCORE ORCHESTRATOR</h2>
+                                <p style="font-size: 10px; color: var(--text-secondary);">INTELIGÊNCIA EXECUTIVA E COMANDO CENTRAL</p>
                             </div>
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">AUDITOR</span>
-                                <small>AUDITORIA</small>
-                            </div>
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">FISCAL</span>
-                                <small>CUSTOS/FIN</small>
-                            </div>
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">SECURITY</span>
-                                <small>SEGURANÇA</small>
-                            </div>
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">UPTIME</span>
-                                <small>DISPONIBILIDADE</small>
-                            </div>
-                            <div class="watch-agent-card active">
-                                <div class="agent-status-led online"></div>
-                                <span class="agent-title">PERFORMANCE</span>
-                                <small>LATÊNCIA/CPU</small>
+                            <div style="display:flex; gap:10px;">
+                                <div class="status-tag" style="background:rgba(16,185,129,0.1); color:#10b981;">● CEO ONLINE</div>
+                                <div class="status-tag" style="background:rgba(0,243,255,0.1); color:var(--cyan);">GPT MAKER CONNECTED</div>
                             </div>
                         </div>
 
-                        <!-- Monitor de Projetos -->
-                        <div class="watch-monitoring-section">
-                            <div class="section-title">PROJETOS ATIVOS</div>
-                            <div id="watch-projects-list" class="watch-projects-grid">
-                                <!-- Preenchido dinamicamente -->
+                        <div class="orchestrator-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 20px; margin-top: 20px;">
+                            <!-- Chat Central -->
+                            <div class="system-card premium-glass tech-border" style="display: flex; flex-direction: column; height: 650px;">
+                                <div id="orch-chat-messages" style="flex:1; overflow-y:auto; padding:25px; display:flex; flex-direction:column; gap:20px;">
+                                    <div class="ai-msg">
+                                        <span class="avatar">👑</span>
+                                        <div class="msg-bubble">
+                                            Bem-vindo ao Núcleo de Comando. Sou a <strong>CyberCore IA</strong>.
+                                            Qual projeto estratégico vamos orquestrar hoje?
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="padding:20px; border-top:1px solid var(--border-glass); background:rgba(0,0,0,0.2);">
+                                    <div style="display:flex; gap:10px;">
+                                        <textarea id="orch-input" placeholder="Comando executivo (ex: Criar módulo de saque PIX para CineCash)..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--border-glass); border-radius:12px; color:#fff; padding:15px; font-family:var(--font-mono); resize:none; outline:none; height:60px;"></textarea>
+                                        <button class="btn-premium" onclick="sendOrchestratorCommand()" style="width:100px; border-radius:12px;">ENVIAR</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dashboard Lateral -->
+                            <div style="display:flex; flex-direction:column; gap:20px;">
+                                <div class="system-card premium-glass tech-border" style="padding:20px;">
+                                    <h4 style="font-size:11px; color:var(--gold); margin-bottom:15px;">ESTATÍSTICAS DA MENTE</h4>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                        <div class="mini-stat">
+                                            <small>MEMÓRIA</small>
+                                            <div id="memory-count">186 Itens</div>
+                                        </div>
+                                        <div class="mini-stat">
+                                            <small>AGENTES</small>
+                                            <div>8 Ativos</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="system-card premium-glass tech-border" style="padding:20px; flex:1;">
+                                    <h4 style="font-size:11px; color:var(--cyan); margin-bottom:15px;">ESTRUTURA DE PROJETOS</h4>
+                                    <div id="orch-projects-mini" style="font-size:12px;">
+                                        <div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.05);">🟢 CineCash (PIX Core)</div>
+                                        <div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.05);">🟡 CashVideo (Rewards)</div>
+                                        <div style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.05);">🔵 PlayEarn (API v2)</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: CYBERCORE BRIDGE -->
+                <div id="panel-bridge" class="panel-view">
+                    <div class="studio-container">
+                        <div class="studio-header">
+                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: var(--cyan);">CYBERCORE BRIDGE</h2>
+                            <p style="font-size: 10px; color: var(--text-secondary);">INTEGRAÇÃO GPT MAKER & MCP SERVERS</p>
+                        </div>
+                        <div class="system-card premium-glass tech-border" style="padding:30px; margin-top:20px;">
+                            <div style="max-width:600px;">
+                                <h3 style="color:#fff; font-size:14px; margin-bottom:20px;">Configuração do Túnel Neural</h3>
+                                <div style="margin-bottom:15px;">
+                                    <label style="display:block; font-size:10px; color:var(--text-secondary); margin-bottom:5px;">GPT MAKER API KEY</label>
+                                    <input type="password" class="tech-input" value="sk-••••••••••••••••" style="width:100%;">
+                                </div>
+                                <div style="margin-bottom:15px;">
+                                    <label style="display:block; font-size:10px; color:var(--text-secondary); margin-bottom:5px;">ORCHESTRATOR AGENT ID</label>
+                                    <input type="text" class="tech-input" value="agt_8f5c7d2c1a" style="width:100%;">
+                                </div>
+                                <button class="btn-cyber-primary" style="margin-top:10px;">SINCRONIZAR AGENTES</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel: CYBERCORE MEMORY -->
+                <div id="panel-memory" class="panel-view">
+                    <div class="studio-container">
+                        <div class="studio-header">
+                            <h2 style="font-family: 'JetBrains Mono'; letter-spacing: 2px; color: #a855f7;">CYBERCORE MEMORY</h2>
+                            <p style="font-size: 10px; color: var(--text-secondary);">MEMÓRIA PERSISTENTE E CONHECIMENTO COMPARTILHADO</p>
+                        </div>
+                        <div class="memory-explorer" style="display:grid; grid-template-columns: 250px 1fr; gap:20px; margin-top:20px;">
+                            <div class="system-card premium-glass tech-border" style="padding:15px;">
+                                <div class="memory-tree">
+                                    <div class="tree-item active">📁 projects/</div>
+                                    <div class="tree-item" style="padding-left:20px;">📁 cinecash/</div>
+                                    <div class="tree-item" style="padding-left:20px;">📁 playearn/</div>
+                                    <div class="tree-item">📁 agents/</div>
+                                    <div class="tree-item">📁 architecture/</div>
+                                    <div class="tree-item">📁 logs/</div>
+                                </div>
+                            </div>
+                            <div class="system-card premium-glass tech-border" style="padding:20px; min-height:500px;">
+                                <div id="memory-content-viewer">
+                                    <h4 style="color:var(--gold);">Selecione um módulo de memória para inspecionar.</h4>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1282,6 +1389,10 @@
                                     <div class="p-input-group" style="margin-bottom:14px;">
                                         <label>Chave Groq AI (Prioritário)</label>
                                         <input type="password" id="audit-groq-key" placeholder="gsk_..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>GPT Maker API Key (CyberCore via GPT Maker)</label>
+                                        <input type="password" id="audit-gptmaker-key" placeholder="gpm_k..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
                                     </div>
                                 </div>
                             </div>

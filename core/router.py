@@ -2,7 +2,7 @@ import json, os
 from core.state import CyberCoreState
 
 AGENT_KEYWORDS = [
-    ("java_core",   ["java","spring","maven","gradle","android","jar","jvm","kotlin","hibernate"]),
+    ("java_core",   ["java","spring","maven","gradle","android","jar","jvm","kotlin","hibernate","apk","sign","assinar"]),
     ("software",    ["software","desktop","programa","aplicativo","executavel","windows","linux","mac"]),
     ("fiscal",      ["imposto","nota","nf","nfe","fiscal","tributo","contabilidade","saque","retirada","extrato","financeiro"]),
     ("sentinel",    ["seguranca","segurança","varredura","scan","sentinel","ameaca","ameaça","invasao","invasão","virus","malware","firewall"]),

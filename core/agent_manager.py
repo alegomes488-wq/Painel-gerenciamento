@@ -22,12 +22,28 @@ class AgentManager:
 
         try:
             import requests
+            from firebase_admin import db
             port = registry.get("port")
             if port:
+                # Log de início no Firebase para o Studio
+                db.reference('logs/nexus').push({
+                    "timestamp": datetime.now().isoformat(),
+                    "uid": task.get("id", "system"),
+                    "details": {"message": f"Agente {agent_name} iniciado para tarefa: {prompt[:50]}..."}
+                })
+
                 resp = requests.post(f"http://localhost:{port}/execute", json={"task_id": task.get("id"), "action": "process_prompt", "payload": {"prompt": prompt}}, timeout=5)
                 if resp.status_code == 200:
                     data = resp.json()
-                    return {"answer": data.get("result", "OK"), "status": "success", "agent": agent_name}
+                    answer = data.get("result", "OK")
+
+                    # Log de conclusão
+                    db.reference('logs/nexus').push({
+                        "timestamp": datetime.now().isoformat(),
+                        "uid": task.get("id", "system"),
+                        "details": {"message": f"Agente {agent_name} concluiu a tarefa com sucesso."}
+                    })
+                    return {"answer": answer, "status": "success", "agent": agent_name}
         except:
             pass
 
