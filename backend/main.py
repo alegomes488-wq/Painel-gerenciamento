@@ -11,7 +11,7 @@ import firebase_admin
 from firebase_admin import credentials, db, messaging
 from fastapi import FastAPI, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from collections import deque
 
@@ -1352,6 +1352,78 @@ async def studio_delete_file(filename: str):
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
+# --- STUDIO PREVIEW ---
+@app.get("/api/studio/preview/{filename:path}")
+async def studio_preview_file(filename: str):
+    """Serve workspace files for live preview."""
+    try:
+        safe = os.path.basename(filename) if '/' not in filename else filename
+        path = os.path.join(WORKSPACE_DIR, safe)
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+        ext = os.path.splitext(path)[1].lower()
+        media_types = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+        }
+        return FileResponse(path, media_type=media_types.get(ext, "text/plain; charset=utf-8"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/studio/preview")
+async def studio_preview_site():
+    """Serve the complete workspace site as a preview page with iframe."""
+    try:
+        files = os.listdir(WORKSPACE_DIR)
+        html = """<!DOCTYPE html><html lang="pt-br"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CyberCore Studio - Preview</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#0a0a0f;color:#fff;display:flex;flex-direction:column;height:100vh}
+.toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap}
+.toolbar h3{font-size:12px;color:#e8b830;letter-spacing:1px;font-weight:800}
+.toolbar a{color:#64748b;text-decoration:none;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);transition:.2s}
+.toolbar a:hover{color:#e8b830;border-color:rgba(232,184,48,0.3)}
+.toolbar .active{color:#e8b830;border-color:rgba(232,184,48,0.3);background:rgba(232,184,48,0.06)}
+iframe{flex:1;border:none;background:#fff;width:100%}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:#333;font-size:14px}
+</style></head><body>
+<div class="toolbar">
+<h3>🖥️ CYBERCORE PREVIEW</h3>
+"""
+        has_html = False
+        for f in sorted(files):
+            ext = os.path.splitext(f)[1].lower()
+            if ext in ('.html','.htm'):
+                has_html = True
+                is_active = f == "index.html"
+                cls = ' active' if is_active else ''
+                html += f'<a href="/api/studio/preview/{f}" target="preview" class="{cls}">🌐 {f}</a>'
+            elif ext in ('.css','.js'):
+                pass
+        if not has_html:
+            html += '<span style="color:#666;font-size:12px">Nenhum arquivo HTML no workspace</span>'
+        html += '</div>'
+        if has_html:
+            html += '<iframe name="preview" src="/api/studio/preview/index.html"></iframe>'
+        else:
+            html += '<div class="empty">Nenhum arquivo HTML para exibir</div>'
+        html += '</body></html>'
+        return HTMLResponse(content=html)
+    except Exception as e:
+        return HTMLResponse(content=f"<pre>Erro: {e}</pre>", status_code=500)
+
 # --- PROJECT MANAGER & CREDIT SYSTEM ---
 
 DESKTOP_DIR = os.path.expanduser("~/Desktop")
@@ -2037,8 +2109,6 @@ async def approve_payment(wid: str):
 
 # --- STATIC MOUNTS (Configuração para Opção B: Separados) ---
 # HUB_MODE já definido no topo
-
-from fastapi.responses import JSONResponse, FileResponse
 
 @app.exception_handler(404)
 async def not_found_handler(request, exc):

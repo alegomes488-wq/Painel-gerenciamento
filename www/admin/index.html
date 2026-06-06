@@ -328,7 +328,10 @@
                             <div class="system-card premium-glass tech-border" style="padding: 15px; min-height: 400px; display: flex; flex-direction: column;">
                                 <div class="system-header" style="margin-bottom: 15px; justify-content: space-between;">
                                     <h4 style="font-size: 12px; letter-spacing: 1px;">EXPLORER</h4>
-                                    <button class="btn-minimal" onclick="listStudioFiles()" title="Atualizar">🔄</button>
+                                    <div style="display:flex;gap:6px;">
+                                        <button class="btn-minimal" onclick="togglePreview()" title="Pré-visualizar site">🖥️</button>
+                                        <button class="btn-minimal" onclick="listStudioFiles()" title="Atualizar">🔄</button>
+                                    </div>
                                 </div>
                                 <div id="studio-file-list" style="flex: 1; overflow-y: auto; font-family: 'JetBrains Mono'; font-size: 11px;">
                                     <div style="opacity: 0.3; text-align: center; padding: 20px;">Nenhum arquivo no workspace.</div>
@@ -360,6 +363,24 @@
 
                         <div id="studio-output" class="terminal-container" style="margin-top: 20px; display: none;">
                              <div id="studio-terminal-body" class="terminal-body"></div>
+                        </div>
+
+                        <!-- Preview Section -->
+                        <div id="studio-preview-section" style="display:none;margin-top:20px;">
+                            <div class="system-card premium-glass tech-border" style="overflow:hidden;">
+                                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border-glass);">
+                                    <div style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:14px;">🖥️</span>
+                                        <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold);">PRÉ-VISUALIZAÇÃO</span>
+                                    </div>
+                                    <div style="display:flex;gap:6px;">
+                                        <button class="btn-minimal" onclick="refreshPreview()" style="font-size:10px;">⟳ ATUALIZAR</button>
+                                        <button class="btn-minimal" onclick="openPreviewNewTab()" style="font-size:10px;">↗ NOVA ABA</button>
+                                        <button class="btn-minimal" onclick="document.getElementById('studio-preview-section').style.display='none'" style="font-size:10px;color:var(--danger);">✕</button>
+                                    </div>
+                                </div>
+                                <iframe id="studio-preview-iframe" style="width:100%;height:500px;border:none;background:#fff;"></iframe>
+                            </div>
                         </div>
                     </div>
                 </div>

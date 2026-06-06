@@ -959,6 +959,30 @@ async function deleteStudioFile(filename) {
     }
 }
 
+// --- STUDIO PREVIEW ---
+function togglePreview() {
+    const section = document.getElementById('studio-preview-section');
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        refreshPreview();
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+function refreshPreview() {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const iframe = document.getElementById('studio-preview-iframe');
+    if (iframe) {
+        iframe.src = `${baseUrl}/api/studio/preview`;
+    }
+}
+
+function openPreviewNewTab() {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    window.open(`${baseUrl}/api/studio/preview`, '_blank');
+}
+
 function closeEditor() {
     document.getElementById('studio-editor').value = "";
     document.getElementById('current-file-name').textContent = "nenhum arquivo aberto";
