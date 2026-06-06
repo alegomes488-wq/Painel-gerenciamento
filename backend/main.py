@@ -110,7 +110,7 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # Mapeamento de Especialistas CyberCore
 AGENT_MODELS = {
     "ORCHESTRATOR": {"provider": "google", "model": "gemini-2.0-pro-exp"},
-    "BUILDER":      {"provider": "ollama",  "model": "qwen2.5-coder:latest"},
+    "BUILDER":      {"provider": "groq",   "model": "deepseek-v3"},
     "DESIGNER":     {"provider": "google", "model": "gemini-2.0-flash"},
     "FULLSTACK":    {"provider": "groq",   "model": "deepseek-v3"},
     "PYTHON":       {"provider": "groq",   "model": "deepseek-v3"},
