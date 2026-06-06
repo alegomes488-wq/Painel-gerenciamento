@@ -322,6 +322,44 @@
                             </div>
                         </div>
 
+                        <!-- CYBER CORE CEO (Chat com raciocínio, plano e execução) -->
+                        <div class="system-card premium-glass tech-border" style="margin-bottom:20px;padding:12px 18px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleCyberCorePanel()">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-size:14px;">🧠</span>
+                                    <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--gold);">CYBER CORE</span>
+                                    <span style="font-size:8px;padding:1px 6px;border-radius:3px;background:rgba(232,184,48,0.15);color:var(--gold);font-weight:700;">CEO</span>
+                                </div>
+                                <div id="cybercore-toggle-icon" style="font-size:10px;color:var(--text-secondary);">▾</div>
+                            </div>
+                            <div id="cybercore-panel-body" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-glass);">
+                                <!-- Project selector -->
+                                <div style="display:flex;gap:10px;margin-bottom:12px;align-items:end;flex-wrap:wrap;">
+                                    <div style="flex:1;min-width:150px;">
+                                        <label style="font-size:8px;color:var(--text-secondary);font-weight:700;letter-spacing:1px;display:block;margin-bottom:4px;">PROJETO</label>
+                                        <select id="cybercore-project-select" style="width:100%;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:8px 10px;color:#fff;font-size:11px;outline:none;" onchange="cybercoreLoadProject(this.value)">
+                                            <option value="default">📁 default</option>
+                                        </select>
+                                    </div>
+                                    <button class="btn-minimal" onclick="cybercoreRefreshProjects()" style="padding:8px 12px;font-size:9px;">⟳ PROJETOS</button>
+                                    <button class="btn-minimal" onclick="cybercoreShowMemory()" style="padding:8px 12px;font-size:9px;color:var(--cyan);">📚 MEMÓRIA</button>
+                                </div>
+                                <!-- Conversation thread -->
+                                <div id="cybercore-conversation" style="max-height:300px;overflow-y:auto;margin-bottom:12px;padding:10px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:11px;line-height:1.6;min-height:60px;">
+                                    <div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">🧠 CyberCore aguardando seu comando...</div>
+                                </div>
+                                <!-- Chat input + actions -->
+                                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                    <textarea id="cybercore-chat-input" style="flex:1;min-width:200px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;color:#fff;font-size:11px;outline:none;resize:vertical;min-height:40px;font-family:'JetBrains Mono';" placeholder="Digite o objetivo para a CyberCore CEO..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();cybercoreChat()}"></textarea>
+                                    <div style="display:flex;gap:6px;align-items:end;flex-wrap:wrap;">
+                                        <button class="btn-cyber-primary" onclick="cybercoreChat()" style="padding:8px 16px;font-size:10px;">🧠 ANALISAR</button>
+                                        <button id="cybercore-execute-btn" class="btn-cyber-primary" onclick="cybercoreExecute()" style="padding:8px 16px;font-size:10px;background:linear-gradient(135deg,rgba(16,185,129,0.3),rgba(16,185,129,0.1));border-color:rgba(16,185,129,0.3);display:none;">⚡ EXECUTAR PLANO</button>
+                                        <button class="btn-minimal" onclick="cybercoreClear()" style="padding:8px 12px;font-size:9px;color:var(--danger);">✕ LIMPAR</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Workspace de Arquivos (Explorer + Editor) -->
                         <div class="studio-workspace" style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-top: 30px;">
                             <!-- File Explorer -->
@@ -1414,6 +1452,10 @@
                                     <div class="p-input-group" style="margin-bottom:14px;">
                                         <label>GPT Maker API Key (CyberCore via GPT Maker)</label>
                                         <input type="password" id="audit-gptmaker-key" placeholder="gpm_k..." style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
+                                    </div>
+                                    <div class="p-input-group" style="margin-bottom:14px;">
+                                        <label>CyberCore GPT Maker Agent ID (CEO)</label>
+                                        <input type="text" id="audit-cybercore-agent" placeholder="ID do agente CyberCore no GPT Maker" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
                                     </div>
                                 </div>
                             </div>

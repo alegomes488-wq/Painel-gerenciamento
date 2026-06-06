@@ -801,7 +801,234 @@ async function fetchWorkspaceContext() {
     }
 }
 
-// --- GPT MAKER STUDIO INTEGRATION ---
+// --- CYBER CORE CEO: Chat, Plano e Execução ---
+let cybercoreLastPlan = [];
+let cybercoreLastRaciocinio = "";
+
+function toggleCyberCorePanel() {
+    const body = document.getElementById('cybercore-panel-body');
+    const icon = document.getElementById('cybercore-toggle-icon');
+    if (body) {
+        const show = body.style.display !== 'block';
+        body.style.display = show ? 'block' : 'none';
+        if (icon) icon.textContent = show ? '▴' : '▾';
+        if (show) cybercoreLoadProject(document.getElementById('cybercore-project-select')?.value || 'default');
+    }
+}
+
+function cybercoreAddMessage(role, content, extra = '') {
+    const conv = document.getElementById('cybercore-conversation');
+    if (!conv) return;
+
+    const msg = document.createElement('div');
+    msg.style.cssText = 'padding:8px 10px;margin-bottom:8px;border-radius:6px;font-size:11px;line-height:1.5;';
+
+    if (role === 'user') {
+        msg.style.background = 'rgba(0,243,255,0.05)';
+        msg.style.borderLeft = '2px solid var(--cyan)';
+        msg.innerHTML = `<span style="color:var(--cyan);font-weight:800;">👤 VOCÊ</span><br><span style="color:#e4e4e7;">${content}</span>`;
+    } else if (role === 'raciocinio') {
+        msg.style.background = 'rgba(232,184,48,0.05)';
+        msg.style.borderLeft = '2px solid var(--gold)';
+        msg.innerHTML = `<span style="color:var(--gold);font-weight:800;">🧠 CYBER CORE</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
+    } else if (role === 'plano') {
+        msg.style.background = 'rgba(59,130,246,0.05)';
+        msg.style.borderLeft = '2px solid #3b82f6';
+        msg.innerHTML = `<span style="color:#3b82f6;font-weight:800;">📋 PLANO</span><br><span style="color:#e4e4e7;font-size:10px;">${content}</span>`;
+    } else if (role === 'resultado') {
+        msg.style.background = 'rgba(16,185,129,0.05)';
+        msg.style.borderLeft = '2px solid #10b981';
+        msg.innerHTML = `<span style="color:#10b981;font-weight:800;">✅ EXECUÇÃO</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
+    } else if (role === 'erro') {
+        msg.style.background = 'rgba(239,68,68,0.05)';
+        msg.style.borderLeft = '2px solid #ef4444';
+        msg.innerHTML = `<span style="color:#ef4444;font-weight:800;">❌ ERRO</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
+    } else {
+        msg.innerHTML = content;
+    }
+    conv.appendChild(msg);
+    conv.scrollTop = conv.scrollHeight;
+}
+
+async function cybercoreChat() {
+    const input = document.getElementById('cybercore-chat-input');
+    const prompt = input?.value?.trim();
+    if (!prompt) return showToast("Digite um objetivo para a Cyber Core.", "error");
+
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const project = document.getElementById('cybercore-project-select')?.value || 'default';
+    const executeBtn = document.getElementById('cybercore-execute-btn');
+
+    cybercoreAddMessage('user', prompt);
+    input.value = '';
+
+    const loading = document.createElement('div');
+    loading.id = 'cybercore-loading';
+    loading.style.cssText = 'padding:8px;color:var(--gold);font-size:10px;font-family:JetBrains Mono;opacity:0.6;';
+    loading.textContent = '🧠 CyberCore está analisando...';
+    document.getElementById('cybercore-conversation').appendChild(loading);
+
+    try {
+        const resp = await fetch(`${baseUrl}/api/cybercore/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, project, uid: 'admin_cybercore' })
+        });
+        const data = await resp.json();
+
+        document.getElementById('cybercore-loading')?.remove();
+
+        if (data.status === 'success') {
+            // Raciocínio
+            if (data.raciocinio) cybercoreAddMessage('raciocinio', data.raciocinio);
+
+            // Plano
+            if (data.plano && data.plano.length > 0) {
+                let planHtml = `<div style="display:grid;gap:4px;">`;
+                data.plano.forEach((t, i) => {
+                    const agente = t.agente || t.agent || '?';
+                    const colors = {BUILDER:'#a855f7',DESIGNER:'#ec4899',FULLSTACK:'#06b6d4',PYTHON:'#22c55e',JAVA:'#f97316',SOFTWARE:'#eab308',SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
+                    const color = colors[agente.toUpperCase()] || '#64748b';
+                    planHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:4px;">
+                        <span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block;"></span>
+                        <span style="font-weight:800;color:${color};font-size:10px;">${agente}</span>
+                        <span style="color:#94a3b8;font-size:10px;">→ ${t.tarefa || t.task || ''}</span>
+                    </div>`;
+                });
+                planHtml += `</div>`;
+                cybercoreAddMessage('plano', planHtml);
+
+                cybercoreLastPlan = data.plano;
+                cybercoreLastRaciocinio = data.raciocinio || '';
+
+                if (executeBtn) {
+                    executeBtn.style.display = 'inline-flex';
+                    executeBtn.textContent = `⚡ EXECUTAR ${data.plano.length} TAREFAS`;
+                }
+            }
+
+            // Atualiza o prompt master com o mesmo prompt para consistência
+            document.getElementById('studio-prompt').value = prompt;
+        } else {
+            cybercoreAddMessage('erro', data.msg || 'Falha na comunicação com a CyberCore.');
+        }
+    } catch (e) {
+        document.getElementById('cybercore-loading')?.remove();
+        cybercoreAddMessage('erro', `Erro de conexão: ${e.message}`);
+    }
+}
+
+async function cybercoreExecute() {
+    if (!cybercoreLastPlan || cybercoreLastPlan.length === 0) {
+        return showToast("Nenhum plano para executar. Use ANALISAR primeiro.", "error");
+    }
+
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const project = document.getElementById('cybercore-project-select')?.value || 'default';
+    const executeBtn = document.getElementById('cybercore-execute-btn');
+    if (executeBtn) executeBtn.disabled = true;
+
+    cybercoreAddMessage('raciocinio', '⚡ Iniciando execução distribuída do plano...');
+
+    try {
+        // Pega contexto extra do workspace
+        let contextExtra = '';
+        try {
+            const ctxResp = await fetch(`${baseUrl}/api/studio/context`);
+            const ctxData = await ctxResp.json();
+            if (ctxData.status === 'success') contextExtra = ctxData.context?.slice(0, 2000) || '';
+        } catch {}
+
+        const resp = await fetch(`${baseUrl}/api/cybercore/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                plano: cybercoreLastPlan,
+                project,
+                uid: 'admin_cybercore',
+                contexto_extra: contextExtra
+            })
+        });
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            let relatorio = `<div style="display:grid;gap:4px;">`;
+            data.resultados.forEach(r => {
+                const icon = r.status === 'concluido' ? '✅' : r.status === 'erro' ? '❌' : '⏭️';
+                relatorio += `<div style="padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:4px;">
+                    <span style="font-size:10px;">${icon} <strong>${r.agente || r.agent}</strong></span>
+                    <span style="color:#94a3b8;font-size:9px;margin-left:6px;">${r.status}</span>
+                    <span style="color:#64748b;font-size:9px;display:block;margin-left:16px;">${r.output?.slice(0, 150) || ''}</span>
+                </div>`;
+            });
+            relatorio += `</div>`;
+            cybercoreAddMessage('resultado', relatorio);
+
+            // Atualiza workspace files
+            listStudioFiles();
+
+            showToast(`${data.concluidos}/${data.total} tarefas concluídas!`, 'success');
+        } else {
+            cybercoreAddMessage('erro', data.msg || 'Falha na execução.');
+        }
+    } catch (e) {
+        cybercoreAddMessage('erro', `Erro de conexão: ${e.message}`);
+    }
+
+    if (executeBtn) executeBtn.disabled = false;
+}
+
+async function cybercoreLoadProject(name) {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    try {
+        const resp = await fetch(`${baseUrl}/api/cybercore/memory/projects/${name}`);
+        const data = await resp.json();
+        if (data.status === 'success' && data.data) {
+            const p = data.data;
+            if (p.context) {
+                const preview = p.context.slice(-300).replace(/\n/g, '<br>');
+                document.getElementById('cybercore-conversation').innerHTML = `
+                    <div style="padding:8px;background:rgba(0,243,255,0.03);border-radius:4px;margin-bottom:8px;">
+                        <span style="color:var(--cyan);font-weight:800;font-size:10px;">📁 ${p.name}</span>
+                        <span style="color:#64748b;font-size:9px;margin-left:8px;">${p.status} | Stack: ${p.tech_stack?.join(', ') || '—'}</span>
+                    </div>
+                    <div style="color:#94a3b8;font-size:10px;opacity:0.6;">Memória carregada. Digite um comando para continuar.</div>`;
+            }
+        }
+    } catch {}
+}
+
+async function cybercoreRefreshProjects() {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const select = document.getElementById('cybercore-project-select');
+    if (!select) return;
+    try {
+        const resp = await fetch(`${baseUrl}/api/cybercore/memory/projects`);
+        const data = await resp.json();
+        if (data.status === 'success') {
+            select.innerHTML = '<option value="default">📁 default</option>';
+            (data.items || []).forEach(name => {
+                if (name !== 'default') select.innerHTML += `<option value="${name}">📁 ${name}</option>`;
+            });
+        }
+    } catch {}
+}
+
+function cybercoreShowMemory() {
+    const conv = document.getElementById('cybercore-conversation');
+    if (!conv) return;
+    conv.innerHTML = '';
+    cybercoreAddMessage('raciocinio', '📚 **MEMÓRIA CYBER CORE**<br><br>Projetos, agentes e arquitetura são persistidos em <code>cybercore-memory/</code><br><br>• <strong>projects/</strong> — contexto, tech stack, status de cada projeto<br>• <strong>agents/</strong> — instruções e estado de cada agente<br>• <strong>architecture/</strong> — documentação da arquitetura do sistema<br>• <strong>logs/</strong> — histórico de execuções');
+}
+
+function cybercoreClear() {
+    const conv = document.getElementById('cybercore-conversation');
+    if (conv) conv.innerHTML = '<div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">🧠 CyberCore aguardando seu comando...</div>';
+    cybercoreLastPlan = [];
+    cybercoreLastRaciocinio = '';
+    const executeBtn = document.getElementById('cybercore-execute-btn');
+    if (executeBtn) executeBtn.style.display = 'none';
+}
 async function loadGptmakerWorkspaces() {
     const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
     const select = document.getElementById('gptmaker-workspace-select');
@@ -1932,6 +2159,7 @@ function loadAuditInputs(config) {
         'audit-gemini-key': merged.gemini_key || merged.geminiKey,
         'audit-groq-key': merged.groqKey,
         'audit-gptmaker-key': merged.gptmakerKey,
+        'audit-cybercore-agent': merged.cybercoreGptmakerAgent,
         'audit-telegram-token': merged.telegramToken,
         'audit-telegram-chatid': merged.telegramChatId,
         'audit-whatsapp': merged.admin_whatsapp,
@@ -1952,6 +2180,7 @@ function saveAuditParameters() {
         'geminiKey': document.getElementById('audit-gemini-key').value,
         'groqKey': document.getElementById('audit-groq-key').value,
         'gptmakerKey': document.getElementById('audit-gptmaker-key').value,
+        'cybercoreGptmakerAgent': document.getElementById('audit-cybercore-agent').value,
         'telegramToken': document.getElementById('audit-telegram-token').value,
         'telegramChatId': document.getElementById('audit-telegram-chatid').value,
         'admin_whatsapp': document.getElementById('audit-whatsapp').value,
