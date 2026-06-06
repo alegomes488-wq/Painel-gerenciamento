@@ -477,252 +477,6 @@ def memory_log(category: str, entry: dict):
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except: pass
 
-# --- CYBERCORE BRIDGE: ENDPOINTS ---
-@app.post("/api/cybercore/chat")
-async def cybercore_chat(data: dict = Body(...)):
-    """Portal único: prompt -> CyberCore (GPT Maker) raciocina -> plano -> execução"""
-    prompt = data.get("prompt", "")
-    project = data.get("project", "default")
-    uid = data.get("uid", "admin_cybercore")
-    context_id = f"cybercore_{project}"
-
-    if not prompt:
-        return {"status": "error", "msg": "Prompt obrigatório"}
-
-    # 1. Carrega memória do projeto
-    project_memory = memory_file_read("projects", project) or {
-        "name": project, "created": datetime.now().isoformat(),
-        "tech_stack": [], "status": "desenvolvimento", "context": ""
-    }
-    agent_memories = {}
-    for agent_name in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]:
-        am = memory_file_read("agents", agent_name.lower())
-        if am: agent_memories[agent_name] = am
-
-    # 2. Concatena contexto completo
-    memory_context = project_memory.get("context", "")
-    agents_context = "\n".join([f"- {k}: {v.get('role','')} | status: {v.get('status','')}" for k,v in agent_memories.items()])
-
-    # 3. Chama GPT Maker (CyberCore pensa)
-    gptmaker_agent_id = os.environ.get("CYBERCORE_GPTMAKER_AGENT")
-    if not gptmaker_agent_id:
-        config_ref = db.reference('config').get() or {}
-        gptmaker_agent_id = config_ref.get('cybercoreGptmakerAgent', '')
-
-    coordinator_prompt = f"""SISTEMA: Você é o CEO Digital da CyberCore IA.
-
-MEMÓRIA DO PROJETO "{project}":
-Status: {project_memory.get('status','desenvolvimento')}
-Stack: {', '.join(project_memory.get('tech_stack',[])) or 'Indefinido'}
-Contexto: {memory_context[:2000] if memory_context else 'Novo projeto'}
-
-AGENTES DISPONÍVEIS:
-{agents_context or 'Nenhum agente configurado ainda.'}
-
-OBJETIVO DO USUÁRIO: {prompt}
-
-INSTRUÇÕES:
-1. Analise o objetivo e o contexto do projeto.
-2. Crie um plano de ação detalhado.
-3. Defina quais agentes CyberCore executarão cada parte.
-4. Para cada tarefa, especifique o agente e a descrição.
-
-Responda EXATAMENTE neste formato JSON (sem markdown):
-{{
-  "raciocinio": "seu raciocínio detalhado aqui",
-  "plano": [
-    {{"agente": "DESIGNER", "tarefa": "descrição clara da tarefa"}},
-    {{"agente": "BUILDER", "tarefa": "descrição clara da tarefa"}}
-  ],
-  "mudancas_memoria": {{
-    "project_status": "atualização do status se aplicável",
-    "tech_stack": ["tecnologias identificadas"],
-    "context_summary": "resumo do que foi feito"
-  }}
-}}"""
-
-    answer = ""
-    if gptmaker_agent_id:
-        gpt_resp = gptmaker_conversation(gptmaker_agent_id, coordinator_prompt, context_id=context_id)
-        if gpt_resp.get("status") == "success":
-            answer = gpt_resp.get("message", "")
-        else:
-            answer = f"[GPT Maker fallback] {gpt_resp.get('msg', '')}"
-    else:
-        # Fallback: usa ORCHESTRATOR nativo
-        answer = await ask_ai(coordinator_prompt, uid=uid)
-
-    # 4. Parse do plano
-    plan = []
-    raciocinio = ""
-    memory_updates = {}
-    try:
-        json_str = answer
-        if "```json" in answer:
-            json_str = answer.split("```json")[1].split("```")[0]
-        elif "```" in answer:
-            json_str = answer.split("```")[1].split("```")[0]
-        parsed = json.loads(json_str.strip())
-        raciocinio = parsed.get("raciocinio", answer[:500])
-        plan = parsed.get("plano", [])
-        memory_updates = parsed.get("mudancas_memoria", {})
-    except:
-        raciocinio = answer[:1000]
-        plan = []
-
-    # 5. Atualiza memória do projeto com o que a CyberCore aprendeu
-    if memory_updates:
-        if memory_updates.get("project_status"):
-            project_memory["status"] = memory_updates["project_status"]
-        if memory_updates.get("tech_stack"):
-            existing = set(project_memory.get("tech_stack", []))
-            existing.update(memory_updates["tech_stack"])
-            project_memory["tech_stack"] = list(existing)
-        if memory_updates.get("context_summary"):
-            old = project_memory.get("context", "")
-            project_memory["context"] = f"{old}\n[{datetime.now().strftime('%d/%m/%Y %H:%M')}] {memory_updates['context_summary']}"[-5000:]
-    project_memory["last_prompt"] = prompt
-    project_memory["last_updated"] = datetime.now().isoformat()
-    memory_file_save("projects", project, project_memory)
-
-    # 6. Log
-    memory_log("chat", {
-        "project": project, "prompt": prompt,
-        "agents_planned": [p.get("agente") for p in plan],
-        "raciocinio": raciocinio[:200]
-    })
-
-    return {
-        "status": "success",
-        "raciocinio": raciocinio,
-        "plano": plan,
-        "projeto": project_memory,
-        "raw": answer,
-        "mensagem": f"🧠 **CyberCore analisou:**\n{raciocinio}\n\n**Plano:** {len(plan)} tarefas distribuídas."
-    }
-
-@app.post("/api/cybercore/execute")
-async def cybercore_execute(data: dict = Body(...)):
-    """Executa um plano da CyberCore: distribui tarefas para os agentes"""
-    plan = data.get("plano", [])
-    project = data.get("project", "default")
-    uid = data.get("uid", "admin_cybercore")
-    context_extra = data.get("contexto_extra", "")
-
-    if not plan:
-        return {"status": "error", "msg": "Plano vazio. Use /api/cybercore/chat primeiro."}
-
-    # Busca workspace context
-    ctx_resp = await studio_context()
-    workspace_ctx = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
-
-    results = []
-    for i, task in enumerate(plan):
-        agent = task.get("agente", "").upper().strip()
-        tarefa = task.get("tarefa", "")
-        if agent not in AGENT_MODELS:
-            results.append({"agente": agent, "status": "ignorado", "output": f"Agente {agent} não reconhecido"})
-            continue
-
-        # Constrói prompt contextualizado para o agente
-        agent_prompt = f"""CONTEXTO DO WORKSPACE:
-{workspace_ctx[:3000] if workspace_ctx else 'Projeto novo'}
-
-TAREFA ATUAL ({i+1}/{len(plan)}): {tarefa}
-
-INSTRUÇÕES PARA {agent}:
-{context_extra}
-
-- Analise o contexto do workspace e execute APENAS sua tarefa específica.
-- Para código: responda APENAS JSON bruto {{"arquivo": "conteudo"}} sem markdown.
-- Se for análise/relatório: responda em markdown."""
-
-        try:
-            check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
-            output = await execute_single_agent(agent, agent_prompt, uid)
-
-            # Tenta salvar arquivos se for JSON
-            try:
-                json_str = output
-                if "```json" in output:
-                    json_str = output.split("```json")[1].split("```")[0]
-                elif "```" in output:
-                    json_str = output.split("```")[0]
-                files = json.loads(json_str.strip())
-                if isinstance(files, dict) and len(files) > 0:
-                    saved = []
-                    for fn, fc in files.items():
-                        tool_write_studio_file(fn, fc)
-                        saved.append(fn)
-                    results.append({"agente": agent, "status": "concluido", "output": f"Arquivos: {', '.join(saved)}", "arquivos": saved})
-                    continue
-            except:
-                pass
-
-            results.append({"agente": agent, "status": "concluido", "output": output[:2000]})
-        except Exception as e:
-            results.append({"agente": agent, "status": "erro", "output": str(e)})
-
-        memory_log("execute", {"project": project, "agent": agent, "task": tarefa[:100], "status": results[-1]["status"]})
-
-    # Atualiza o workspace preview
-    return {
-        "status": "success",
-        "resultados": results,
-        "total": len(results),
-        "concluidos": sum(1 for r in results if r["status"] == "concluido"),
-        "mensagem": f"**Execução concluída:** {sum(1 for r in results if r['status'] == 'concluido')}/{len(results)} tarefas."
-    }
-
-@app.get("/api/cybercore/memory/{category:path}")
-async def cybercore_memory_list(category: str = ""):
-    """Lista itens da memória da CyberCore"""
-    if not category or category.strip() == "":
-        return {"status": "success", "categories": ["projects","agents","architecture","logs"]}
-    category = category.strip("/")
-    if category not in ["projects","agents","architecture","logs"]:
-        return {"status": "error", "msg": "Categoria inválida. Use: projects, agents, architecture, logs"}
-    items = memory_file_list(category)
-    return {"status": "success", "category": category, "items": items}
-
-@app.get("/api/cybercore/memory/{category}/{name}")
-async def cybercore_memory_read(category: str, name: str):
-    """Lê um item específico da memória"""
-    if category not in ["projects","agents","architecture","logs"]:
-        return {"status": "error", "msg": "Categoria inválida"}
-    data = memory_file_read(category, name)
-    if data is None:
-        return {"status": "error", "msg": "Item não encontrado"}
-    return {"status": "success", "category": category, "name": name, "data": data}
-
-@app.post("/api/cybercore/memory/{category}/{name}")
-async def cybercore_memory_save(category: str, name: str, data: dict = Body(...)):
-    """Salva um item na memória"""
-    if category not in ["projects","agents","architecture"]:
-        return {"status": "error", "msg": "Categoria inválida para escrita"}
-    ok = memory_file_save(category, name, data.get("data", data))
-    if ok:
-        memory_log("memory", {"action": "save", "category": category, "name": name})
-        return {"status": "success", "msg": f"{category}/{name} salvo"}
-    return {"status": "error", "msg": "Falha ao salvar"}
-
-@app.get("/api/cybercore/logs/{category}")
-async def cybercore_logs(category: str):
-    """Lê logs de execução"""
-    try:
-        path = os.path.join(MEMORY_DIR, "logs", f"{category}.jsonl")
-        if not os.path.exists(path):
-            return {"status": "success", "logs": []}
-        logs = []
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    logs.append(json.loads(line))
-        return {"status": "success", "logs": logs[-50:]}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
 def tool_write_studio_file(filename, content):
     try:
         # Sanitização básica para evitar Path Traversal
@@ -1201,6 +955,237 @@ app.add_middleware(
 )
 
 # --- ROTAS API (OBRIGATORIAMENTE ANTES DOS STATIC MOUNTS) ---
+
+# --- CYBERCORE BRIDGE: ENDPOINTS ---
+@app.post("/api/cybercore/chat")
+async def cybercore_chat(data: dict = Body(...)):
+    """Portal único: prompt -> CyberCore (GPT Maker) raciocina -> plano -> execução"""
+    prompt = data.get("prompt", "")
+    project = data.get("project", "default")
+    uid = data.get("uid", "admin_cybercore")
+    context_id = f"cybercore_{project}"
+
+    if not prompt:
+        return {"status": "error", "msg": "Prompt obrigatório"}
+
+    project_memory = memory_file_read("projects", project) or {
+        "name": project, "created": datetime.now().isoformat(),
+        "tech_stack": [], "status": "desenvolvimento", "context": ""
+    }
+    agent_memories = {}
+    for agent_name in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]:
+        am = memory_file_read("agents", agent_name.lower())
+        if am: agent_memories[agent_name] = am
+
+    memory_context = project_memory.get("context", "")
+    agents_context = "\n".join([f"- {k}: {v.get('role','')} | status: {v.get('status','')}" for k,v in agent_memories.items()])
+
+    gptmaker_agent_id = os.environ.get("CYBERCORE_GPTMAKER_AGENT")
+    if not gptmaker_agent_id:
+        config_ref = db.reference('config').get() or {}
+        gptmaker_agent_id = config_ref.get('cybercoreGptmakerAgent', '')
+
+    coordinator_prompt = f"""SISTEMA: Você é o CEO Digital da CyberCore IA.
+
+MEMÓRIA DO PROJETO "{project}":
+Status: {project_memory.get('status','desenvolvimento')}
+Stack: {', '.join(project_memory.get('tech_stack',[])) or 'Indefinido'}
+Contexto: {memory_context[:2000] if memory_context else 'Novo projeto'}
+
+AGENTES DISPONÍVEIS:
+{agents_context or 'Nenhum agente configurado ainda.'}
+
+OBJETIVO DO USUÁRIO: {prompt}
+
+INSTRUÇÕES:
+1. Analise o objetivo e o contexto do projeto.
+2. Crie um plano de ação detalhado.
+3. Defina quais agentes CyberCore executarão cada parte.
+4. Para cada tarefa, especifique o agente e a descrição.
+
+Responda EXATAMENTE neste formato JSON (sem markdown):
+{{
+  "raciocinio": "seu raciocínio detalhado aqui",
+  "plano": [
+    {{"agente": "DESIGNER", "tarefa": "descrição clara da tarefa"}},
+    {{"agente": "BUILDER", "tarefa": "descrição clara da tarefa"}}
+  ],
+  "mudancas_memoria": {{
+    "project_status": "atualização do status se aplicável",
+    "tech_stack": ["tecnologias identificadas"],
+    "context_summary": "resumo do que foi feito"
+  }}
+}}"""
+
+    answer = ""
+    if gptmaker_agent_id:
+        gpt_resp = gptmaker_conversation(gptmaker_agent_id, coordinator_prompt, context_id=context_id)
+        if gpt_resp.get("status") == "success":
+            answer = gpt_resp.get("message", "")
+        else:
+            answer = f"[GPT Maker fallback] {gpt_resp.get('msg', '')}"
+    else:
+        answer = await ask_ai(coordinator_prompt, uid=uid)
+
+    plan = []
+    raciocinio = ""
+    memory_updates = {}
+    try:
+        json_str = answer
+        if "```json" in answer:
+            json_str = answer.split("```json")[1].split("```")[0]
+        elif "```" in answer:
+            json_str = answer.split("```")[1].split("```")[0]
+        parsed = json.loads(json_str.strip())
+        raciocinio = parsed.get("raciocinio", answer[:500])
+        plan = parsed.get("plano", [])
+        memory_updates = parsed.get("mudancas_memoria", {})
+    except:
+        raciocinio = answer[:1000]
+        plan = []
+
+    if memory_updates:
+        if memory_updates.get("project_status"):
+            project_memory["status"] = memory_updates["project_status"]
+        if memory_updates.get("tech_stack"):
+            existing = set(project_memory.get("tech_stack", []))
+            existing.update(memory_updates["tech_stack"])
+            project_memory["tech_stack"] = list(existing)
+        if memory_updates.get("context_summary"):
+            old = project_memory.get("context", "")
+            project_memory["context"] = f"{old}\n[{datetime.now().strftime('%d/%m/%Y %H:%M')}] {memory_updates['context_summary']}"[-5000:]
+    project_memory["last_prompt"] = prompt
+    project_memory["last_updated"] = datetime.now().isoformat()
+    memory_file_save("projects", project, project_memory)
+
+    memory_log("chat", {
+        "project": project, "prompt": prompt,
+        "agents_planned": [p.get("agente") for p in plan],
+        "raciocinio": raciocinio[:200]
+    })
+
+    return {
+        "status": "success",
+        "raciocinio": raciocinio,
+        "plano": plan,
+        "projeto": project_memory,
+        "raw": answer,
+        "mensagem": f"🧠 **CyberCore analisou:**\n{raciocinio}\n\n**Plano:** {len(plan)} tarefas distribuídas."
+    }
+
+@app.post("/api/cybercore/execute")
+async def cybercore_execute(data: dict = Body(...)):
+    """Executa um plano da CyberCore: distribui tarefas para os agentes"""
+    plan = data.get("plano", [])
+    project = data.get("project", "default")
+    uid = data.get("uid", "admin_cybercore")
+    context_extra = data.get("contexto_extra", "")
+
+    if not plan:
+        return {"status": "error", "msg": "Plano vazio. Use /api/cybercore/chat primeiro."}
+
+    ctx_resp = await studio_context()
+    workspace_ctx = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
+
+    results = []
+    for i, task in enumerate(plan):
+        agent = task.get("agente", "").upper().strip()
+        tarefa = task.get("tarefa", "")
+        if agent not in AGENT_MODELS:
+            results.append({"agente": agent, "status": "ignorado", "output": f"Agente {agent} não reconhecido"})
+            continue
+
+        agent_prompt = f"""CONTEXTO DO WORKSPACE:
+{workspace_ctx[:3000] if workspace_ctx else 'Projeto novo'}
+
+TAREFA ATUAL ({i+1}/{len(plan)}): {tarefa}
+
+INSTRUÇÕES PARA {agent}:
+{context_extra}
+
+- Analise o contexto do workspace e execute APENAS sua tarefa específica.
+- Para código: responda APENAS JSON bruto {{"arquivo": "conteudo"}} sem markdown.
+- Se for análise/relatório: responda em markdown."""
+
+        try:
+            check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
+            output = await execute_single_agent(agent, agent_prompt, uid)
+
+            try:
+                json_str = output
+                if "```json" in output:
+                    json_str = output.split("```json")[1].split("```")[0]
+                elif "```" in output:
+                    json_str = output.split("```")[0]
+                files = json.loads(json_str.strip())
+                if isinstance(files, dict) and len(files) > 0:
+                    saved = []
+                    for fn, fc in files.items():
+                        tool_write_studio_file(fn, fc)
+                        saved.append(fn)
+                    results.append({"agente": agent, "status": "concluido", "output": f"Arquivos: {', '.join(saved)}", "arquivos": saved})
+                    continue
+            except:
+                pass
+
+            results.append({"agente": agent, "status": "concluido", "output": output[:2000]})
+        except Exception as e:
+            results.append({"agente": agent, "status": "erro", "output": str(e)})
+
+        memory_log("execute", {"project": project, "agent": agent, "task": tarefa[:100], "status": results[-1]["status"]})
+
+    return {
+        "status": "success",
+        "resultados": results,
+        "total": len(results),
+        "concluidos": sum(1 for r in results if r["status"] == "concluido"),
+        "mensagem": f"**Execução concluída:** {sum(1 for r in results if r['status'] == 'concluido')}/{len(results)} tarefas."
+    }
+
+@app.get("/api/cybercore/memory/{category:path}")
+async def cybercore_memory_list(category: str = ""):
+    if not category or category.strip() == "":
+        return {"status": "success", "categories": ["projects","agents","architecture","logs"]}
+    category = category.strip("/")
+    if category not in ["projects","agents","architecture","logs"]:
+        return {"status": "error", "msg": "Categoria inválida"}
+    items = memory_file_list(category)
+    return {"status": "success", "category": category, "items": items}
+
+@app.get("/api/cybercore/memory/{category}/{name}")
+async def cybercore_memory_read(category: str, name: str):
+    if category not in ["projects","agents","architecture","logs"]:
+        return {"status": "error", "msg": "Categoria inválida"}
+    data = memory_file_read(category, name)
+    if data is None:
+        return {"status": "error", "msg": "Item não encontrado"}
+    return {"status": "success", "category": category, "name": name, "data": data}
+
+@app.post("/api/cybercore/memory/{category}/{name}")
+async def cybercore_memory_save(category: str, name: str, data: dict = Body(...)):
+    if category not in ["projects","agents","architecture"]:
+        return {"status": "error", "msg": "Categoria inválida para escrita"}
+    ok = memory_file_save(category, name, data.get("data", data))
+    if ok:
+        memory_log("memory", {"action": "save", "category": category, "name": name})
+        return {"status": "success", "msg": f"{category}/{name} salvo"}
+    return {"status": "error", "msg": "Falha ao salvar"}
+
+@app.get("/api/cybercore/logs/{category}")
+async def cybercore_logs(category: str):
+    try:
+        path = os.path.join(MEMORY_DIR, "logs", f"{category}.jsonl")
+        if not os.path.exists(path):
+            return {"status": "success", "logs": []}
+        logs = []
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    logs.append(json.loads(line))
+        return {"status": "success", "logs": logs[-50:]}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
 
 @app.get("/health")
 @app.get("/health/")
