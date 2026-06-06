@@ -1315,6 +1315,98 @@ async def studio_files():
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
+@app.get("/api/studio/context")
+async def studio_context():
+    """Retorna o conteudo completo do workspace como contexto para a IA."""
+    try:
+        files = os.listdir(WORKSPACE_DIR)
+        context_parts = []
+        for f in sorted(files):
+            if f.startswith('.'): continue
+            path = os.path.join(WORKSPACE_DIR, f)
+            if not os.path.isfile(path): continue
+            ext = os.path.splitext(f)[1].lower()
+            if ext in ('.png','.jpg','.jpeg','.gif','.ico','.apk'): continue
+            try:
+                with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                    content = fh.read()
+                context_parts.append(f"=== {f} ===\n{content}")
+            except:
+                pass
+        return {"status": "success", "context": "\n\n".join(context_parts), "files": [f for f in sorted(files) if not f.startswith('.')]}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/studio/orchestrate")
+async def studio_orchestrate(data: dict = Body(...)):
+    """Orquestrador: analisa o projeto existente + prompt, decide agentes, executa pipeline."""
+    prompt = data.get("prompt", "")
+    uid = data.get("uid", "admin_studio")
+    if not prompt:
+        return {"status": "error", "msg": "Prompt obrigatório"}
+
+    # Pega contexto do workspace atual
+    ctx_resp = await studio_context()
+    workspace_context = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
+    existing_files = ctx_resp.get("files", [])
+
+    # Monta prompt para o Orchestrator com contexto
+    orchestrator_prompt = f"""CONTEXTO DO PROJETO ATUAL:
+Arquivos existentes: {', '.join(existing_files) if existing_files else 'Nenhum'}
+
+{workspace_context[:3000] if workspace_context else ''}
+
+SOLICITAÇÃO DO USUÁRIO: {prompt}
+
+Com base no contexto acima, determine a sequência de especialistas CyberCore necessários.
+Responda APENAS uma lista separada por vírgula em ordem de execução.
+Opções: BUILDER, PYTHON, JAVA, FULLSTACK, DESIGNER, SECURITY, AUDITOR, SOFTWARE.
+Se o projeto não tiver arquivos, use os agentes padrão: BUILDER, DESIGNER, FULLSTACK.
+
+Exemplo: DESIGNER, BUILDER, FULLSTACK"""
+
+    plan_raw = await ask_ai(orchestrator_prompt, uid="system_orchestrator")
+    agents_sequence = []
+    if plan_raw:
+        agents_sequence = [a.strip().upper() for a in plan_raw.split(",") if a.strip().upper() in AGENT_MODELS]
+    if not agents_sequence:
+        agents_sequence = ["BUILDER", "DESIGNER", "FULLSTACK"]
+
+    # Prepara o prompt final com contexto completo
+    full_context_prompt = f"""CONTEXTO DO PROJETO ATUAL:
+{workspace_context[:5000] if workspace_context else 'Projeto novo, sem arquivos ainda.'}
+
+OBJETIVO: {prompt}
+
+INSTRUÇÕES:
+- Leia TODO o contexto acima antes de responder.
+- Se o projeto já tem arquivos, analise-os e faça alterações ou acréscimos conforme solicitado.
+- Se for um projeto novo, crie a estrutura completa do zero.
+- Mantenha consistência com o que já existe.
+- Para código: gere {', '.join(agents_sequence)} atuando como uma equipe unificada.
+- IMPORTANTE: Responda APENAS JSON bruto {{"nome_arquivo": "conteudo"}} sem markdown."""
+
+    # Executa o pipeline com contexto acumulado
+    execution_results = []
+    current_context = full_context_prompt
+    for i, agent in enumerate(agents_sequence):
+        try:
+            step_prompt = current_context if i == 0 else f"{current_context}\n\nProgresso:\n{execution_results[-1]['output'][:2000]}"
+            check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
+            output = await execute_single_agent(agent, step_prompt, uid)
+            execution_results.append({"agent": agent, "output": output[:3000] if output else "Sem resposta"})
+        except Exception as e:
+            execution_results.append({"agent": agent, "output": f"Erro: {str(e)}"})
+
+    return {
+        "status": "success",
+        "plan": agents_sequence,
+        "results": execution_results,
+        "context": existing_files,
+        "answer": f"🔮 **Pipeline CyberCore Ativado:** {' → '.join(agents_sequence)}\n\n" +
+                  "\n\n".join([f"### Passo {i+1}: {r['agent']}\n{r['output']}" for i, r in enumerate(execution_results)])
+    }
+
 @app.get("/api/studio/read-file/{filename}")
 async def studio_read_file(filename: str):
     try:

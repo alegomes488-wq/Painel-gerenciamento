@@ -685,8 +685,8 @@ async function generateTeam() {
     const gptmakerAgentId = localStorage.getItem('gptmakerAgentId');
 
     if (body) {
-        const source = gptmakerAgentId ? 'GPT Maker' : selectedAgent;
-        body.innerHTML += `<div style="color: #fff; margin-top: 15px; font-family: 'JetBrains Mono'; font-size: 12px;">[SISTEMA] Convocando ${source} para: "${prompt}"</div>`;
+        const source = gptmakerAgentId ? 'GPT Maker' : 'ORCHESTRATOR';
+        body.innerHTML += `<div style="color:#fff;margin-top:15px;font-family:'JetBrains Mono';font-size:12px;">[SISTEMA] Analisando projeto e convocando equipe CyberCore...</div>`;
         body.scrollTop = body.scrollHeight;
 
         try {
@@ -694,37 +694,53 @@ async function generateTeam() {
             let answer = '';
 
             if (gptmakerAgentId) {
-                // Use GPT Maker API
+                // GPT Maker direto
                 const resp = await fetch(`${baseUrl}/api/ai/gptmaker/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         agent_id: gptmakerAgentId,
-                        prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
+                        prompt: `Contexto do projeto:\n${await fetchWorkspaceContext()}\n\nObjetivo: ${prompt}\n\nGere JSON {"arquivo": "conteudo"}`,
                         context_id: 'cybercore_studio'
                     })
                 });
                 const data = await resp.json();
-                if (data.status === 'success') {
-                    answer = data.message || '';
-                } else {
-                    body.innerHTML += `<div style="color: #ef4444; font-family: 'JetBrains Mono'; font-size: 12px;">[GPT MAKER ERRO] ${data.msg || 'Falha na comunicação'}</div>`;
-                    body.scrollTop = body.scrollHeight;
-                    return;
-                }
+                answer = data.status === 'success' ? (data.message || '') : '';
             } else {
-                // Use CyberCore native agents
-                const resp = await fetch(`${baseUrl}/api/ai/chat`, {
+                // ORCHESTRATOR: analisa + executa pipeline multi-agente
+                body.innerHTML += `<div style="color:var(--cyan);font-size:11px;">[ORCHESTRATOR] Analisando workspace e planejando execução...</div>`;
+                body.scrollTop = body.scrollHeight;
+
+                const resp = await fetch(`${baseUrl}/api/studio/orchestrate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        agent: selectedAgent,
-                        prompt: `Com base no objetivo: "${prompt}", gere uma estrutura de arquivos JSON simplificada onde a chave é o nome do arquivo e o valor é o código. Exemplo: {"index.html": "...", "script.js": "..."}. IMPORTANTE: Responda APENAS o JSON bruto, sem textos extras ou blocos de código Markdown.`,
+                        prompt: prompt,
                         uid: 'admin_studio'
                     })
                 });
                 const data = await resp.json();
-                answer = data.answer || "";
+
+                if (data.status === 'success') {
+                    // Mostra o plano
+                    if (data.plan && data.plan.length) {
+                        body.innerHTML += `<div style="color:var(--gold);font-size:11px;margin-top:8px;">[PLANO] ${data.plan.map(a => '🛠️ ' + a).join(' → ')}</div>`;
+                        body.scrollTop = body.scrollHeight;
+                    }
+
+                    // Mostra resultados parciais
+                    let allOutput = '';
+                    if (data.results) {
+                        for (const r of data.results) {
+                            body.innerHTML += `<div style="color:#10b981;font-size:11px;">[${r.agent}] ✅ Executado</div>`;
+                            body.scrollTop = body.scrollHeight;
+                            allOutput += r.output + '\n';
+                        }
+                    }
+                    answer = allOutput || data.answer || '';
+                } else {
+                    answer = data.answer || '';
+                }
             }
 
             // Tenta extrair JSON
@@ -733,29 +749,55 @@ async function generateTeam() {
                 const jsonStr = answer.includes('{') ? answer.substring(answer.indexOf('{'), answer.lastIndexOf('}') + 1) : answer;
                 files = JSON.parse(jsonStr);
             } catch(e) {
-                console.warn("IA não retornou JSON puro, tentando processar como texto.");
+                console.warn("IA não retornou JSON puro.");
             }
 
             if (Object.keys(files).length > 0) {
-                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Equipe gerou ${Object.keys(files).length} arquivos.</div>`;
+                body.innerHTML += `<div style="color:var(--cyan);font-family:'JetBrains Mono';font-size:12px;margin-top:8px;">[IA] Equipe gerou ${Object.keys(files).length} arquivos.</div>`;
                 for (const [filename, content] of Object.entries(files)) {
                     await fetch(`${baseUrl}/api/studio/save-file`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ filename, content })
                     });
-                    body.innerHTML += `<div style="color: #64748b; font-family: 'JetBrains Mono'; font-size: 11px;">  └─ [CRIADO] ${filename}</div>`;
+                    body.innerHTML += `<div style="color:#64748b;font-size:11px;">  └─ [CRIADO/ATUALIZADO] ${filename}</div>`;
                 }
                 listStudioFiles();
-                showToast("Estrutura do projeto gerada com sucesso!", "success");
+                showToast("Projeto atualizado! Use 🖥️ para preview.", "success");
             } else {
-                body.innerHTML += `<div style="color: var(--cyan); font-family: 'JetBrains Mono'; font-size: 12px;">[IA] Resposta do Núcleo:</div>`;
-                body.innerHTML += `<div style="color: #94a3b8; font-family: 'JetBrains Mono'; font-size: 11px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px; margin-top: 5px;">${renderMarkdown(answer)}</div>`;
+                // Fallback: mostra resposta como texto
+                body.innerHTML += `<div style="color:var(--gold);font-size:11px;margin-top:8px;">[ORCHESTRATOR] Relatório:</div>`;
+                body.innerHTML += `<div style="color:#94a3b8;font-size:11px;padding:10px;background:rgba(0,0,0,0.2);border-radius:4px;margin-top:5px;">${renderMarkdown(answer)}</div>`;
+
+                // Se gerou resposta mas sem JSON, salva como relatorio.md
+                if (answer && answer.length > 20) {
+                    await fetch(`${baseUrl}/api/studio/save-file`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: 'relatorio.md', content: answer })
+                    });
+                    body.innerHTML += `<div style="color:#64748b;font-size:11px;">  └─ [RELATORIO] relatorio.md</div>`;
+                    listStudioFiles();
+                }
             }
         } catch (e) {
-            body.innerHTML += `<div style="color: #ef4444; font-family: 'JetBrains Mono'; font-size: 12px;">[ERRO] Falha crítica na comunicação com o backend Studio.</div>`;
+            body.innerHTML += `<div style="color:#ef4444;font-family:'JetBrains Mono';font-size:12px;">[ERRO] Falha na comunicação: ${e.message}</div>`;
         }
         body.scrollTop = body.scrollHeight;
+    }
+}
+
+async function fetchWorkspaceContext() {
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/context`);
+        const data = await resp.json();
+        if (data.status === 'success') {
+            return data.context || 'Nenhum arquivo no workspace.';
+        }
+        return 'Nenhum arquivo no workspace.';
+    } catch {
+        return 'Erro ao buscar contexto.';
     }
 }
 
