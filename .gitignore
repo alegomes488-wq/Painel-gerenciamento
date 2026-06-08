@@ -30,3 +30,9 @@ backend/chroma_db/
 !admin/assets/images/*.jpg
 !admin/assets/images/*.svg
 !admin/assets/images/*.webp
+
+cybercore-memory/
+cybercore_workspace/default/*
+!cybercore_workspace/default/.gitkeep
+.firebase/
+

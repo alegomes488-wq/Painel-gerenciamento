@@ -30,6 +30,11 @@ const LOCAL_BACKEND = 'http://localhost:7860';
 // Prioriza o que está no localStorage ou o LOCAL_BACKEND
 let CYBERCORE_BACKEND_URL = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
 
+let currentProject = localStorage.getItem('studioProject') || 'default';
+
+// Garante que o projeto existe no localStorage
+localStorage.setItem('studioProject', currentProject);
+
 // Desativa qualquer ponte com Hugging Face ou portas antigas
 localStorage.setItem('CYBERCORE_BACKEND_URL', CYBERCORE_BACKEND_URL);
 
@@ -228,11 +233,15 @@ function initRealTimeSystem() {
     window.audioAlert = document.getElementById('audio-alert');
     window.audioError = document.getElementById('audio-error');
 
-    setInterval(updateTelemetria, 3000);
-    setInterval(checkPythonCoreStatus, 5000);
-    setInterval(updateSentinelStatus, 5000);
-    setInterval(updateWarRoom, 3000);
-    setInterval(checkAIEngineStatus, 15000);
+    // Intervalo único otimizado (consolida todos os ciclos)
+    let tick = 0;
+    setInterval(() => {
+        tick++;
+        if (tick % 1 === 0) updateTelemetria();
+        if (tick % 2 === 0) { checkPythonCoreStatus(); updateSentinelStatus(); }
+        if (tick % 2 === 0) updateWarRoom();
+        if (tick % 5 === 0) checkAIEngineStatus();
+    }, 3000);
 
     updateTelemetria();
     checkPythonCoreStatus();
@@ -452,7 +461,7 @@ function showPanel(id, filterType = null) {
             filterWatchProjects(filterType);
         }
 
-        if (id === 'studio') listStudioFiles();
+        if (id === 'studio') { listStudioFiles(); loadStudioProjects(); }
         if (id === 'orchestrator') document.getElementById('orch-input')?.focus();
         if (id === 'memory') loadMemoryExplorer();
 
@@ -474,7 +483,7 @@ function showPanel(id, filterType = null) {
         if (titleEl) titleEl.textContent = titleMap[id] || '[SYS_TERMINAL]';
 
         if (id === 'watch') renderWatchProjects();
-        if (id === 'studio') listStudioFiles();
+        if (id === 'studio') { listStudioFiles(); loadStudioProjects(); }
         if (id === 'overview') renderCmdProjectsTable();
         if (id === 'audit') {
             // Garante que os logs do Nexus apareçam no painel de Auditoria
@@ -630,31 +639,170 @@ function sendCmdOrchestratorCommand() {
     if (!cmd) return showToast("Digite um comando para o Orchestrator", "error");
     
     showToast("🔮 Orchestrator processando diretiva...", "info");
-    
-    fetch(`${CYBERCORE_BACKEND_URL}/api/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            prompt: cmd,
-            agent: 'ORCHESTRATOR',
-            uid: currentUser?.uid || "admin_master"
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.answer) {
-            showPanel('terminal');
-            typeIAResponse(data.answer, 'cmo');
-            document.getElementById('cmd-orchestrator-input').value = '';
-        }
-    })
-    .catch(() => {
-        showToast("Erro ao contatar o Orchestrator.", "error");
-    });
+    showPanel('orchestrator');
+    const orchInput = document.getElementById('orch-input');
+    if (orchInput) { orchInput.value = cmd; sendOrchestratorCommand(); }
 }
 
 function useCmdExample(text) {
     document.getElementById('cmd-orchestrator-input').value = text;
+}
+
+let lastOrchestratorPlan = null;
+let lastOrchestratorPrompt = null;
+
+async function sendOrchestratorCommand() {
+    const input = document.getElementById('orch-input');
+    const prompt = input?.value?.trim();
+    if (!prompt) return showToast("Digite um comando para o Orchestrator.", "error");
+
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const chat = document.getElementById('orch-chat-messages');
+
+    // Mensagem do usuario
+    const userMsg = document.createElement('div');
+    userMsg.className = 'user-msg';
+    userMsg.style.cssText = 'display:flex;gap:12px;flex-direction:row-reverse;';
+    userMsg.innerHTML = `<span class="avatar">👤</span><div class="msg-bubble" style="background:rgba(0,243,255,0.08);border:1px solid rgba(0,243,255,0.1);padding:12px 16px;border-radius:12px;font-size:13px;color:#e4e4e7;">${prompt}</div>`;
+    chat.appendChild(userMsg);
+
+    input.value = '';
+
+    // Loading
+    const loading = document.createElement('div');
+    loading.className = 'ai-msg';
+    loading.style.cssText = 'display:flex;gap:12px;opacity:0.6;';
+    loading.innerHTML = `<span class="avatar">🧠</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#94a3b8;">CyberCore procesando...</div>`;
+    chat.appendChild(loading);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+        const resp = await fetch(`${baseUrl}/api/cybercore/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, project: 'default', uid: 'admin_orchestrator' })
+        });
+        const data = await resp.json();
+        loading.remove();
+
+        if (data.status === 'success') {
+            lastOrchestratorPlan = data.plano || [];
+            lastOrchestratorPrompt = prompt;
+
+            // Raciocinio
+            const aiMsg = document.createElement('div');
+            aiMsg.className = 'ai-msg';
+            aiMsg.style.cssText = 'display:flex;gap:12px;';
+            aiMsg.innerHTML = `<span class="avatar">🧠</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#e4e4e7;"><strong>Raciocínio:</strong><br>${data.raciocinio || 'Analisando...'}</div>`;
+            chat.appendChild(aiMsg);
+
+            // Plano
+            if (data.plano && data.plano.length > 0) {
+                const planMsg = document.createElement('div');
+                planMsg.className = 'ai-msg';
+                planMsg.style.cssText = 'display:flex;gap:12px;';
+                let planHtml = '<strong>📋 Plano de Execução:</strong><br><div style="margin-top:8px;display:grid;gap:6px;">';
+                const colors = {BUILDER:'#a855f7',DESIGNER:'#ec4899',FULLSTACK:'#06b6d4',PYTHON:'#22c55e',JAVA:'#f97316',SOFTWARE:'#eab308',SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
+                data.plano.forEach((t, i) => {
+                    const agente = t.agente || t.agent || '?';
+                    const color = colors[agente.toUpperCase()] || '#64748b';
+                    planHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.02);border-radius:6px;border-left:3px solid ${color};">
+                        <span style="font-weight:800;color:${color};font-size:11px;">${agente}</span>
+                        <span style="color:#94a3b8;font-size:11px;">→ ${t.tarefa || t.task || ''}</span>
+                    </div>`;
+                });
+                planHtml += `</div>`;
+                planMsg.innerHTML = `<span class="avatar">⚡</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;">${planHtml}</div>`;
+                chat.appendChild(planMsg);
+
+                // Botao executar
+                const execBtn = document.createElement('div');
+                execBtn.style.cssText = 'display:flex;gap:12px;margin:4px 0 12px 0;';
+                execBtn.innerHTML = `<span class="avatar"></span><button class="btn-premium" onclick="executeOrchestratorPlan()" style="padding:10px 20px;border-radius:8px;font-size:11px;background:linear-gradient(135deg,rgba(16,185,129,0.3),rgba(16,185,129,0.1));border-color:rgba(16,185,129,0.3);color:#10b981;">⚡ EXECUTAR ${data.plano.length} TAREFAS</button>`;
+                chat.appendChild(execBtn);
+            }
+        } else {
+            const errMsg = document.createElement('div');
+            errMsg.className = 'ai-msg';
+            errMsg.innerHTML = `<span class="avatar">❌</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#ef4444;">${data.msg || 'Erro ao processar comando.'}</div>`;
+            chat.appendChild(errMsg);
+        }
+    } catch (e) {
+        loading.remove();
+        const errMsg = document.createElement('div');
+        errMsg.className = 'ai-msg';
+        errMsg.innerHTML = `<span class="avatar">❌</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#ef4444;">Erro de conexão: ${e.message}</div>`;
+        chat.appendChild(errMsg);
+    }
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function executeOrchestratorPlan() {
+    const chat = document.getElementById('orch-chat-messages');
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+
+    if (!lastOrchestratorPlan || lastOrchestratorPlan.length === 0) {
+        const errMsg = document.createElement('div');
+        errMsg.className = 'ai-msg';
+        errMsg.innerHTML = `<span class="avatar">⚠️</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#f97316;">Nenhum plano carregado. Envie um comando primeiro.</div>`;
+        chat.appendChild(errMsg);
+        chat.scrollTop = chat.scrollHeight;
+        return;
+    }
+
+    const loading = document.createElement('div');
+    loading.className = 'ai-msg';
+    loading.style.cssText = 'display:flex;gap:12px;opacity:0.6;';
+    loading.innerHTML = `<span class="avatar">⚡</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#94a3b8;">Distribuindo ${lastOrchestratorPlan.length} tarefas para os agentes...</div>`;
+    chat.appendChild(loading);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+        const resp = await fetch(`${baseUrl}/api/cybercore/execute`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: lastOrchestratorPrompt || 'Executar plano',
+                plano: lastOrchestratorPlan,
+                uid: 'admin_orchestrator'
+            })
+        });
+        const data = await resp.json();
+        loading.remove();
+
+        if (data.status === 'success') {
+            const results = data.resultados || [];
+            const resultMsg = document.createElement('div');
+            resultMsg.className = 'ai-msg';
+            resultMsg.style.cssText = 'display:flex;gap:12px;';
+            let html = '<strong>✅ Execução Concluída</strong><br><div style="margin-top:8px;display:grid;gap:4px;max-height:300px;overflow-y:auto;">';
+            results.forEach(r => {
+                const icon = r.status === 'concluido' || r.status === 'success' ? '✅' : r.status === 'parcial' ? '⚠️' : '❌';
+                const out = (r.output || r.resultado || '').slice(0, 200);
+                html += `<div style="padding:8px 10px;background:rgba(255,255,255,0.02);border-radius:4px;border-left:3px solid ${r.status === 'concluido' || r.status === 'success' ? '#22c55e' : '#ef4444'};margin-bottom:4px;">
+                    ${icon} <strong>${r.agente || r.agent}</strong><br>
+                    <span style="color:#94a3b8;font-size:10px;">${out}</span>
+                </div>`;
+            });
+            html += '</div>';
+            if (data.msg_geral) html += `<div style="margin-top:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:4px;font-size:11px;color:#a3e635;">${data.msg_geral}</div>`;
+            resultMsg.innerHTML = `<span class="avatar">✅</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;">${html}</div>`;
+            chat.appendChild(resultMsg);
+            listStudioFiles();
+        } else {
+            const errMsg = document.createElement('div');
+            errMsg.className = 'ai-msg';
+            errMsg.innerHTML = `<span class="avatar">❌</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#ef4444;">${data.msg || 'Erro na execução.'}</div>`;
+            chat.appendChild(errMsg);
+        }
+    } catch (e) {
+        loading.remove();
+        const errMsg = document.createElement('div');
+        errMsg.className = 'ai-msg';
+        errMsg.innerHTML = `<span class="avatar">❌</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#ef4444;">Erro de conexão: ${e.message}</div>`;
+        chat.appendChild(errMsg);
+    }
+    chat.scrollTop = chat.scrollHeight;
 }
 
 let selectedAgent = 'BUILDER'; // Default agent
@@ -720,7 +868,8 @@ async function generateTeam() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: prompt,
-                        uid: 'admin_studio'
+                        uid: 'admin_studio',
+                        project: currentProject
                     })
                 });
                 const data = await resp.json();
@@ -762,7 +911,7 @@ async function generateTeam() {
                     await fetch(`${baseUrl}/api/studio/save-file`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ filename, content })
+                        body: JSON.stringify({ filename, content, project: currentProject })
                     });
                     body.innerHTML += `<div style="color:#64748b;font-size:11px;">  └─ [CRIADO/ATUALIZADO] ${filename}</div>`;
                 }
@@ -794,7 +943,7 @@ async function generateTeam() {
 async function fetchWorkspaceContext() {
     try {
         const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-        const resp = await fetch(`${baseUrl}/api/studio/context`);
+        const resp = await fetch(`${baseUrl}/api/studio/context?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
         if (data.status === 'success') {
             return data.context || 'Nenhum arquivo no workspace.';
@@ -938,7 +1087,7 @@ async function cybercoreExecute() {
         // Pega contexto extra do workspace
         let contextExtra = '';
         try {
-            const ctxResp = await fetch(`${baseUrl}/api/studio/context`);
+            const ctxResp = await fetch(`${baseUrl}/api/studio/context?project=${encodeURIComponent(project)}`);
             const ctxData = await ctxResp.json();
             if (ctxData.status === 'success') contextExtra = ctxData.context?.slice(0, 2000) || '';
         } catch {}
@@ -1111,7 +1260,7 @@ async function listStudioFiles() {
 
     try {
         const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-        const resp = await fetch(`${baseUrl}/api/studio/files`);
+        const resp = await fetch(`${baseUrl}/api/studio/files?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
 
         if (data.status === 'success') {
@@ -1154,7 +1303,7 @@ async function openStudioFile(filename) {
 
     try {
         const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-        const resp = await fetch(`${baseUrl}/api/studio/read-file/${filename}`);
+        const resp = await fetch(`${baseUrl}/api/studio/read-file/${filename}?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
 
         if (data.status === 'success') {
@@ -1181,7 +1330,7 @@ async function saveCurrentFile() {
         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename, content })
+            body: JSON.stringify({ filename, content, project: currentProject })
         });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1203,7 +1352,7 @@ async function createNewFile() {
         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: name, content: "// Inicializado pelo CyberCore Studio" })
+            body: JSON.stringify({ filename: name, content: "// Inicializado pelo CyberCore Studio", project: currentProject })
         });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1220,7 +1369,7 @@ async function deleteStudioFile(filename) {
     if (!confirm(`Deseja remover ${filename} permanentemente?`)) return;
     try {
         const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-        const resp = await fetch(`${baseUrl}/api/studio/delete-file/${filename}`, { method: 'DELETE' });
+        const resp = await fetch(`${baseUrl}/api/studio/delete-file/${filename}?project=${encodeURIComponent(currentProject)}`, { method: 'DELETE' });
         const data = await resp.json();
         if (data.status === 'success') {
             showToast(data.msg, "success");
@@ -1247,19 +1396,76 @@ function refreshPreview() {
     const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
     const iframe = document.getElementById('studio-preview-iframe');
     if (iframe) {
-        iframe.src = `${baseUrl}/api/studio/preview`;
+        iframe.src = `${baseUrl}/api/studio/preview?project=${encodeURIComponent(currentProject)}`;
     }
 }
 
 function openPreviewNewTab() {
     const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-    window.open(`${baseUrl}/api/studio/preview`, '_blank');
+    window.open(`${baseUrl}/api/studio/preview?project=${encodeURIComponent(currentProject)}`, '_blank');
 }
 
 function closeEditor() {
     document.getElementById('studio-editor').value = "";
     document.getElementById('current-file-name').textContent = "nenhum arquivo aberto";
     document.getElementById('current-file-icon').textContent = "📄";
+}
+
+// --- STUDIO PROJECT MANAGEMENT ---
+async function loadStudioProjects() {
+    const select = document.getElementById('studio-project-selector');
+    if (!select) return;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/projects`);
+        const data = await resp.json();
+        if (data.status === 'success') {
+            select.innerHTML = data.projects.map(p =>
+                `<option value="${p}" ${p === currentProject ? 'selected' : ''}>${p}</option>`
+            ).join('');
+        }
+    } catch (e) {}
+}
+
+async function switchStudioProject(project) {
+    if (!project || project === currentProject) return;
+    currentProject = project;
+    localStorage.setItem('studioProject', project);
+    closeEditor();
+    listStudioFiles();
+    loadStudioProjects();
+    showToast(`Projeto: ${project}`, "info");
+}
+
+async function createStudioProject() {
+    const name = prompt("Nome do novo projeto:", "meu_projeto");
+    if (!name) return;
+    const clean = name.replace(/\s+/g, '_').toLowerCase();
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: clean })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            currentProject = clean;
+            localStorage.setItem('studioProject', clean);
+            loadStudioProjects();
+            listStudioFiles();
+            showToast(`Projeto ${clean} criado!`, "success");
+        } else {
+            showToast(data.msg, "error");
+        }
+    } catch (e) {
+        showToast("Erro ao criar projeto.", "error");
+    }
+}
+
+function refreshStudioProjects() {
+    loadStudioProjects();
+    listStudioFiles();
 }
 
 async function buildJavaProject(type) {
@@ -1499,7 +1705,7 @@ async function sendIACommand() {
                 const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filename, content })
+                    body: JSON.stringify({ filename, content, project: currentProject })
                 });
                 const data = await resp.json();
                 if (data.status === 'success') {
@@ -1927,6 +2133,16 @@ function initNexusAgent() {
 }
 
 // ============ AUTH ============
+
+// No localhost: mostra UI imediatamente sem esperar Firebase auth
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+if (isLocal) {
+    document.getElementById('login-screen').style.display = 'none';
+    const app = document.getElementById('hub-app');
+    if (app) app.style.display = 'grid';
+    const loader = document.getElementById('loader');
+    if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 300); }
+}
 
 if (auth) {
 auth.onAuthStateChanged(async user => {

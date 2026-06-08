@@ -440,6 +440,12 @@ WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "cybercore_workspace")
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
 
+def get_project_workspace(project="default"):
+    """Retorna o diretório do workspace para um projeto específico, criando se necessário."""
+    path = os.path.join(WORKSPACE_DIR, project)
+    os.makedirs(path, exist_ok=True)
+    return path
+
 # --- CYBERCORE MEMÓRIA PERSISTENTE ---
 MEMORY_DIR = os.path.join(PROJECT_ROOT, "cybercore-memory")
 for sub in ["projects", "agents", "architecture", "logs"]:
@@ -477,21 +483,20 @@ def memory_log(category: str, entry: dict):
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except: pass
 
-def tool_write_studio_file(filename, content):
+def tool_write_studio_file(filename, content, project="default"):
     try:
-        # Sanitização básica para evitar Path Traversal
         filename = os.path.basename(filename)
-        path = os.path.join(WORKSPACE_DIR, filename)
+        path = os.path.join(get_project_workspace(project), filename)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-        return f"Arquivo {filename} gerado com sucesso no workspace."
+        return f"Arquivo {filename} gerado com sucesso no projeto {project}."
     except Exception as e:
         return f"Erro ao escrever arquivo: {e}"
 
-def tool_list_studio_files():
+def tool_list_studio_files(project="default"):
     try:
-        files = os.listdir(WORKSPACE_DIR)
-        return {"files": files}
+        files = os.listdir(get_project_workspace(project))
+        return {"files": files, "project": project}
     except Exception as e:
         return f"Erro ao listar arquivos: {e}"
 
@@ -1084,7 +1089,7 @@ async def cybercore_execute(data: dict = Body(...)):
     if not plan:
         return {"status": "error", "msg": "Plano vazio. Use /api/cybercore/chat primeiro."}
 
-    ctx_resp = await studio_context()
+    ctx_resp = await studio_context(project)
     workspace_ctx = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
 
     results = []
@@ -1121,7 +1126,7 @@ INSTRUÇÕES PARA {agent}:
                 if isinstance(files, dict) and len(files) > 0:
                     saved = []
                     for fn, fc in files.items():
-                        tool_write_studio_file(fn, fc)
+                        tool_write_studio_file(fn, fc, project)
                         saved.append(fn)
                     results.append({"agente": agent, "status": "concluido", "output": f"Arquivos: {', '.join(saved)}", "arquivos": saved})
                     continue
@@ -1565,13 +1570,36 @@ async def node_heartbeat(node_id: str, data: dict = Body(...)):
 
 # --- STUDIO WORKSPACE API ---
 
-@app.get("/api/studio/files")
-async def studio_files():
+@app.get("/api/studio/projects")
+async def studio_list_projects():
+    """Lista todos os projetos (pastas) no workspace."""
     try:
-        files = os.listdir(WORKSPACE_DIR)
+        projects = [d for d in os.listdir(WORKSPACE_DIR) if os.path.isdir(os.path.join(WORKSPACE_DIR, d))]
+        return {"status": "success", "projects": sorted(projects) or ["default"]}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/studio/projects")
+async def studio_create_project(data: dict = Body(...)):
+    """Cria um novo projeto."""
+    name = data.get("name", "").strip()
+    if not name:
+        return {"status": "error", "msg": "Nome do projeto obrigatório"}
+    name = name.replace(" ", "_").lower()
+    try:
+        path = get_project_workspace(name)
+        return {"status": "success", "project": name, "path": path}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.get("/api/studio/files")
+async def studio_files(project: str = Query("default")):
+    try:
+        pdir = get_project_workspace(project)
+        files = os.listdir(pdir)
         file_details = []
         for f in files:
-            path = os.path.join(WORKSPACE_DIR, f)
+            path = os.path.join(pdir, f)
             stat = os.stat(path)
             file_details.append({
                 "name": f,
@@ -1579,19 +1607,20 @@ async def studio_files():
                 "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 "ext": f.split('.')[-1] if '.' in f else 'txt'
             })
-        return {"status": "success", "files": file_details}
+        return {"status": "success", "files": file_details, "project": project}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
 @app.get("/api/studio/context")
-async def studio_context():
+async def studio_context(project: str = Query("default")):
     """Retorna o conteudo completo do workspace como contexto para a IA."""
     try:
-        files = os.listdir(WORKSPACE_DIR)
+        pdir = get_project_workspace(project)
+        files = os.listdir(pdir)
         context_parts = []
         for f in sorted(files):
             if f.startswith('.'): continue
-            path = os.path.join(WORKSPACE_DIR, f)
+            path = os.path.join(pdir, f)
             if not os.path.isfile(path): continue
             ext = os.path.splitext(f)[1].lower()
             if ext in ('.png','.jpg','.jpeg','.gif','.ico','.apk'): continue
@@ -1601,7 +1630,7 @@ async def studio_context():
                 context_parts.append(f"=== {f} ===\n{content}")
             except:
                 pass
-        return {"status": "success", "context": "\n\n".join(context_parts), "files": [f for f in sorted(files) if not f.startswith('.')]}
+        return {"status": "success", "context": "\n\n".join(context_parts), "files": [f for f in sorted(files) if not f.startswith('.')], "project": project}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
@@ -1610,11 +1639,12 @@ async def studio_orchestrate(data: dict = Body(...)):
     """Orquestrador: analisa o projeto existente + prompt, decide agentes, executa pipeline."""
     prompt = data.get("prompt", "")
     uid = data.get("uid", "admin_studio")
+    project = data.get("project", "default")
     if not prompt:
         return {"status": "error", "msg": "Prompt obrigatório"}
 
-    # Pega contexto do workspace atual
-    ctx_resp = await studio_context()
+    # Pega contexto do workspace do projeto
+    ctx_resp = await studio_context(project)
     workspace_context = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
     existing_files = ctx_resp.get("files", [])
 
@@ -1662,6 +1692,22 @@ INSTRUÇÕES:
             step_prompt = current_context if i == 0 else f"{current_context}\n\nProgresso:\n{execution_results[-1]['output'][:2000]}"
             check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
             output = await execute_single_agent(agent, step_prompt, uid)
+            # Tenta extrair e salvar arquivos do JSON na resposta do agente
+            try:
+                json_str = output
+                if "```json" in output:
+                    json_str = output.split("```json")[1].split("```")[0]
+                elif "```" in output:
+                    json_str = output.split("```")[0]
+                parsed = json.loads(json_str.strip())
+                if isinstance(parsed, dict) and len(parsed) > 0:
+                    saved = []
+                    for fn, fc in parsed.items():
+                        tool_write_studio_file(fn, fc, project)
+                        saved.append(fn)
+                    output = f"Arquivos salvos: {', '.join(saved)}"
+            except:
+                pass
             execution_results.append({"agent": agent, "output": output[:3000] if output else "Sem resposta"})
         except Exception as e:
             execution_results.append({"agent": agent, "output": f"Erro: {str(e)}"})
@@ -1671,20 +1717,20 @@ INSTRUÇÕES:
         "plan": agents_sequence,
         "results": execution_results,
         "context": existing_files,
+        "project": project,
         "answer": f"🔮 **Pipeline CyberCore Ativado:** {' → '.join(agents_sequence)}\n\n" +
                   "\n\n".join([f"### Passo {i+1}: {r['agent']}\n{r['output']}" for i, r in enumerate(execution_results)])
     }
 
 @app.get("/api/studio/read-file/{filename}")
-async def studio_read_file(filename: str):
+async def studio_read_file(filename: str, project: str = Query("default")):
     try:
-        # Sanitização
         filename = os.path.basename(filename)
-        path = os.path.join(WORKSPACE_DIR, filename)
+        path = os.path.join(get_project_workspace(project), filename)
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="Arquivo não encontrado")
         with open(path, "r", encoding="utf-8") as f:
-            return {"status": "success", "content": f.read()}
+            return {"status": "success", "content": f.read(), "project": project}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
@@ -1692,33 +1738,35 @@ async def studio_read_file(filename: str):
 async def studio_save_file(data: dict = Body(...)):
     filename = data.get("filename")
     content = data.get("content")
+    project = data.get("project", "default")
     if not filename or content is None:
         return {"status": "error", "msg": "Nome e conteúdo são obrigatórios"}
 
-    result = tool_write_studio_file(filename, content)
+    result = tool_write_studio_file(filename, content, project)
     if "sucesso" in result:
-        return {"status": "success", "msg": result}
+        return {"status": "success", "msg": result, "project": project}
     return {"status": "error", "msg": result}
 
 @app.delete("/api/studio/delete-file/{filename}")
-async def studio_delete_file(filename: str):
+async def studio_delete_file(filename: str, project: str = Query("default")):
     try:
         filename = os.path.basename(filename)
-        path = os.path.join(WORKSPACE_DIR, filename)
+        path = os.path.join(get_project_workspace(project), filename)
         if os.path.exists(path):
             os.remove(path)
-            return {"status": "success", "msg": f"Arquivo {filename} removido."}
+            return {"status": "success", "msg": f"Arquivo {filename} removido do projeto {project}."}
         return {"status": "error", "msg": "Arquivo não encontrado."}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
 # --- STUDIO PREVIEW ---
 @app.get("/api/studio/preview/{filename:path}")
-async def studio_preview_file(filename: str):
+async def studio_preview_file(filename: str, project: str = Query("default")):
     """Serve workspace files for live preview."""
     try:
         safe = os.path.basename(filename) if '/' not in filename else filename
-        path = os.path.join(WORKSPACE_DIR, safe)
+        pdir = get_project_workspace(project)
+        path = os.path.join(pdir, safe)
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="Arquivo não encontrado")
         ext = os.path.splitext(path)[1].lower()
@@ -1741,10 +1789,11 @@ async def studio_preview_file(filename: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/studio/preview")
-async def studio_preview_site():
+async def studio_preview_site(project: str = Query("default")):
     """Serve the complete workspace site as a preview page with iframe."""
     try:
-        files = os.listdir(WORKSPACE_DIR)
+        pdir = get_project_workspace(project)
+        files = os.listdir(pdir)
         html = """<!DOCTYPE html><html lang="pt-br"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>CyberCore Studio - Preview</title>
@@ -1769,14 +1818,14 @@ iframe{flex:1;border:none;background:#fff;width:100%}
                 has_html = True
                 is_active = f == "index.html"
                 cls = ' active' if is_active else ''
-                html += f'<a href="/api/studio/preview/{f}" target="preview" class="{cls}">🌐 {f}</a>'
+                html += f'<a href="/api/studio/preview/{f}?project={project}" target="preview" class="{cls}">🌐 {f}</a>'
             elif ext in ('.css','.js'):
                 pass
         if not has_html:
             html += '<span style="color:#666;font-size:12px">Nenhum arquivo HTML no workspace</span>'
         html += '</div>'
         if has_html:
-            html += '<iframe name="preview" src="/api/studio/preview/index.html"></iframe>'
+            html += f'<iframe name="preview" src="/api/studio/preview/index.html?project={project}"></iframe>'
         else:
             html += '<div class="empty">Nenhum arquivo HTML para exibir</div>'
         html += '</body></html>'
