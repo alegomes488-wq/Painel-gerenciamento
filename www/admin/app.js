@@ -10,8 +10,8 @@ const hubConfig = {
 };
 
 if (!firebase.apps.length) firebase.initializeApp(hubConfig);
-const auth = firebase.auth();
-const hubDb = firebase.database();
+let auth, hubDb;
+try { auth = firebase.auth(); hubDb = firebase.database(); } catch(e) { console.warn('[FIREBASE] Offline:', e.message); }
 
 // Silencia erros de autenticação (token expirado, AbortError, etc.)
 // Eles não afetam o login normal via formulário
@@ -23,7 +23,7 @@ window.addEventListener('unhandledrejection', e => {
 });
 // Tenta limpar estado corrompido de auth persistido que causa 400 no securetoken
 try { sessionStorage.removeItem('firebase:session'); } catch(_) {}
-auth.useDeviceLanguage();
+try { if (auth) auth.useDeviceLanguage(); } catch(_) {}
 
 // --- CONFIGURAÇÃO CYBERCORE IA (LOCAL ONLY) ---
 const LOCAL_BACKEND = 'http://localhost:7860';
@@ -240,6 +240,9 @@ function initRealTimeSystem() {
     initNexusAgent();
     updateWarRoom();
 
+// --- FIREBASE LISTENERS (Só ativam se Firebase estiver disponível) ---
+if (hubDb) {
+
     // Listener para Comandos de Navegação Remota (NAVIGATE)
     hubDb.ref('commands/remote_nav').on('value', snap => {
         const cmd = snap.val();
@@ -372,7 +375,8 @@ function initRealTimeSystem() {
 
     initProfitChart();
     console.log("[NEXUS] Telemetria de Gráficos Iniciada");
-}
+} // fim if hubDb
+} // fim initRealTimeSystem
 
 // ============ UI & DASHBOARD ============
 
@@ -1924,7 +1928,8 @@ function initNexusAgent() {
 
 // ============ AUTH ============
 
-auth.onAuthStateChanged(user => {
+if (auth) {
+auth.onAuthStateChanged(async user => {
     console.log("[AUTH] Estado alterado:", user ? "Logado" : "Deslogado");
 
     // Remove o loader assim que o Firebase responder
@@ -1951,6 +1956,7 @@ auth.onAuthStateChanged(user => {
         if (app) app.style.display = 'none';
     }
 });
+}
 
 let loginInProgress = false;
 
@@ -1981,12 +1987,12 @@ function bypassLogin() {
     showToast('MODO DESENVOLVEDOR: Acesso Liberado ⚡', 'info');
 }
 
-function logout() { auth.signOut().then(() => location.reload()); }
+function logout() { if (auth) auth.signOut().then(() => location.reload()); }
 
 // ============ SEGURANÇA DE SESSÃO (RELAXADA) ============
 // Removido auto-logout por perda de foco para facilitar o desenvolvimento.
 window.addEventListener('pagehide', () => {
-    if (auth.currentUser) sessionStorage.setItem('cybercore_lock', '1');
+    if (auth && auth.currentUser) sessionStorage.setItem('cybercore_lock', '1');
 });
 
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============

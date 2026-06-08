@@ -94,6 +94,7 @@ body::before {
     display: flex; flex-direction: column; z-index: 1000;
     width: 260px;
     height: 100%;
+    overflow: hidden;
 }
 
 .sidebar-top {
@@ -116,11 +117,18 @@ body::before {
 .premium-nav {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 20px 12px;
     display: flex;
     flex-direction: column;
     gap: 15px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
 }
+.premium-nav::-webkit-scrollbar { width: 4px; }
+.premium-nav::-webkit-scrollbar-track { background: transparent; }
+.premium-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+.premium-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 
 .nav-section-title {
     font-size: 9px;
