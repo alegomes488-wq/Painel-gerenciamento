@@ -1599,13 +1599,19 @@ function refreshStudioProjects() {
 }
 
 async function migrateWorkspaceFiles() {
-    if (!confirm("Migrar arquivos da raiz do workspace para o projeto default?")) return;
+    const target = prompt("Migrar arquivos para qual projeto?", currentProject);
+    if (!target) return;
     try {
         const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-        const resp = await fetch(`${baseUrl}/api/studio/migrate`, { method: 'POST' });
+        const resp = await fetch(`${baseUrl}/api/studio/migrate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project: target })
+        });
         const data = await resp.json();
         if (data.status === 'success') {
             showToast(data.msg || `${data.moved} arquivos migrados.`, "success");
+            loadStudioProjects();
             listStudioFiles();
         } else {
             showToast("Erro: " + data.msg, "error");

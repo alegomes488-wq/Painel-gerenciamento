@@ -1659,20 +1659,21 @@ async def studio_create_project(data: dict = Body(...)):
         return {"status": "error", "msg": str(e)}
 
 @app.post("/api/studio/migrate")
-async def studio_migrate_workspace():
-    """Migra arquivos soltos na raiz do workspace para o projeto default."""
+async def studio_migrate_workspace(data: dict = Body(...)):
+    """Migra arquivos soltos na raiz do workspace para um projeto específico."""
+    target = data.get("project", "default")
     try:
         flat_files = [f for f in os.listdir(WORKSPACE_DIR) if os.path.isfile(os.path.join(WORKSPACE_DIR, f))]
-        default_dir = get_project_workspace("default")
+        target_dir = get_project_workspace(target)
         moved = 0
         for f in flat_files:
             if f.startswith('.'): continue
             src = os.path.join(WORKSPACE_DIR, f)
-            dst = os.path.join(default_dir, f)
+            dst = os.path.join(target_dir, f)
             if not os.path.exists(dst):
                 os.rename(src, dst)
                 moved += 1
-        return {"status": "success", "moved": moved, "msg": f"{moved} arquivos migrados para projeto default."}
+        return {"status": "success", "moved": moved, "msg": f"{moved} arquivos migrados para projeto '{target}'."}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
