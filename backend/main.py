@@ -893,51 +893,6 @@ async def monitor_connected_projects():
     except Exception as e:
         print(f"[MONITOR] Erro ao monitorar projetos: {e}")
 
-@app.post("/api/monitor/heartbeat/{project_id}")
-async def monitor_heartbeat(project_id: str, data: dict = Body(...)):
-    """Recebe heartbeat de agentes locais (CPU, RAM, disco)"""
-    try:
-        report = {
-            "cpu": data.get("cpu"),
-            "ram": data.get("ram"),
-            "disk": data.get("disk"),
-            "uptime": data.get("uptime"),
-            "last_report": datetime.now().isoformat()
-        }
-        db.reference(f'neural/nodes/{project_id}/health').update(report)
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/api/monitor/agent-script")
-async def monitor_agent_script():
-    """Retorna o script do agente para instalar no servidor alvo."""
-    script = '''#!/usr/bin/env python3
-import requests, psutil, time, socket, json, platform, os
-
-HUB_URL = "INSIRA_AQUI_A_URL_DO_SEU_HUB"
-PROJECT_ID = "INSIRA_O_ID_DO_PROJETO"
-
-while True:
-    try:
-        report = {
-            "cpu": psutil.cpu_percent(interval=1),
-            "ram": psutil.virtual_memory().percent,
-            "disk": psutil.disk_usage("/").percent,
-            "uptime": time.time() - psutil.boot_time(),
-            "hostname": socket.gethostname(),
-            "platform": platform.platform(),
-        }
-        r = requests.post(f"{HUB_URL}/api/monitor/heartbeat/{PROJECT_ID}", json=report, timeout=10)
-        print(f"[AGENT] Report sent: {report['cpu']}% CPU, {report['ram']}% RAM")
-    except Exception as e:
-        print(f"[AGENT] Error: {e}")
-    time.sleep(30)
-'''
-    return Response(content=script, media_type="text/plain", headers={
-        "Content-Disposition": "attachment; filename=cybercore_agent.py"
-    })
-
 
 async def cybercore_audit_loop():
     while True:
@@ -953,6 +908,25 @@ async def cybercore_audit_loop():
                 # Executa tarefas de auditoria
                 tool_sync_monetag()
                 sentinel_report = tool_sentinel_enforcement()
+
+                # --- SENTINEL: MONITORAMENTO DE ESTOQUE CRÍTICO ---
+                try:
+                    estoque = db.reference('projects/estoque_bebidas/produtos').get() or {}
+                    for pid, pdata in estoque.items():
+                        if isinstance(pdata, dict) and int(pdata.get('estoque', 0)) < 5:
+                            msg = f"⚠️ ESTOQUE CRÍTICO: {pdata.get('nome')} está com apenas {pdata.get('estoque')} unidades!"
+                            # Evita spam: registra o alerta no log e envia push
+                            db.reference('logs/inventory_alerts').push({
+                                "product_id": pid,
+                                "name": pdata.get('nome'),
+                                "stock": pdata.get('estoque'),
+                                "timestamp": datetime.now().isoformat()
+                            })
+                            tool_send_push('global', msg)
+                            print(f"[SENTINEL] Alerta de estoque enviado: {pdata.get('nome')}")
+                except Exception as ex:
+                    print(f"[SENTINEL] Erro monitor estoque: {ex}")
+
                 await oada_cycle()
                 await monitor_connected_projects()
 
@@ -1005,6 +979,52 @@ app.add_middleware(
 )
 
 # --- ROTAS API (OBRIGATORIAMENTE ANTES DOS STATIC MOUNTS) ---
+
+@app.post("/api/monitor/heartbeat/{project_id}")
+async def monitor_heartbeat(project_id: str, data: dict = Body(...)):
+    """Recebe heartbeat de agentes locais (CPU, RAM, disco)"""
+    try:
+        report = {
+            "cpu": data.get("cpu"),
+            "ram": data.get("ram"),
+            "disk": data.get("disk"),
+            "uptime": data.get("uptime"),
+            "last_report": datetime.now().isoformat()
+        }
+        db.reference(f'neural/nodes/{project_id}/health').update(report)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.get("/api/monitor/agent-script")
+async def monitor_agent_script():
+    """Retorna o script do agente para instalar no servidor alvo."""
+    script = '''#!/usr/bin/env python3
+import requests, psutil, time, socket, json, platform, os
+
+HUB_URL = "INSIRA_AQUI_A_URL_DO_SEU_HUB"
+PROJECT_ID = "INSIRA_O_ID_DO_PROJETO"
+
+while True:
+    try:
+        report = {
+            "cpu": psutil.cpu_percent(interval=1),
+            "ram": psutil.virtual_memory().percent,
+            "disk": psutil.disk_usage("/").percent,
+            "uptime": time.time() - psutil.boot_time(),
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+        }
+        r = requests.post(f"{HUB_URL}/api/monitor/heartbeat/{PROJECT_ID}", json=report, timeout=10)
+        print(f"[AGENT] Report sent: {report['cpu']}% CPU, {report['ram']}% RAM")
+    except Exception as e:
+        print(f"[AGENT] Error: {e}")
+    time.sleep(30)
+'''
+    return Response(content=script, media_type="text/plain", headers={
+        "Content-Disposition": "attachment; filename=cybercore_agent.py"
+    })
+
 
 # --- CYBERCORE BRIDGE: ENDPOINTS ---
 @app.post("/api/cybercore/chat")
@@ -2460,6 +2480,58 @@ async def project_remove(data: dict = Body(...)):
         return {"status": "error", "msg": "id é obrigatório"}
     try:
         db.reference(f'neural/nodes/{project_id}').delete()
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+# --- PROJETOS: GESTÃO DE ITENS (CRUD GENÉRICO) ---
+
+@app.get("/api/project/{project}/items")
+async def list_project_items(project: str):
+    """Lista todos os itens/produtos de um projeto específico."""
+    try:
+        items = db.reference(f'projects/{project}/produtos').get() or {}
+        # Converte dicionário em lista com IDs
+        item_list = []
+        for kid, val in items.items():
+            if isinstance(val, dict):
+                val['id'] = kid
+                item_list.append(val)
+        return {"status": "success", "items": item_list}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/project/{project}/item")
+async def create_project_item(project: str, data: dict = Body(...)):
+    """Cria um novo item no estoque do projeto."""
+    try:
+        # Garante tipos corretos
+        if 'preco' in data: data['preco'] = float(data['preco'])
+        if 'estoque' in data: data['estoque'] = int(data['estoque'])
+        data['created_at'] = datetime.now().isoformat()
+
+        ref = db.reference(f'projects/{project}/produtos').push(data)
+        return {"status": "success", "id": ref.key}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.put("/api/project/{project}/item/{item_id}")
+async def update_project_item(project: str, item_id: str, data: dict = Body(...)):
+    """Atualiza um item existente (ex: reduzir estoque na venda)."""
+    try:
+        if 'preco' in data: data['preco'] = float(data['preco'])
+        if 'estoque' in data: data['estoque'] = int(data['estoque'])
+
+        db.reference(f'projects/{project}/produtos/{item_id}').update(data)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.delete("/api/project/{project}/item/{item_id}")
+async def delete_project_item(project: str, item_id: str):
+    """Remove um item do projeto."""
+    try:
+        db.reference(f'projects/{project}/produtos/{item_id}').delete()
         return {"status": "success"}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
