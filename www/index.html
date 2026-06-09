@@ -84,48 +84,6 @@
     <div id="toast">Operação realizada com sucesso!</div>
 
     <!-- MODAL DE BANIMENTO (SENTINEL 2.0) -->
-    <div id="ban-overlay" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(2,2,5,0.98); z-index:300000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(20px);">
-        <div class="login-box glass-premium" style="max-width:400px; border: 2px solid #ef4444; text-align: center;">
-            <div style="margin-bottom:20px;">
-                <i data-lucide="shield-alert" style="width:60px; height:60px; color:#ef4444; filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.4));"></i>
-            </div>
-            <h2 style="color:#fff; margin-bottom:15px; font-size:1.5rem; letter-spacing: 1px;">ACESSO BLOQUEADO</h2>
-            <p style="color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:25px; line-height:1.5;">
-                O sistema <strong>Sentinel 2.0</strong> detectou uma violação dos termos de uso ou atividade inconsistente vinculada a esta conta.
-            </p>
-
-            <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2); margin-bottom: 25px; text-align: left;">
-                <span style="font-size: 0.65rem; color: #ef4444; font-weight: 800; text-transform: uppercase;">Motivo da Restrição:</span>
-                <p id="ban-reason-text" style="font-size: 0.8rem; color: #fff; margin-top: 5px; font-weight: 600;">Violação de Protocolo de Segurança Neural.</p>
-            </div>
-
-            <button onclick="window.location.href='https://t.me/cinecash_suporte'" style="width:100%; background:#ef4444; color:white; border:none; padding:15px; border-radius:12px; font-weight:800; cursor:pointer; margin-bottom:10px;">CONTESTAR VIA TELEGRAM</button>
-            <button onclick="logout()" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); padding:10px; border-radius:8px; cursor:pointer; font-size:0.7rem;">Sair da Conta</button>
-        </div>
-    </div>
-
-    <!-- MODAL DE ACEITE OBRIGATÓRIO (PARA USUÁRIOS LOGADOS SEM ACEITE) -->
-    <div id="terms-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(2,2,5,0.98); z-index:200000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(15px);">
-        <div class="login-box glass-premium" style="max-width:450px; border: 2px solid #7c3aed;">
-            <div style="text-align:center; margin-bottom:20px;">
-                <i data-lucide="shield-check" style="width:50px; height:50px; color:#7c3aed;"></i>
-            </div>
-            <h2 style="color:#fff; text-align:center; margin-bottom:15px; font-size:1.4rem;">Atualização de Segurança Jurídica</h2>
-            <p style="color:rgba(255,255,255,0.7); font-size:0.85rem; text-align:center; margin-bottom:20px; line-height:1.4;">
-                Para continuar utilizando o CineCash e garantir a conformidade com as normas da <strong>Receita Federal</strong> e leis vigentes, você precisa confirmar a ciência dos novos termos.
-            </p>
-
-            <div class="terms-group" style="display:flex; align-items:center; gap:10px; margin: 20px 0; background: rgba(124,58,237,0.1); padding: 15px; border-radius: 12px; border: 1px solid rgba(124,58,237,0.3);">
-                <input type="checkbox" id="modal-terms-check" style="width:25px; height:25px; accent-color: #7c3aed; cursor:pointer;">
-                <label for="modal-terms-check" style="font-size: 0.75rem; color: #fff; cursor:pointer; line-height:1.2; font-weight:600;">
-                    Eu li e concordo com os <a href="termos.html" target="_blank" style="color: #7c3aed; text-decoration: underline;">termos de uso e obrigações fiscais</a> perante a Receita Federal e Justiça Brasileira.
-                </label>
-            </div>
-
-            <button class="btn-primary" onclick="confirmTermsInModal()" style="width:100%; margin-bottom:10px;">CONFIRMAR E ACESSAR PAINEL</button>
-            <button onclick="logout()" style="width:100%; background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.5); padding:10px; border-radius:8px; cursor:pointer; font-size:0.7rem;">Não concordo, desejo sair</button>
-        </div>
-    </div>
 
     <!-- TELA DE LOGIN GLASS -->
     <div id="page-login">
@@ -658,29 +616,6 @@
             lucide.createIcons();
         });
 
-        window.confirmTermsInModal = async () => {
-            const checked = document.getElementById('modal-terms-check').checked;
-            if(!checked) return showToast("Você deve marcar o campo de aceite.");
-
-            const uid = auth.currentUser.uid;
-            try {
-                await update(ref(db, `users/${uid}`), {
-                    legal_acceptance: {
-                        accepted: true,
-                        timestamp: serverTimestamp(),
-                        version: "2.0.4",
-                        platform: "CineCash Force Modal",
-                        fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
-                    }
-                });
-                document.getElementById('terms-modal').classList.add('hidden');
-                showToast("Termos aceitos com sucesso!");
-                updateUI();
-            } catch(e) {
-                showToast("Erro ao processar aceite.");
-            }
-        };
-
         window.switchAuthMode = (mode) => {
             const loginPage = document.getElementById('page-login');
             const registerPage = document.getElementById('page-register');
@@ -1132,7 +1067,6 @@
                             document.getElementById('app-container').classList.add('hidden');
                             document.getElementById('page-login').classList.add('hidden');
                             document.getElementById('page-register').classList.add('hidden');
-                            document.getElementById('terms-modal').classList.add('hidden');
                             document.getElementById('ban-overlay').classList.remove('hidden');
                             document.getElementById('ban-reason-text').innerText = _user.ban_reason || "Atividade suspeita detectada pelo Sentinel 2.0.";
                             lucide.createIcons();
@@ -1142,19 +1076,7 @@
                             document.getElementById('ban-overlay').classList.add('hidden');
                         }
 
-                        // 2. BLOQUEIO JURÍDICO ATIVO: Se não aceitou, mostra o modal e mantém dashboard oculto
-                        if(!_user.legal_acceptance || !_user.legal_acceptance.accepted) {
-                            document.getElementById('page-login').classList.add('hidden');
-                            document.getElementById('page-register').classList.add('hidden');
-                            document.getElementById('app-container').classList.add('hidden');
-                            document.getElementById('terms-modal').classList.remove('hidden');
-                            lucide.createIcons();
-                            hideSplash();
-                            return;
-                        }
-
-                        // SÓ MOSTRA O DASHBOARD SE TIVER ACEITO
-                        document.getElementById('terms-modal').classList.add('hidden');
+                        // MOSTRA O DASHBOARD
                         document.getElementById('page-login').classList.add('hidden');
                         document.getElementById('page-register').classList.add('hidden');
                         document.getElementById('app-container').classList.remove('hidden');

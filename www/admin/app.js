@@ -1610,10 +1610,11 @@ function renderWatchProjects() {
         const isDegraded = health.status === 'degraded';
         const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
 
-        // Dados de telemetria estendidos
-        const cpu = health.cpu !== undefined ? health.cpu + '%' : '--';
-        const ram = health.ram !== undefined ? health.ram + '%' : '--';
+        // Dados de telemetria - do heartbeat do agente ou do health check
+        const cpu = health.cpu !== undefined && health.cpu !== null ? health.cpu + '%' : '--';
+        const ram = health.ram !== undefined && health.ram !== null ? health.ram + '%' : '--';
         const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
+        const lastReport = health.last_report ? new Date(health.last_report).toLocaleTimeString() : null;
 
         const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
         const tech = p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A');
@@ -1652,7 +1653,8 @@ function renderWatchProjects() {
 
                 <div style="margin-top: 10px; display: flex; gap: 5px;">
                      <button onclick="showPanel('studio'); document.getElementById('studio-prompt').value='Analisar logs do nó ${p.id}'" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">DEBUG</button>
-                     <button onclick="copyToClipboard('${p.token || ''}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">TOKEN</button>
+                     <button onclick="copyToClipboard('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
+                     <button onclick="installAgent('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
@@ -2006,12 +2008,14 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
                         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ filename, content: code })
+                            body: JSON.stringify({ filename, content: code, project: currentProject })
                         });
                         const data = await resp.json();
                         if (data.status === 'success') {
-                            showToast(`Exportado: ${filename}`, "success");
+                            showToast(`Exportado para [${currentProject}]: ${filename}`, "success");
                             listStudioFiles();
+                        } else {
+                            showToast(`Erro: ${data.msg}`, "error");
                         }
                     } catch (e) {
                         showToast("Erro na exportação.", "error");
@@ -2445,7 +2449,25 @@ function renderProjects() {
 }
 
 function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => showToast("Token copiado!", "success"));
+    navigator.clipboard.writeText(text).then(() => showToast("Copiado!", "success"));
+}
+
+function installAgent(projectId) {
+    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const cmd = `wget -qO- ${baseUrl}/api/monitor/agent-script | python3 - ${baseUrl} ${projectId}`;
+    const detail = `Para monitorar CPU/RAM do servidor, instale o agente CyberCore:\n\n1️⃣ No servidor alvo (Linux com Python):\ncurl -s ${baseUrl}/api/monitor/agent-script -o agent.py\npython3 agent.py\n\n2️⃣ Ou execute direto:\n${cmd}\n\n3️⃣ Requer Python + psutil:\npip install psutil requests\n\n4️⃣ O agente reportará CPU, RAM e disco a cada 30s.`;
+    const msg = document.createElement('div');
+    msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
+    msg.innerHTML = `
+        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 CYBERCORE AGENT</h3>
+        <pre style="background:rgba(0,0,0,0.4);padding:15px;border-radius:8px;font-size:11px;color:#94a3b8;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;">${detail}</pre>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+            <button onclick="copyToClipboard('${cmd}')" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">📋 COPIAR COMANDO</button>
+            <button onclick="this.closest('div[style]').remove()" class="btn-minimal" style="padding:8px 16px;font-size:10px;color:var(--danger);">FECHAR</button>
+        </div>
+    `;
+    document.body.appendChild(msg);
+    msg.onclick = (e) => { if (e.target === msg) msg.remove(); };
 }
 
 function loadAuditInputs(config) {

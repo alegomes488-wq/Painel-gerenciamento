@@ -11,7 +11,7 @@ import firebase_admin
 from firebase_admin import credentials, db, messaging
 from fastapi import FastAPI, Body, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from collections import deque
 
@@ -892,6 +892,51 @@ async def monitor_connected_projects():
             db.reference(f'neural/nodes/{node_id}/health').update(health)
     except Exception as e:
         print(f"[MONITOR] Erro ao monitorar projetos: {e}")
+
+@app.post("/api/monitor/heartbeat/{project_id}")
+async def monitor_heartbeat(project_id: str, data: dict = Body(...)):
+    """Recebe heartbeat de agentes locais (CPU, RAM, disco)"""
+    try:
+        report = {
+            "cpu": data.get("cpu"),
+            "ram": data.get("ram"),
+            "disk": data.get("disk"),
+            "uptime": data.get("uptime"),
+            "last_report": datetime.now().isoformat()
+        }
+        db.reference(f'neural/nodes/{project_id}/health').update(report)
+        return {"status": "success"}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.get("/api/monitor/agent-script")
+async def monitor_agent_script():
+    """Retorna o script do agente para instalar no servidor alvo."""
+    script = '''#!/usr/bin/env python3
+import requests, psutil, time, socket, json, platform, os
+
+HUB_URL = "INSIRA_AQUI_A_URL_DO_SEU_HUB"
+PROJECT_ID = "INSIRA_O_ID_DO_PROJETO"
+
+while True:
+    try:
+        report = {
+            "cpu": psutil.cpu_percent(interval=1),
+            "ram": psutil.virtual_memory().percent,
+            "disk": psutil.disk_usage("/").percent,
+            "uptime": time.time() - psutil.boot_time(),
+            "hostname": socket.gethostname(),
+            "platform": platform.platform(),
+        }
+        r = requests.post(f"{HUB_URL}/api/monitor/heartbeat/{PROJECT_ID}", json=report, timeout=10)
+        print(f"[AGENT] Report sent: {report['cpu']}% CPU, {report['ram']}% RAM")
+    except Exception as e:
+        print(f"[AGENT] Error: {e}")
+    time.sleep(30)
+'''
+    return Response(content=script, media_type="text/plain", headers={
+        "Content-Disposition": "attachment; filename=cybercore_agent.py"
+    })
 
 
 async def cybercore_audit_loop():

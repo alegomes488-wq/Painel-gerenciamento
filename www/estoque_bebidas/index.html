@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estoque de Bebidas - Cadastro</title>
+    <link rel="stylesheet" href="../admin/styles.css">
+    <style>
+        body { background: #0a0a0a; color: #fff; font-family: 'Segoe UI', sans-serif; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; padding: 30px; border-radius: 8px; border: 1px solid #333; }
+        h1 { color: #00f3ff; margin-bottom: 20px; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #ccc; }
+        input, select { width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #00f3ff; border: none; color: #000; font-weight: bold; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        button:hover { background: #00d8e4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cadastro de Bebida</h1>
+        <form id="formBebida">
+            <div class="form-group">
+                <label for="nome">Nome da Bebida</label>
+                <input type="text" id="nome" name="nome" required placeholder="Ex: Coca-Cola 2L">
+            </div>
+            <div class="form-group">
+                <label for="categoria">Categoria</label>
+                <select id="categoria" name="categoria">
+                    <option value="refrigerante">Refrigerante</option>
+                    <option value="cerveja">Cerveja</option>
+                    <option value="suco">Suco</option>
+                    <option value="agua">Água</option>
+                    <option value="destilado">Destilado</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="preco">Preço de Venda (R$)</label>
+                <input type="number" id="preco" name="preco" step="0.01" required placeholder="0,00">
+            </div>
+            <div class="form-group">
+                <label for="estoque">Quantidade em Estoque</label>
+                <input type="number" id="estoque" name="estoque" required placeholder="0">
+            </div>
+            <button type="submit">CADASTRAR PRODUTO</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('formBebida').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            console.log('Dados do produto:', data);
+            alert('Produto ' + data.nome + ' enviado para processamento!');
+            // Integração futura com backend CyberCore
+        });
+    </script>
+</body>
+</html>
