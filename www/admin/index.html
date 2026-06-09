@@ -368,6 +368,7 @@
                             <span style="font-size:10px;font-weight:800;color:var(--text-secondary);letter-spacing:1px;">PROJETO:</span>
                             <select id="studio-project-selector" onchange="switchStudioProject(this.value)" style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#e4e4e7;padding:4px 10px;font-size:11px;font-family:'JetBrains Mono';outline:none;cursor:pointer;"></select>
                             <button class="btn-minimal" onclick="createStudioProject()" style="font-size:10px;color:var(--cyan);">+ NOVO</button>
+                            <button class="btn-minimal" onclick="migrateWorkspaceFiles()" style="font-size:10px;color:var(--gold);" title="Migrar arquivos antigos para o projeto atual">📦 MIGRAR</button>
                             <button class="btn-minimal" onclick="refreshStudioProjects()" style="font-size:10px;color:var(--text-secondary);">↻</button>
                         </div>
                         <div class="studio-workspace" style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-top: 5px;">
@@ -1969,14 +1970,10 @@
                         <input type="number" id="stock-price-sell" step="0.01" placeholder="0.00">
                     </div>
                 </div>
-                <div class="p-input-group" style="margin-top:15px;">
-                    <label>MÍNIMO PARA ALERTA</label>
-                    <input type="number" id="stock-min" placeholder="5">
-                </div>
             </div>
-            <div class="modal-footer" style="margin-top:25px;display:flex;gap:10px;">
-                <button class="btn-premium" onclick="saveStockItem()" style="flex:1;">SALVAR ITEM</button>
-                <button class="btn-table-action" onclick="closeStockModal()" style="border-color:var(--danger);color:var(--danger);">CANCELAR</button>
+            <div class="modal-footer" style="padding:15px 25px;border-top:1px solid var(--border-glass);display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn-secondary" onclick="closeStockModal()" style="width:auto;padding:8px 15px;">CANCELAR</button>
+                <button class="btn-premium" onclick="saveStockItem()" style="width:auto;padding:8px 25px;">SALVAR</button>
             </div>
         </div>
     </div>

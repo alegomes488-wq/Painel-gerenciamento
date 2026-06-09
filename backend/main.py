@@ -3,7 +3,8 @@ import sys
 import json
 import asyncio
 import requests
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 import time
 
@@ -1657,6 +1658,24 @@ async def studio_create_project(data: dict = Body(...)):
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
+@app.post("/api/studio/migrate")
+async def studio_migrate_workspace():
+    """Migra arquivos soltos na raiz do workspace para o projeto default."""
+    try:
+        flat_files = [f for f in os.listdir(WORKSPACE_DIR) if os.path.isfile(os.path.join(WORKSPACE_DIR, f))]
+        default_dir = get_project_workspace("default")
+        moved = 0
+        for f in flat_files:
+            if f.startswith('.'): continue
+            src = os.path.join(WORKSPACE_DIR, f)
+            dst = os.path.join(default_dir, f)
+            if not os.path.exists(dst):
+                os.rename(src, dst)
+                moved += 1
+        return {"status": "success", "moved": moved, "msg": f"{moved} arquivos migrados para projeto default."}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
 @app.get("/api/studio/files")
 async def studio_files(project: str = Query("default")):
     try:
@@ -2206,6 +2225,54 @@ async def claim_daily(uid: str):
 @app.get("/video/start/{uid}")
 async def video_start(uid: str):
     return {"status": "success", "session": "active", "timestamp": datetime.now().isoformat()}
+
+@app.post("/api/referral/create/{uid}")
+async def create_referral_slug(uid: str):
+    """Gera um novo slug de indicação (alias) válido por 30 dias."""
+    try:
+        user_ref = db.reference(f'users/{uid}')
+        if not user_ref.get():
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+        # Gera slug seguro e único
+        slug = secrets.token_urlsafe(8)
+        expires_at = (datetime.now() + timedelta(days=30)).isoformat()
+
+        # Armazena mapeamento slug -> UID
+        db.reference(f'referrals/{slug}').set({
+            "uid": uid,
+            "expires_at": expires_at,
+            "created_at": datetime.now().isoformat()
+        })
+
+        # Atualiza registro do usuário
+        user_ref.update({
+            "active_referral_slug": slug,
+            "referral_slug_expires": expires_at
+        })
+
+        return {"status": "success", "slug": slug, "expires_at": expires_at}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/referral/resolve/{slug}")
+async def resolve_referral_slug(slug: str):
+    """Resolve um slug de indicação de volta para o UID original."""
+    try:
+        ref_data = db.reference(f'referrals/{slug}').get()
+        if not ref_data:
+            return {"status": "error", "message": "Link de convite inválido ou inexistente."}
+
+        # Verifica expiração
+        expires_at_str = ref_data.get("expires_at")
+        if expires_at_str:
+            expires_at = datetime.fromisoformat(expires_at_str)
+            if datetime.now() > expires_at:
+                return {"status": "error", "message": "Este link de convite expirou (validade de 30 dias)."}
+
+        return {"status": "success", "uid": ref_data.get("uid")}
+    except Exception as e:
+        return {"status": "error", "message": f"Erro ao resolver link: {str(e)}"}
 
 @app.post("/video/complete/{uid}")
 async def video_complete(uid: str):
