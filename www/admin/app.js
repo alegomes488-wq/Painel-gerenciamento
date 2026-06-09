@@ -1514,16 +1514,97 @@ async function buildJavaProject(type) {
     }
 }
 
+let watchCurrentType = 'website';
+
+function watchSelectType(el) {
+    document.querySelectorAll('.watch-type-btn').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-secondary)';
+    });
+    el.style.background = 'rgba(0,243,255,0.1)';
+    el.style.color = 'var(--cyan)';
+    watchCurrentType = el.dataset.type;
+}
+
+async function watchConnectProject() {
+    const url = document.getElementById('watch-project-url')?.value.trim();
+    if (!url) return showToast("Digite a URL do projeto.", "error");
+
+    const btn = document.querySelector('.btn-premium');
+    const original = btn.textContent;
+    btn.textContent = '🔍 ANALISANDO...';
+    btn.disabled = true;
+
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/project/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: watchCurrentType, identifier: url })
+        });
+        const data = await resp.json();
+
+        if (data.status === 'success') {
+            const projectId = 'PRJ' + Date.now().toString(36).toUpperCase();
+            const projectData = {
+                id: projectId,
+                name: data.name || url,
+                type: watchCurrentType,
+                identifier: url,
+                framework: data.framework || '—',
+                addedAt: new Date().toISOString(),
+                health: { status: 'online', last_checked: new Date().toISOString() }
+            };
+
+            const saveResp = await fetch(`${baseUrl}/api/project/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: projectId, data: projectData })
+            });
+            const saveData = await saveResp.json();
+
+            if (saveData.status === 'success') {
+                showToast(`✅ ${data.name || url} conectado ao Watch!`, "success");
+                document.getElementById('watch-project-url').value = '';
+                // Recarrega a lista
+                if (typeof renderWatchProjects === 'function') renderWatchProjects();
+            } else {
+                showToast("Erro ao salvar projeto.", "error");
+            }
+        } else {
+            showToast(data.msg || "Falha ao conectar.", "error");
+        }
+    } catch (e) {
+        showToast("Erro de conexão: " + e.message, "error");
+    }
+
+    btn.textContent = original;
+    btn.disabled = false;
+}
+
+function watchFilter(type) {
+    currentWatchFilter = type;
+    document.querySelectorAll('.watch-filter-btn').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = 'var(--text-secondary)';
+    });
+    const active = document.querySelector(`.watch-filter-btn[onclick*="'${type}'"]`);
+    if (active) { active.style.background = 'rgba(0,243,255,0.1)'; active.style.color = 'var(--cyan)'; }
+    renderWatchProjects();
+}
+
 function renderWatchProjects() {
     const container = document.getElementById('watch-projects-list');
     if (!container) return;
 
-    if (connectedProjects.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary); font-size: 12px;">Nenhum projeto sendo monitorado pelo Watch.</div>`;
+    const filtered = currentWatchFilter === null || currentWatchFilter === 'all' ? connectedProjects : connectedProjects.filter(p => p.type === currentWatchFilter);
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-secondary); font-size: 12px;">Nenhum projeto ${currentWatchFilter && currentWatchFilter !== 'all' ? 'deste tipo' : ''} monitorado.</div>`;
         return;
     }
 
-    container.innerHTML = connectedProjects.map(p => {
+    container.innerHTML = filtered.map(p => {
         const health = p.health || {};
         const isOnline = health.status === 'online';
         const isDegraded = health.status === 'degraded';

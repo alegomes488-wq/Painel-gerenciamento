@@ -429,9 +429,80 @@
                     </div>
                 </div>
 
-                <!-- Painel: WATCH (Antigo Auditoria/Sala de Guerra) -->
+                <!-- Painel: WATCH (Monitoramento + Conector) -->
                 <div id="panel-watch" class="panel-view">
-                    <!-- ... existing watch content ... -->
+                    <div class="panel-scanner"></div>
+                    <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;padding:25px;">
+                        <!-- Header -->
+                        <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🛡️</div>
+                                        <div>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_WATCH] // CYBERCORE WATCH</h3>
+                                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">NÚCLEO ESTÁVEL</span>
+                                                <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
+                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento de infraestrutura em tempo real</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CONECTOR DE PROJETO -->
+                        <div class="system-card premium-glass tech-border" style="padding:25px;">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                                <span style="font-size:20px;">🔗</span>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">CONECTAR PROJETO AO WATCH</h4>
+                                    <small style="font-size:10px;color:var(--text-secondary);">Adicione sites, apps ou APIs para monitorar em tempo real</small>
+                                </div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:280px 1fr 160px;gap:15px;align-items:end;">
+                                <div>
+                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">TIPO</label>
+                                    <div style="display:flex;gap:6px;">
+                                        <span class="watch-type-btn active" data-type="website" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;background:rgba(0,243,255,0.1);color:var(--cyan);">🌐 Site</span>
+                                        <span class="watch-type-btn" data-type="android" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">🤖 App</span>
+                                        <span class="watch-type-btn" data-type="api" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">☁️ API</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">URL DO SITE / IDENTIFICADOR</label>
+                                    <div style="position:relative;">
+                                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4;font-size:12px;">🔗</span>
+                                        <input type="text" id="watch-project-url" placeholder="https://meusite.com.br" style="width:100%;padding:10px 12px 10px 36px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn-premium" onclick="watchConnectProject()" style="width:100%;padding:10px;border-radius:8px;font-size:11px;font-weight:800;">CONECTAR</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Projetos Monitorados -->
+                        <div class="system-card premium-glass tech-border" style="padding:25px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-size:14px;">📡</span>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">PROJETOS MONITORADOS</h4>
+                                </div>
+                                <div style="display:flex;gap:6px;">
+                                    <button class="watch-filter-btn active" onclick="watchFilter('all')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">TODOS</button>
+                                    <button class="watch-filter-btn" onclick="watchFilter('website')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">SITES</button>
+                                    <button class="watch-filter-btn" onclick="watchFilter('android')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">APPS</button>
+                                    <button class="watch-filter-btn" onclick="watchFilter('api')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">APIS</button>
+                                </div>
+                            </div>
+                            <div id="watch-projects-list" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:100px;">
+                                <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);font-size:12px;">Nenhum projeto monitorado. Conecte seu site acima.</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Painel: CYBERCORE ORCHESTRATOR (CEO) -->
