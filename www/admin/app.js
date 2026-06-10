@@ -1724,7 +1724,7 @@ function renderUsersTable() {
         .map(([uid, u]) => `
         <tr>
             <td><small class="font-mono">${uid.substring(0,8)}</small></td>
-            <td><strong>${u.email || 'N/A'}</strong></td>
+            <td><strong>${u.email || uid.substring(0,12)}</strong>${u.email ? '' : '<small style="color:var(--text-muted);margin-left:4px;">(UID)</small>'}</td>
             <td><small>${u.last_ip || 'IP Oculto'}</small></td>
             <td><span class="badge ${u.status === 'banido' ? 'status-rejected' : 'status-green'}">${u.status || 'ativo'}</span></td>
             <td style="color:#10b981; font-weight:800">R$ ${parseFloat(u.balance || 0).toFixed(2)}</td>
@@ -1741,6 +1741,23 @@ function renderUsersTable() {
 
 function filterUsers(val) {
     renderUsersTable();
+}
+
+async function syncUserEmails() {
+    if (!confirm("Sincronizar emails do Firebase Auth com o Database?")) return;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/sync-emails`, { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            showToast(data.msg || `${data.synced} emails sincronizados.`, "success");
+            if (data.errors?.length) console.warn('[EMAIL SYNC] Erros:', data.errors);
+        } else {
+            showToast("Erro: " + data.msg, "error");
+        }
+    } catch (e) {
+        showToast("Erro de conexão.", "error");
+    }
 }
 
 function renderWithdrawalsTable() {

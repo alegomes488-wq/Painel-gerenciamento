@@ -1216,6 +1216,7 @@
                             <h3><span class="data-dot gold"></span> Registros de Usuários</h3>
                             <div class="table-actions" style="display:flex; gap:15px; align-items:center;">
                                 <input type="text" id="user-search" placeholder="Buscar por UID ou E-mail..." oninput="filterUsers(this.value)" style="width: 250px;">
+                                <button class="btn-premium" onclick="syncUserEmails()" style="width:auto;padding:8px 15px;font-size:10px;" title="Sincronizar emails do Firebase Auth">🔄 SINC EMAILS</button>
                             </div>
                         </div>
                         <table class="premium-table">

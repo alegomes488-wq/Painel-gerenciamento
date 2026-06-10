@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 import time
 
 import firebase_admin
-from firebase_admin import credentials, db, messaging
+from firebase_admin import auth as firebase_auth, credentials, db, messaging
 from fastapi import FastAPI, Body, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
@@ -1674,6 +1674,32 @@ async def studio_migrate_workspace(data: dict = Body(...)):
                 os.rename(src, dst)
                 moved += 1
         return {"status": "success", "moved": moved, "msg": f"{moved} arquivos migrados para projeto '{target}'."}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
+@app.post("/api/studio/sync-emails")
+async def studio_sync_emails():
+    """Sincroniza emails do Firebase Auth para o Realtime Database."""
+    try:
+        ref = db.reference("users")
+        users = ref.get() or {}
+        synced = 0
+        errors = []
+        for uid, data in users.items():
+            if not data.get("email"):
+                try:
+                    user_record = firebase_auth.get_user(uid)
+                    if user_record.email:
+                        ref.child(uid).child("email").set(user_record.email)
+                        synced += 1
+                except Exception as e:
+                    errors.append({"uid": uid, "error": str(e)})
+        return {
+            "status": "success",
+            "synced": synced,
+            "errors": errors,
+            "msg": f"{synced} emails sincronizados do Auth para o Database."
+        }
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
