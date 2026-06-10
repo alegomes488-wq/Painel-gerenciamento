@@ -9,6 +9,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#020205">
 
+    <!-- Permissions Policy para evitar violações de scripts de anúncios -->
+    <meta http-equiv="Permissions-Policy" content="bluetooth=(), microphone=(), camera=(), geolocation=()">
+
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
@@ -156,7 +159,34 @@
                     <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
                     <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
                 </div>
-                <p id="password-hint" style="font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 600;">
+
+                <!-- Lista de Requisitos da Senha -->
+                <div id="password-requirements" style="margin-top: 10px; background: rgba(255,255,255,0.03); padding: 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.65rem;">
+                        <tr id="req-upper" style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
+                            <td style="padding:6px 10px;color:#666;">Letra Maiúscula (A-Z)</td>
+                            <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
+                        </tr>
+                        <tr id="req-lower" style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
+                            <td style="padding:6px 10px;color:#666;">Letra Minúscula (a-z)</td>
+                            <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
+                        </tr>
+                        <tr id="req-number" style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
+                            <td style="padding:6px 10px;color:#666;">Número (0-9)</td>
+                            <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
+                        </tr>
+                        <tr id="req-length">
+                            <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
+                            <td style="padding:6px 10px;color:#666;">Exatamente 8 caracteres</td>
+                            <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p id="password-hint" style="font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 600; display:none;">
                     🛡️ Use 8 caracteres: [A-Z], [a-z] e [0-9].
                 </p>
             </div>
@@ -648,25 +678,54 @@
             const bars = document.querySelectorAll('.strength-bar');
             const hint = document.getElementById('password-hint');
 
+            // Requisitos Individuais
+            const hasUpper = /[A-Z]/.test(pass);
+            const hasLower = /[a-z]/.test(pass);
+            const hasNumber = /[0-9]/.test(pass);
+            const isCorrectLength = pass.length === 8;
+
+            const updateReq = (id, isValid) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const icon = el.querySelector('td:first-child i');
+                const status = el.querySelector('td:last-child');
+                if (isValid) {
+                    el.querySelector('td:nth-child(2)').style.color = '#10b981';
+                    if(icon) icon.setAttribute('data-lucide', 'check-circle');
+                    if (status) { status.textContent = '✅'; status.style.color = '#10b981'; }
+                } else {
+                    const c = pass.length > 0 ? '#ef4444' : '#666';
+                    el.querySelector('td:nth-child(2)').style.color = c;
+                    if(icon) icon.setAttribute('data-lucide', pass.length > 0 ? 'x-circle' : 'circle');
+                    if (status) { status.textContent = pass.length > 0 ? '❌' : '—'; status.style.color = c; }
+                }
+            };
+
+            updateReq('req-upper', hasUpper);
+            updateReq('req-lower', hasLower);
+            updateReq('req-number', hasNumber);
+            updateReq('req-length', isCorrectLength);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
             let strength = 0;
-            if (/[A-Z]/.test(pass)) strength++;
-            if (/[a-z]/.test(pass)) strength++;
-            if (/[0-9]/.test(pass)) strength++;
-            if (pass.length !== 8) strength = Math.min(strength, 2); // Penaliza se não tiver 8 chars
+            if (hasUpper) strength++;
+            if (hasLower) strength++;
+            if (hasNumber) strength++;
+            if (!isCorrectLength) strength = Math.min(strength, 2);
 
             bars.forEach((bar, i) => {
                 if (i < strength) {
                     if (strength === 1) bar.style.background = '#ef4444';
                     if (strength === 2) bar.style.background = '#fbbf24';
-                    if (strength === 3 && pass.length === 8) bar.style.background = '#10b981';
+                    if (strength === 3 && isCorrectLength) bar.style.background = '#10b981';
                     else if (strength === 3) bar.style.background = '#fbbf24';
                 } else {
                     bar.style.background = 'rgba(255,255,255,0.1)';
                 }
             });
 
-            if (pass.length === 0) hint.innerText = "🛡️ Use 8 caracteres: [A-Z], [a-z] e [0-9].";
-            else if (pass.length !== 8) hint.innerText = "⚠️ A senha deve ter EXATAMENTE 8 caracteres.";
+            if (pass.length === 0) hint.innerText = "";
+            else if (!isCorrectLength) hint.innerText = "⚠️ A senha deve ter EXATAMENTE 8 caracteres.";
             else if (strength < 3) hint.innerText = "❌ Falta misturar letras (A/a) e números.";
             else hint.innerText = "✅ Senha Militar detectada. Proteção ativa.";
         };

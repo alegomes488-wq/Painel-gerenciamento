@@ -197,10 +197,15 @@ async function loadCredits() {
         const data = await resp.json();
         if (data.status !== 'success') return;
         backendOnline = true;
-        updateAgentStatus();
-        const credits = data.credits;
-        // Update credit badges on each agent card
+        // Update agent status directly
         const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
+        agents.forEach(a => {
+            const el = document.getElementById(`studio-status-${a}`);
+            if (el) {
+                el.className = 'status-tag online';
+                el.textContent = '● ATIVO';
+            }
+        });
         agents.forEach(a => {
             const c = credits[a] || { limit: 50, used: 0 };
             const el = document.getElementById(`credit-${a}`);
