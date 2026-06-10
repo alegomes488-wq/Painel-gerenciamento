@@ -1317,6 +1317,8 @@
 
         // Remove copyLink duplicado (linha 1290 era sobrescrito pelo de linha 1904)
         // A versão completa com Web Share API está abaixo
+
+        window.rotateReferralLink = async () => {
             if (!auth.currentUser) return;
             const btn = event.currentTarget;
             const icon = btn.querySelector('i');
