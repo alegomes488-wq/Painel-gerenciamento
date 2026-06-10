@@ -616,6 +616,7 @@
 
         async function saveFCMToken(uid) {
             try {
+                if (!('Notification' in window) || Notification.permission === 'denied') return;
                 // Busca a VAPID Key dinamicamente do Firebase Config
                 const configSnap = await new Promise(resolve => onValue(ref(db, 'config/vapidKey'), resolve, { onlyOnce: true }));
                 const VAPID_KEY = configSnap.val() || "BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4";
@@ -1132,6 +1133,7 @@
         async function requestNotificationPermission() {
             if (!('Notification' in window)) return;
             if (!('PushManager' in window)) return;
+            if (Notification.permission === 'denied') return;
             // Aguarda SW ativo antes de pedir permissão push
             if (!swRegistration) {
                 try { await navigator.serviceWorker.ready; } catch(e) { return; }
