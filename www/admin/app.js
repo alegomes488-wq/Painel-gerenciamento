@@ -25,6 +25,18 @@ window.addEventListener('unhandledrejection', e => {
 try { sessionStorage.removeItem('firebase:session'); } catch(_) {}
 try { if (auth) auth.useDeviceLanguage(); } catch(_) {}
 
+// Utilitário global para manipulação segura de classes
+window.safeClass = (idOrEl, method, className) => {
+    const el = (typeof idOrEl === 'string') ? document.getElementById(idOrEl) : idOrEl;
+    if (el && el.classList) {
+        if (Array.isArray(className)) {
+            className.forEach(c => el.classList[method](c));
+        } else {
+            el.classList[method](className);
+        }
+    }
+};
+
 // --- CONFIGURAÇÃO CYBERCORE IA (LOCAL ONLY) ---
 const LOCAL_BACKEND = 'http://localhost:7860';
 // Prioriza o que está no localStorage ou o LOCAL_BACKEND
@@ -184,6 +196,8 @@ async function loadCredits() {
         const resp = await fetch(`${baseUrl}/api/studio/credits`);
         const data = await resp.json();
         if (data.status !== 'success') return;
+        backendOnline = true;
+        updateAgentStatus();
         const credits = data.credits;
         // Update credit badges on each agent card
         const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
@@ -331,7 +345,7 @@ if (hubDb) {
         // Sugestão 3: Personalização Dinâmica baseada na Receita Total
         const totalRev = Object.values(rtState.users).reduce((s, u) => s + (parseFloat(u.revenue_generated) || 0), 0);
         if (totalRev > 1000) {
-            document.body.classList.add('ultra-premium-mode');
+            safeClass(document.body, 'add', 'ultra-premium-mode');
         }
     });
 
@@ -407,22 +421,22 @@ function showPanel(id, filterType = null) {
         const isStudioGroup = btn && btn.id === 'btn-nav-studio' && (id === 'studio' || ['orchestrator', 'bridge', 'memory'].includes(id));
 
         if (isWatchGroup || isStudioGroup || (btn && btn.id === `btn-nav-${id}`)) {
-            group.classList.add('expanded');
+            safeClass(group, 'add', 'expanded');
         } else {
-            group.classList.remove('expanded');
+            safeClass(group, 'remove', 'expanded');
         }
     });
 
-    document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(b => b.classList.remove('active-watch'));
-    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active-watch'));
-    document.querySelectorAll('.sub-link').forEach(b => b.classList.remove('active-studio'));
+    document.querySelectorAll('.panel-view').forEach(p => safeClass(p, 'remove', 'active'));
+    document.querySelectorAll('.nav-link').forEach(b => safeClass(b, 'remove', 'active'));
+    document.querySelectorAll('.nav-link').forEach(b => safeClass(b, 'remove', 'active-watch'));
+    document.querySelectorAll('.sub-link').forEach(b => safeClass(b, 'remove', 'active'));
+    document.querySelectorAll('.sub-link').forEach(b => safeClass(b, 'remove', 'active-watch'));
+    document.querySelectorAll('.sub-link').forEach(b => safeClass(b, 'remove', 'active-studio'));
 
     const target = document.getElementById('panel-' + id);
     if (target) {
-        target.classList.add('active');
+        safeClass(target, 'add', 'active');
         
         // Find corresponding sidebar nav-link
         const navBtn = document.getElementById('btn-nav-' + id) ||
@@ -431,9 +445,9 @@ function showPanel(id, filterType = null) {
 
         if (navBtn) {
             if (navBtn.id === 'btn-nav-watch') {
-                navBtn.classList.add('active-watch');
+                safeClass(navBtn, 'add', 'active-watch');
             } else {
-                navBtn.classList.add('active');
+                safeClass(navBtn, 'add', 'active');
             }
         }
         
@@ -443,17 +457,23 @@ function showPanel(id, filterType = null) {
             subLinks.forEach(link => {
                 const text = link.textContent.toLowerCase();
                 if (filterType && text.includes(filterType)) {
-                     link.classList.add('active', 'active-watch');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-watch');
                 } else if (id === 'saques' && text.includes('saques')) {
-                     link.classList.add('active', 'active-watch');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-watch');
                 } else if (id === 'users' && text.includes('usuários')) {
-                     link.classList.add('active', 'active-watch');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-watch');
                 } else if (id === 'security' && text.includes('alertas')) {
-                     link.classList.add('active', 'active-watch');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-watch');
                 } else if (id === 'terminal' && text.includes('logs')) {
-                     link.classList.add('active', 'active-watch');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-watch');
                 } else if (['orchestrator', 'bridge', 'memory'].includes(id) && text.includes(id)) {
-                     link.classList.add('active', 'active-studio');
+                     safeClass(link, 'add', 'active');
+                     safeClass(link, 'add', 'active-studio');
                 }
             });
         }
@@ -498,8 +518,8 @@ function selectAgentFromNav(agent) {
     // Set active sub-link
     document.querySelectorAll('.sub-nav span').forEach(link => {
         if (link.textContent.toUpperCase().includes(agent)) {
-            link.classList.add('active');
-            link.classList.add('active-studio');
+            safeClass(link, 'add', 'active');
+            safeClass(link, 'add', 'active-studio');
         }
     });
 }
@@ -507,13 +527,13 @@ function selectAgentFromNav(agent) {
 function filterCmdProjects(type, el) {
     currentCmdFilter = type;
     document.querySelectorAll('.filter-btn').forEach(b => {
-        b.classList.remove('active');
+        safeClass(b, 'remove', 'active');
         b.style.borderColor = 'transparent';
         b.style.background = 'transparent';
         b.style.color = 'var(--text-secondary)';
     });
     if (el) {
-        el.classList.add('active');
+        safeClass(el, 'add', 'active');
         el.style.borderColor = 'rgba(0, 243, 255, 0.2)';
         el.style.background = 'rgba(0, 243, 255, 0.1)';
         el.style.color = '#fff';
@@ -2811,13 +2831,14 @@ function updateWarRoom() {
             line.setAttribute('stroke-width', (isFailed || status === 'analyzing') ? '4' : '2');
 
             if (isFailed) {
-                line.classList.add('pulse-critical');
+                safeClass(line, 'add', 'pulse-critical');
                 addFloatingNotification('🚨', 'CRITICAL_FAILURE', `Agente ${name.toUpperCase()} desconectado!`, 'error');
             } else if (status === 'analyzing') {
-                line.classList.add('pulse-active');
-                line.classList.remove('pulse-critical');
+                safeClass(line, 'add', 'pulse-active');
+                safeClass(line, 'remove', 'pulse-critical');
             } else {
-                line.classList.remove('pulse-active', 'pulse-critical');
+                safeClass(line, 'remove', 'pulse-active');
+                safeClass(line, 'remove', 'pulse-critical');
             }
         }
 
@@ -3097,8 +3118,8 @@ function rejectWithdrawal(uid, wid) {
 
 function setWithdrawalFilter(filter, btn) {
     _withdrawalFilter = filter;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('.filter-btn').forEach(b => safeClass(b, 'remove', 'active'));
+    safeClass(btn, 'add', 'active');
     renderWithdrawalsTable();
 }
 
@@ -3326,8 +3347,8 @@ let lastAnalysisResult = null;
 let connectedProjects = [];
 
 function selectType(el) {
-    document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
+    document.querySelectorAll('.type-card').forEach(c => safeClass(c, 'remove', 'active'));
+    safeClass(el, 'add', 'active');
     currentProjectType = el.dataset.type;
 
     // Atualiza o label do input se necessário

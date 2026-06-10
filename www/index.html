@@ -574,7 +574,13 @@
         // Utilitário global para manipulação segura de classes
         window.safeClass = (idOrEl, method, className) => {
             const el = (typeof idOrEl === 'string') ? document.getElementById(idOrEl) : idOrEl;
-            if (el && el.classList) el.classList[method](className);
+            if (el && el.classList) {
+                if (Array.isArray(className)) {
+                    className.forEach(c => el.classList[method](c));
+                } else {
+                    el.classList[method](className);
+                }
+            }
         };
 
         async function saveFCMToken(uid) {
@@ -840,7 +846,25 @@
                 const username = `@${fname.toLowerCase()}_${lname.toLowerCase()}${Math.floor(100 + Math.random() * 900)}`;
 
                 const urlParams = new URLSearchParams(window.location.search);
-                const referredBy = urlParams.get('ref') || null;
+                let referredBy = urlParams.get('ref') || null;
+
+                // Resolução de Slug (se o parâmetro ref tiver 8 caracteres, tentamos resolver)
+                if (referredBy && referredBy.length === 8) {
+                    try {
+                        const res = await fetch(`${CONFIG.apiBase}/api/referral/resolve/${referredBy}`);
+                        if (res.ok) {
+                            const refData = await res.json();
+                            referredBy = refData.uid;
+                        } else {
+                            console.warn("[CineCash] Slug de indicação inválido ou expirado.");
+                            referredBy = null; // Limpa para evitar lixo no banco
+                        }
+                    } catch (e) {
+                        console.warn("[CineCash] Falha ao conectar ao resolvedor de slugs:", e);
+                        referredBy = null;
+                    }
+                }
+
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
 
@@ -1096,8 +1120,7 @@
                         }
 
                         // MOSTRA O DASHBOARD
-                        safeClass('page-login', 'add', 'hidden');
-                        safeClass('page-register', 'add', 'hidden');
+                        safeClass(['page-login', 'page-register'], 'add', 'hidden');
                         safeClass('app-container', 'remove', 'hidden');
 
                         const nexusTrigger = document.getElementById('cybercore-chat-trigger');
