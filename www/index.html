@@ -1193,7 +1193,7 @@
                         }
 
                         // MOSTRA O DASHBOARD
-                        safeClass(['page-login', 'page-register'], 'add', 'hidden');
+                        ['page-login', 'page-register'].forEach(id => safeClass(id, 'add', 'hidden'));
                         safeClass('app-container', 'remove', 'hidden');
 
                         const nexusTrigger = document.getElementById('cybercore-chat-trigger');
