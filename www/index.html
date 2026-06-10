@@ -635,7 +635,9 @@
                     console.log("Token FCM sincronizado com Hub IA:", token);
                 }
             } catch (err) {
-                console.error("Erro ao obter token FCM:", err);
+                if (err.code !== 'messaging/permission-blocked' && !err.message?.includes('storage error')) {
+                    console.warn("FCM token não disponível:", err.message);
+                }
             }
         }
 
