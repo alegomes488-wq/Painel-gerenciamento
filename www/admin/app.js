@@ -1741,24 +1741,43 @@ function renderUsersTable() {
     if (!tbody) return;
     const search = (document.getElementById('user-search')?.value || '').toLowerCase();
 
+    // Filtro de usuários de teste (IDs e Emails conhecidos como teste)
+    const testIds = ['5onHVa3N', 'KqJU9EJg', 'REFERRED', 'SPONSOR_'];
+    const testEmails = ['alegomas@gmail.com', 'usuarioteste@gmail.com'];
+
     tbody.innerHTML = Object.entries(rtState.users)
         .filter(([uid, u]) => {
+            // Esconde usuários de teste
+            if (testIds.some(id => uid.includes(id))) return false;
+            if (testEmails.includes((u.email || '').toLowerCase())) return false;
+
             if (!search) return true;
             return uid.toLowerCase().includes(search) || (u.email || '').toLowerCase().includes(search);
         })
         .map(([uid, u]) => `
         <tr>
-            <td><small class="font-mono">${uid.substring(0,8)}</small></td>
-            <td><strong>${u.email || uid.substring(0,12)}</strong>${u.email ? '' : '<small style="color:var(--text-muted);margin-left:4px;">(UID)</small>'}</td>
-            <td><small>${u.last_ip || 'IP Oculto'}</small></td>
+            <td><code class="font-mono" style="font-size:10px; color:var(--text-secondary)">${uid}</code></td>
+            <td>
+                <div style="display:flex; flex-direction:column;">
+                    <span style="color:var(--gold); font-weight:800; font-size:12px;">${u.email || '⚠️ EMAIL NÃO VINCULADO'}</span>
+                    <small style="font-size:9px; color:rgba(255,255,255,0.3)">CADASTRO ATIVO</small>
+                </div>
+            </td>
+            <td>
+                <code style="color:var(--cyan); background:rgba(0,243,255,0.05); padding:2px 6px; border-radius:4px; font-size:11px;">
+                    ${u.last_ip || u.ip || '0.0.0.0'}
+                </code>
+            </td>
             <td><span class="badge ${u.status === 'banido' ? 'status-rejected' : 'status-green'}">${u.status || 'ativo'}</span></td>
             <td style="color:#10b981; font-weight:800">R$ ${parseFloat(u.balance || 0).toFixed(2)}</td>
             <td><small>${u.performance || '0.00%'}</small></td>
             <td>
-                <button class="btn-table-action" onclick="openUserEdit('${uid}')">NÚCLEO</button>
-                <button class="btn-table-action" style="color:#ef4444" onclick="toggleUserBan('${uid}', ${u.status !== 'banido'})">
-                    ${u.status === 'banido' ? 'REATIVAR' : 'BANIR'}
-                </button>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-table-action" onclick="openUserEdit('${uid}')">NÚCLEO</button>
+                    <button class="btn-table-action" style="color:#ef4444; border-color:rgba(239,68,68,0.2)" onclick="toggleUserBan('${uid}', ${u.status !== 'banido'})">
+                        ${u.status === 'banido' ? 'REATIVAR' : 'BANIR'}
+                    </button>
+                </div>
             </td>
         </tr>
     `).join('');

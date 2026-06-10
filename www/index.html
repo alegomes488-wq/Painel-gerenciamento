@@ -572,6 +572,7 @@
 
         // --- SISTEMA DESPERTADOR (WAKE-UP) ---
         async function wakeUpCyberCore() {
+            console.clear();
             console.log("⚡ Acordando CyberCore IA...");
             try {
                 // Acorda o motor do Site e o motor do Auditor (Admin)
@@ -993,7 +994,12 @@
                     });
                 });
             } catch (err) { 
-                const msg = err.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' : 'Erro no login.';
+                const msg = err.code === 'auth/invalid-credential' ? '❌ Email ou senha inválidos.' 
+                    : err.code === 'auth/user-not-found' ? '❌ Usuário não encontrado.'
+                    : err.code === 'auth/wrong-password' ? '❌ Senha incorreta.'
+                    : err.code === 'auth/too-many-requests' ? '⏳ Muitas tentativas. Aguarde e tente novamente.'
+                    : err.code === 'auth/network-request-failed' ? '🌐 Erro de rede. Verifique sua conexão.'
+                    : '❌ Erro no login: ' + (err.code || err.message);
                 showToast(msg); 
                 console.warn('[Login]', err.code, err.message);
             } finally {
@@ -1109,6 +1115,10 @@
         // --- REGISTRO DE SERVICE WORKER PARA NOTIFICAÇÕES ---
         let swRegistration = null;
         if ('serviceWorker' in navigator) {
+            // Limpa SW antigo antes de registrar novo
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                regs.forEach(reg => reg.unregister());
+            });
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js?v=' + Date.now()).then(reg => {
                     console.log('SW registrado com sucesso:', reg.scope);

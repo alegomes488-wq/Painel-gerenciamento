@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d76b0c9c-e39b-42aa-a793-38acf16283b9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.firebase/hosting.d3d3.cache" beforeDir="false" afterPath="$PROJECT_DIR$/.firebase/hosting.d3d3.cache" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/index.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

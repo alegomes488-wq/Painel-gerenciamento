@@ -26,7 +26,7 @@ messaging.onBackgroundMessage((payload) => {
     self.registration.showNotification(title, options);
 });
 
-const CACHE_NAME = 'cinecash-v11';
+const CACHE_NAME = 'cinecash-v12';
 
 self.addEventListener('install', e => {
     self.skipWaiting();
@@ -56,7 +56,7 @@ self.addEventListener('fetch', e => {
         fetch(e.request)
             .then(response => {
                 if (!response || response.status !== 200 || response.type !== 'basic') {
-                    return response;
+                    return caches.match(e.request).then(cached => cached || response);
                 }
                 const clone = response.clone();
                 caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
