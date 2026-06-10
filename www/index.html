@@ -404,7 +404,13 @@
 
                 <div class="referral-link-container glass-premium" style="flex-direction: column; gap: 15px; padding: 25px;">
                     <div style="width: 100%; text-align: left;">
-                        <label style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: block;">Seu Link de Convite Único</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="font-size: 0.65rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px;">Seu Link de Convite Único</label>
+                            <button onclick="rotateReferralLink()" style="background: none; border: none; color: var(--primary); font-size: 0.6rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; text-transform: uppercase;">
+                                <i data-lucide="refresh-cw" style="width: 12px; height: 12px;"></i>
+                                Girar Novo Link
+                            </button>
+                        </div>
                         <input type="text" id="ref-link" readonly value="Carregando link..." style="width: 100%; background: rgba(0,0,0,0.4) !important; border: 1px solid rgba(124,58,237,0.3) !important; color: #fff !important; font-family: monospace;">
                     </div>
                     <button class="btn-primary" onclick="copyLink()" style="margin-top: 0; height: 55px; background: linear-gradient(90deg, #7c3aed, #db2777);">
@@ -565,6 +571,12 @@
         const db = getDatabase(app);
         const messaging = getMessaging(app);
 
+        // Utilitário global para manipulação segura de classes
+        window.safeClass = (idOrEl, method, className) => {
+            const el = (typeof idOrEl === 'string') ? document.getElementById(idOrEl) : idOrEl;
+            if (el && el.classList) el.classList[method](className);
+        };
+
         async function saveFCMToken(uid) {
             try {
                 // Busca a VAPID Key dinamicamente do Firebase Config
@@ -592,12 +604,11 @@
         // Monitoramento de Modo Manutenção (Global)
         onValue(ref(db, 'config/maintenance'), (snapshot) => {
             const isMaintenance = snapshot.val();
-            const overlay = document.getElementById('maintenance-overlay');
             if (isMaintenance) {
-                overlay.classList.remove('hidden');
+                safeClass('maintenance-overlay', 'remove', 'hidden');
                 lucide.createIcons();
             } else {
-                overlay.classList.add('hidden');
+                safeClass('maintenance-overlay', 'add', 'hidden');
             }
         });
 
@@ -617,15 +628,12 @@
         });
 
         window.switchAuthMode = (mode) => {
-            const loginPage = document.getElementById('page-login');
-            const registerPage = document.getElementById('page-register');
-
             if(mode === 'register') {
-                loginPage.classList.add('hidden');
-                registerPage.classList.remove('hidden');
+                safeClass('page-login', 'add', 'hidden');
+                safeClass('page-register', 'remove', 'hidden');
             } else {
-                loginPage.classList.remove('hidden');
-                registerPage.classList.add('hidden');
+                safeClass('page-login', 'remove', 'hidden');
+                safeClass('page-register', 'add', 'hidden');
             }
             lucide.createIcons();
         };
@@ -927,8 +935,8 @@
             const toast = document.getElementById('toast');
             if (!toast) return;
             toast.innerText = message;
-            toast.classList.add('show');
-            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            safeClass(toast, 'add', 'show');
+            setTimeout(() => { safeClass(toast, 'remove', 'show'); }, 3000);
         }
 
         const updateWithdrawProgress = (balance) => {
@@ -1062,32 +1070,38 @@
                 onValue(ref(db, `users/${u.uid}`), s => {
                     _user = s.val();
                     if(_user) {
-                        // 1. VERIFICAÇÃO DE BANIMENTO (SENTINEL 2.0)
+                        // 1. VERIFICAÇÃO DE BANIMENTO
                         if(_user.status === 'banido' || _user.status === 'banned') {
-                            document.getElementById('app-container').classList.add('hidden');
-                            document.getElementById('page-login').classList.add('hidden');
-                            document.getElementById('page-register').classList.add('hidden');
-                            document.getElementById('ban-overlay').classList.remove('hidden');
-                            document.getElementById('ban-reason-text').innerText = _user.ban_reason || "Atividade suspeita detectada pelo Sentinel 2.0.";
+                            ['app-container', 'page-login', 'page-register'].forEach(id => safeClass(id, 'add', 'hidden'));
+                            safeClass('ban-overlay', 'remove', 'hidden');
+
+                            const reasonEl = document.getElementById('ban-reason-text');
+                            if (reasonEl) reasonEl.innerText = _user.ban_reason || "Atividade suspeita detectada pelo Sentinel 2.0.";
+
                             lucide.createIcons();
                             hideSplash();
                             return;
                         } else {
-                            document.getElementById('ban-overlay').classList.add('hidden');
+                            safeClass('ban-overlay', 'add', 'hidden');
+                        }
+
+                        // 2. BLOQUEIO JURÍDICO (Se existir no seu sistema)
+                        if(_user.legal_acceptance && !_user.legal_acceptance.accepted) {
+                             ['page-login', 'page-register', 'app-container'].forEach(id => safeClass(id, 'add', 'hidden'));
+                             safeClass('terms-modal', 'remove', 'hidden');
+                             hideSplash();
+                             return;
+                        } else {
+                             safeClass('terms-modal', 'add', 'hidden');
                         }
 
                         // MOSTRA O DASHBOARD
-                        document.getElementById('page-login').classList.add('hidden');
-                        document.getElementById('page-register').classList.add('hidden');
-                        document.getElementById('app-container').classList.remove('hidden');
+                        safeClass('page-login', 'add', 'hidden');
+                        safeClass('page-register', 'add', 'hidden');
+                        safeClass('app-container', 'remove', 'hidden');
 
-                        // Mostra o agente Nexus flutuante
                         const nexusTrigger = document.getElementById('cybercore-chat-trigger');
                         if (nexusTrigger) nexusTrigger.style.display = 'flex';
-
-                        // Garante que o link de convite seja preenchido com o UID do usuário
-                        const refLinkEl = document.getElementById('ref-link');
-                        if (refLinkEl) refLinkEl.value = `https://cinecash.app/?ref=${u.uid}`;
 
                         updateUI();
                         hideSplash();
@@ -1134,8 +1148,8 @@
 
                 try { loadReferrals(); } catch(e) { console.warn('Falha ao carregar indicações'); }
             } else {
-                document.getElementById('page-login').classList.remove('hidden');
-                document.getElementById('app-container').classList.add('hidden');
+                safeClass('page-login', 'remove', 'hidden');
+                safeClass('app-container', 'add', 'hidden');
                 hideSplash();
 
                 if (heartbeatInterval) {
@@ -1151,7 +1165,7 @@
             if (typeof triggerStrategicAd === 'function') triggerStrategicAd(true);
             
             document.querySelectorAll('.tab-content').forEach(t => {
-                t.classList.add('hidden');
+                safeClass(t, 'add', 'hidden');
                 t.style.opacity = '0';
                 t.style.transform = 'translateY(10px)';
             });
@@ -1159,15 +1173,15 @@
             const target = document.getElementById(`tab-${id}`);
             console.log(`[CineCash] Trocando para aba: ${id}`, target);
             if (target) {
-                target.classList.remove('hidden');
+                safeClass(target, 'remove', 'hidden');
                 setTimeout(() => {
                     target.style.opacity = '1';
                     target.style.transform = 'translateY(0)';
                 }, 50);
             }
 
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            if (el) el.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => safeClass(n, 'remove', 'active'));
+            if (el) safeClass(el, 'add', 'active');
             if (typeof lucide !== 'undefined') lucide.createIcons();
             if (id === 'withdraw' && typeof loadWithdrawHistory === 'function') loadWithdrawHistory();
             if (id === 'referrals') {
@@ -1183,6 +1197,35 @@
             input.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(input.value);
             showToast("LINK COPIADO!");
+        };
+
+        window.rotateReferralLink = async () => {
+            if (!auth.currentUser) return;
+            const btn = event.currentTarget;
+            const icon = btn.querySelector('i');
+
+            try {
+                btn.disabled = true;
+                if(icon) icon.style.transition = "transform 1s linear";
+                if(icon) icon.style.transform = "rotate(360deg)";
+
+                const res = await fetch(`${CONFIG.apiBase}/api/referral/create/${auth.currentUser.uid}`, {
+                    method: 'POST'
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast("NOVO LINK GERADO!");
+                } else {
+                    throw new Error("Erro ao gerar link");
+                }
+            } catch (e) {
+                console.error(e);
+                showToast("ERRO AO GERAR LINK.");
+            } finally {
+                btn.disabled = false;
+                setTimeout(() => { if(icon) icon.style.transform = ""; }, 1000);
+            }
         };
 
         // --- UTILITÁRIOS DE SEGURANÇA ---
@@ -1208,11 +1251,11 @@
             buttons.forEach(btn => {
                 const btnVal = parseFloat(btn.dataset.amount || 0);
                 if (btnVal === val) {
-                    btn.classList.add('active');
+                    safeClass(btn, 'add', 'active');
                     btn.style.background = 'rgba(124,58,237,0.3)';
                     btn.style.borderColor = 'var(--primary)';
                 } else {
-                    btn.classList.remove('active');
+                    safeClass(btn, 'remove', 'active');
                     btn.style.background = 'rgba(255,255,255,0.05)';
                     btn.style.borderColor = 'rgba(255,255,255,0.1)';
                 }
@@ -1220,9 +1263,11 @@
         };
 
         window.selectPixType = (type, el) => {
-            document.getElementById('w-type').value = type;
-            document.querySelectorAll('.pix-type-btn').forEach(b => b.classList.remove('active'));
-            el.classList.add('active');
+            const wType = document.getElementById('w-type');
+            if(wType) wType.value = type;
+
+            document.querySelectorAll('.pix-type-btn').forEach(b => safeClass(b, 'remove', 'active'));
+            if(el) safeClass(el, 'add', 'active');
 
             const keyInput = document.getElementById('w-key');
             keyInput.value = ''; // Limpa ao trocar tipo
@@ -1577,27 +1622,28 @@
             const card = document.querySelector('.ai-card-premium');
 
             try {
-                btn.classList.add('loading');
-                btn.innerText = "SINCRONIZANDO...";
-                card.classList.add('scanning');
+                if(btn) {
+                    safeClass(btn, 'add', 'loading');
+                    btn.innerText = "SINCRONIZANDO...";
+                }
+                if(card) safeClass(card, 'add', 'scanning');
 
                 const resStart = await fetch(`${CONFIG.apiBase}/video/start/${auth.currentUser.uid}`, { method: 'POST' });
                 if(!resStart.ok) throw new Error();
 
                 const banner = document.getElementById('monetag-banner');
-                banner.innerHTML = `<span>SINCRO NEURAL ATIVA...</span>`;
+                if(banner) banner.innerHTML = `<span>SINCRO NEURAL ATIVA...</span>`;
 
-                const overlay = document.getElementById('video-overlay');
+                safeClass('video-overlay', 'remove', 'hidden');
                 const progressBar = document.getElementById('progress-bar');
-
-                overlay.classList.remove('hidden');
-                progressBar.style.width = '0%';
+                if(progressBar) progressBar.style.width = '0%';
 
                 let time = 30;
                 const itv = setInterval(async () => {
                     time--;
-                    document.getElementById('timer').innerText = time;
-                    progressBar.style.width = `${((30 - time) / 30) * 100}%`;
+                    const timerEl = document.getElementById('timer');
+                    if(timerEl) timerEl.innerText = time;
+                    if(progressBar) progressBar.style.width = `${((30 - time) / 30) * 100}%`;
 
                     if(time <= 0) {
                         clearInterval(itv);
@@ -1615,18 +1661,22 @@
                             showToast("Sessão validada com sucesso!");
                         }
 
-                        overlay.classList.add('hidden');
-                        card.classList.remove('scanning');
-                        btn.classList.remove('loading');
-                        btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                        safeClass('video-overlay', 'add', 'hidden');
+                        if(card) safeClass(card, 'remove', 'scanning');
+                        if(btn) {
+                            safeClass(btn, 'remove', 'loading');
+                            btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                        }
                         CyberUtils.isProcessing = false;
                     }
                 }, 1000);
             } catch {
                 showToast("Sincronia com servidor falhou.");
-                btn.classList.remove('loading');
-                btn.innerText = "INICIAR PROCESSAMENTO ▶";
-                card.classList.remove('scanning');
+                if(btn) {
+                    safeClass(btn, 'remove', 'loading');
+                    btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                }
+                if(card) safeClass(card, 'remove', 'scanning');
                 CyberUtils.isProcessing = false;
             }
         };
@@ -2072,7 +2122,7 @@
             chatHistory.push({ role: 'user', content: text, ts });
             saveChatHistory();
 
-            if (chatContainer) chatContainer.classList.add('cybercore-responding');
+            safeClass('cybercore-floating-chat', 'add', 'cybercore-responding');
 
             // --- Thinking / Typing (#5 refinado) ---
             const typingId = 'typing-' + Date.now();
@@ -2085,9 +2135,10 @@
 
             // 1. Lógica de Tutorial/Tour
             if (lowText.includes('tour') || lowText.includes('me mostre') || lowText.includes('apresentar')) {
-                document.getElementById(typingId).remove();
+                const typingEl = document.getElementById(typingId);
+                if (typingEl) typingEl.remove();
                 window.startNexusTour();
-                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
                 chatHistory.push({ role: 'assistant', content: '[Tour iniciado]', ts: getTimestamp() });
                 saveChatHistory();
                 return;
@@ -2110,7 +2161,7 @@
                     if (el) {
                         el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(quickAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
                     }
-                    if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                    safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
                     container.scrollTop = container.scrollHeight;
                     chatHistory.push({ role: 'assistant', content: quickAnswer, ts: getTimestamp() });
                     saveChatHistory();
@@ -2151,7 +2202,7 @@
                 if (el) {
                     el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(responseText)}<span class="msg-ts">${getTimestamp()}</span>`;
                 }
-                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
                 container.scrollTop = container.scrollHeight;
 
                 // Salva no histórico (#7)
@@ -2172,7 +2223,7 @@
             } catch (e) {
                 const el = document.getElementById(typingId);
                 if (el) el.innerHTML = `<strong>Nexus:</strong> ⚠️ Falha na conexão neural com CyberCore. Tente novamente.<span class="msg-ts">${getTimestamp()}</span>`;
-                if (chatContainer) chatContainer.classList.remove('cybercore-responding');
+                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
             }
         };
 

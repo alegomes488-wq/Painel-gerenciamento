@@ -115,10 +115,7 @@
                 <!-- Section: Telemetry & Config -->
                 <div class="nav-section-title">📊 Geral</div>
                 <div class="nav-group">
-                    <button class="nav-link" id="btn-nav-stock" onclick="showPanel('stock')" title="Estoque de Bebidas">
-                        <span>📦</span> Estoque de Bebidas
-                    </button>
-                    <button class="nav-link" id="btn-nav-analytics" onclick="showPanel('analytics')" title="Analytics & Métricas">
+<button class="nav-link" id="btn-nav-analytics" onclick="showPanel('analytics')" title="Analytics & Métricas">
                         <span>📊</span> Analytics
                     </button>
                     <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
@@ -623,79 +620,6 @@
                     </div>
                 </div>
                 <!-- Painel: ESTOQUE (Drink Stock) -->
-                <div id="panel-stock" class="panel-view">
-                    <div class="panel-scanner"></div>
-                    <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;padding:25px;">
-                        <!-- Header -->
-                        <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;">
-                                <div>
-                                    <div style="display:flex;align-items:center;gap:12px;">
-                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(232,184,48,0.2),rgba(232,184,48,0.05));border:1px solid rgba(232,184,48,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">📦</div>
-                                        <div>
-                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot gold"></span> [SYS_STOCK] // ESTOQUE DE BEBIDAS</h3>
-                                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-                                                <span id="stock-status-orb" style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
-                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">MONITORAMENTO ATIVO</span>
-                                                <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
-                                                <span style="font-size:10px;color:var(--text-muted);">Gerenciamento de inventário em tempo real</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button class="btn-premium" onclick="openAddStockModal()" style="width: auto; padding: 10px 20px; border-radius: 10px; font-size: 11px; font-weight: 800;">+ NOVO ITEM</button>
-                            </div>
-                        </div>
-
-                        <!-- Métricas de Estoque -->
-                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;">
-                            <div class="system-card premium-glass tech-border" style="padding:20px;">
-                                <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">TOTAL ITENS</span>
-                                <div style="font-size:28px;font-weight:900;color:#fff;margin-top:5px;" id="stock-total-items">0</div>
-                            </div>
-                            <div class="system-card premium-glass tech-border" style="padding:20px;">
-                                <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">VALOR EM ESTOQUE</span>
-                                <div style="font-size:28px;font-weight:900;color:var(--gold);margin-top:5px;" id="stock-total-value">R$ 0,00</div>
-                            </div>
-                            <div class="system-card premium-glass tech-border" style="padding:20px;">
-                                <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">ITENS BAIXOS</span>
-                                <div style="font-size:28px;font-weight:900;color:#f43f5e;margin-top:5px;" id="stock-low-count">0</div>
-                            </div>
-                            <div class="system-card premium-glass tech-border" style="padding:20px;">
-                                <span style="font-size:10px;font-weight:800;letter-spacing:1px;color:var(--text-secondary);text-transform:uppercase;">SAÍDAS (HOJE)</span>
-                                <div style="font-size:28px;font-weight:900;color:var(--cyan);margin-top:5px;" id="stock-out-today">0</div>
-                            </div>
-                        </div>
-
-                        <!-- Tabela de Inventário -->
-                        <div class="system-card premium-glass tech-border" style="padding:0;overflow:hidden;">
-                            <div style="padding:20px;border-bottom:1px solid var(--border-glass);display:flex;justify-content:space-between;align-items:center;">
-                                <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">INVENTÁRIO ATUAL</h4>
-                                <div style="display:flex;gap:10px;">
-                                    <input type="text" id="stock-search" placeholder="Buscar bebida..." style="background:rgba(0,0,0,0.2);border:1px solid var(--border-glass);border-radius:6px;padding:6px 12px;color:#fff;font-size:11px;outline:none;" oninput="filterStock(this.value)">
-                                </div>
-                            </div>
-                            <div style="overflow-x:auto;">
-                                <table class="premium-table" style="width:100%;">
-                                    <thead>
-                                        <tr>
-                                            <th>BEBIDA</th>
-                                            <th>CATEGORIA</th>
-                                            <th>QUANTIDADE</th>
-                                            <th>PREÇO UNIT.</th>
-                                            <th>VALOR TOTAL</th>
-                                            <th>STATUS</th>
-                                            <th>AÇÕES</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="stock-table-body">
-                                        <!-- Dinâmico -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <div id="panel-overview" class="panel-view active">
                     <div class="panel-scanner"></div>
@@ -1931,53 +1855,6 @@
     </div>
 
     <!-- Modal: Adicionar/Editar Estoque -->
-    <div id="modal-stock" class="premium-modal-overlay" style="display:none;">
-        <div class="modal-window premium-glass" style="max-width:500px;">
-            <div class="modal-header">
-                <h3 id="stock-modal-title">Novo Item de Estoque</h3>
-                <button class="btn-close-modal" onclick="closeStockModal()">×</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="stock-id">
-                <div class="p-input-group">
-                    <label>NOME DA BEBIDA</label>
-                    <input type="text" id="stock-name" placeholder="Ex: Coca-Cola 350ml">
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px;">
-                    <div class="p-input-group">
-                        <label>CATEGORIA</label>
-                        <select id="stock-category" style="width:100%;padding:10px;background:rgba(0,0,0,0.3);border:1px solid var(--border-glass);color:#fff;border-radius:8px;">
-                            <option value="Refrigerante">Refrigerante</option>
-                            <option value="Cerveja">Cerveja</option>
-                            <option value="Suco">Suco</option>
-                            <option value="Água">Água</option>
-                            <option value="Destilado">Destilado</option>
-                            <option value="Energético">Energético</option>
-                        </select>
-                    </div>
-                    <div class="p-input-group">
-                        <label>QUANTIDADE</label>
-                        <input type="number" id="stock-qty" placeholder="0">
-                    </div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px;">
-                    <div class="p-input-group">
-                        <label>PREÇO DE CUSTO (R$)</label>
-                        <input type="number" id="stock-price-cost" step="0.01" placeholder="0.00">
-                    </div>
-                    <div class="p-input-group">
-                        <label>PREÇO DE VENDA (R$)</label>
-                        <input type="number" id="stock-price-sell" step="0.01" placeholder="0.00">
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer" style="padding:15px 25px;border-top:1px solid var(--border-glass);display:flex;justify-content:flex-end;gap:10px;">
-                <button class="btn-secondary" onclick="closeStockModal()" style="width:auto;padding:8px 15px;">CANCELAR</button>
-                <button class="btn-premium" onclick="saveStockItem()" style="width:auto;padding:8px 25px;">SALVAR</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Painel de Notificações Flutuantes -->
     <div id="notification-panel"></div>
 

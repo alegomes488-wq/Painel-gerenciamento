@@ -335,13 +335,6 @@ if (hubDb) {
         }
     });
 
-    // Sincronização de Estoque (Drink Stock)
-    hubDb.ref('estoque_bebidas').on('value', snap => {
-        rtState.stock = snap.val() || {};
-        renderStockTable();
-        updateStockMetrics();
-    });
-
     // Ações de Segurança Pendentes
     hubDb.ref('security/pending_actions').on('child_added', snap => {
         const action = snap.val();
@@ -494,14 +487,7 @@ function showPanel(id, filterType = null) {
         if (id === 'watch') renderWatchProjects();
         if (id === 'studio') { listStudioFiles(); loadStudioProjects(); }
         if (id === 'overview') renderCmdProjectsTable();
-        if (id === 'stock') { renderStockTable(); updateStockMetrics(); }
-        if (id === 'audit') {
-            // Garante que os logs do Nexus apareçam no painel de Auditoria
-            const auditLog = document.getElementById('logs-nexus');
-            if (auditLog && auditLog.children.length === 0) {
-                 initNexusAgent();
-            }
-        }
+                                
     }
 }
 
@@ -516,126 +502,6 @@ function selectAgentFromNav(agent) {
             link.classList.add('active-studio');
         }
     });
-}
-
-// ============ MÓDULO: ESTOQUE (DRINK STOCK) ============
-
-function openAddStockModal() {
-    document.getElementById('stock-modal-title').textContent = 'Novo Item de Estoque';
-    document.getElementById('stock-id').value = '';
-    document.getElementById('stock-name').value = '';
-    document.getElementById('stock-category').value = 'Refrigerante';
-    document.getElementById('stock-qty').value = '';
-    document.getElementById('stock-price-cost').value = '';
-    document.getElementById('stock-price-sell').value = '';
-    document.getElementById('modal-stock').style.display = 'flex';
-}
-
-function closeStockModal() {
-    document.getElementById('modal-stock').style.display = 'none';
-}
-
-function openEditStock(id) {
-    const item = rtState.stock[id];
-    if (!item) return;
-
-    document.getElementById('stock-modal-title').textContent = 'Editar Item';
-    document.getElementById('stock-id').value = id;
-    document.getElementById('stock-name').value = item.name || '';
-    document.getElementById('stock-category').value = item.category || 'Refrigerante';
-    document.getElementById('stock-qty').value = item.qty || 0;
-    document.getElementById('stock-price-cost').value = item.price_cost || 0;
-    document.getElementById('stock-price-sell').value = item.price_sell || 0;
-    document.getElementById('modal-stock').style.display = 'flex';
-}
-
-function saveStockItem() {
-    const id = document.getElementById('stock-id').value;
-    const itemData = {
-        name: document.getElementById('stock-name').value.trim(),
-        category: document.getElementById('stock-category').value,
-        qty: parseInt(document.getElementById('stock-qty').value) || 0,
-        price_cost: parseFloat(document.getElementById('stock-price-cost').value) || 0,
-        price_sell: parseFloat(document.getElementById('stock-price-sell').value) || 0,
-        updatedAt: new Date().toISOString()
-    };
-
-    if (!itemData.name) return showToast("Insira o nome da bebida.", "error");
-
-    const ref = id ? hubDb.ref(`estoque_bebidas/${id}`) : hubDb.ref('estoque_bebidas').push();
-
-    ref.set(itemData)
-        .then(() => {
-            showToast(id ? "Item atualizado!" : "Item adicionado!", "success");
-            closeStockModal();
-        })
-        .catch(e => showToast("Erro ao salvar: " + e.message, "error"));
-}
-
-function deleteStock(id) {
-    if (!confirm("Deseja realmente excluir este item do estoque?")) return;
-    hubDb.ref(`estoque_bebidas/${id}`).remove()
-        .then(() => showToast("Item removido.", "info"))
-        .catch(e => showToast("Erro ao remover: " + e.message, "error"));
-}
-
-function renderStockTable() {
-    const tbody = document.getElementById('stock-table-body');
-    if (!tbody) return;
-
-    const search = (document.getElementById('stock-search')?.value || '').toLowerCase();
-
-    tbody.innerHTML = Object.entries(rtState.stock)
-        .filter(([id, item]) => {
-            if (!search) return true;
-            return (item.name || '').toLowerCase().includes(search) || (item.category || '').toLowerCase().includes(search);
-        })
-        .map(([id, item]) => {
-            const totalVal = (item.qty || 0) * (item.price_sell || 0);
-            const lowStock = (item.qty || 0) <= 5;
-            const statusClass = lowStock ? 'status-rejected' : 'status-green';
-            const statusText = lowStock ? 'BAIXO' : 'OK';
-
-            return `
-                <tr>
-                    <td><strong>${item.name || '---'}</strong></td>
-                    <td><small>${item.category || '---'}</small></td>
-                    <td><span style="font-weight:700">${item.qty || 0}</span> un</td>
-                    <td>R$ ${(item.price_sell || 0).toFixed(2)}</td>
-                    <td style="color:var(--gold); font-weight:800">R$ ${totalVal.toFixed(2)}</td>
-                    <td><span class="badge ${statusClass}">${statusText}</span></td>
-                    <td>
-                        <button class="btn-table-action" onclick="openEditStock('${id}')">EDITAR</button>
-                        <button class="btn-table-action" style="color:#ef4444" onclick="deleteStock('${id}')">EXCLUIR</button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-}
-
-function updateStockMetrics() {
-    const items = Object.values(rtState.stock);
-    const totalItems = items.reduce((s, i) => s + (parseInt(i.qty) || 0), 0);
-    const totalValue = items.reduce((s, i) => s + ((parseInt(i.qty) || 0) * (parseFloat(i.price_sell) || 0)), 0);
-    const lowCount = items.filter(i => (parseInt(i.qty) || 0) <= 5).length;
-
-    const elTotal = document.getElementById('stock-total-items');
-    const elValue = document.getElementById('stock-total-value');
-    const elLow = document.getElementById('stock-low-count');
-
-    if (elTotal) elTotal.textContent = totalItems;
-    if (elValue) elValue.textContent = `R$ ${totalValue.toFixed(2)}`;
-    if (elLow) elLow.textContent = lowCount;
-
-    const orb = document.getElementById('stock-status-orb');
-    if (orb) {
-        orb.style.background = lowCount > 0 ? '#f43f5e' : '#10b981';
-        orb.style.boxShadow = lowCount > 0 ? '0 0 6px #f43f5e' : '0 0 6px #10b981';
-    }
-}
-
-function filterStock(val) {
-    renderStockTable();
 }
 
 function filterCmdProjects(type, el) {
