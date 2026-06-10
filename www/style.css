@@ -1170,6 +1170,7 @@ p.subtitle {
         margin: 15px 10px;
         padding: 8px 12px;
         border-radius: 16px;
+    }
 }
 
 @media (max-width: 768px) {
@@ -1327,88 +1328,6 @@ p.subtitle {
 
     .glass-card {
         padding: 20px 15px;
-    }
-}
-}
-
-@media (max-width: 768px) {
-    body {
-        padding: 0;
-        align-items: flex-start;
-    }
-
-    #app-container {
-        padding: 80px 15px 120px;
-    }
-
-    .stat-grid-premium {
-        grid-template-columns: 1fr;
-    }
-
-    .navbar {
-        padding: 0 10px;
-    }
-
-    #user-name-display {
-        display: none; /* Esconde nome no mobile para ganhar espaço */
-    }
-
-    .menu {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 90%;
-        justify-content: space-around;
-        padding: 10px;
-        background: rgba(13, 13, 18, 0.9);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(124, 58, 237, 0.4);
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-        z-index: 1000;
-    }
-
-    .nav-item {
-        padding: 10px 12px;
-        font-size: 0.7rem;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .glass-card {
-        padding: 30px 20px;
-        border-radius: 24px;
-    }
-
-    .brand-name {
-        font-size: 2rem;
-    }
-
-    .btn-watch-premium {
-        padding: 18px 25px;
-        font-size: 0.9rem;
-    }
-
-    .cybercore-chat-container {
-        width: calc(100% - 30px);
-        right: 15px;
-        bottom: 90px;
-        height: 60vh;
-        max-height: 500px;
-        border-radius: 24px;
-    }
-
-    .cybercore-chat-trigger {
-        width: 55px;
-        height: 55px;
-        bottom: 20px;
-        right: 20px;
-    }
-
-    .cybercore-msg {
-        max-width: 92%;
-        font-size: 0.8rem;
-        padding: 12px 15px;
     }
 }
 

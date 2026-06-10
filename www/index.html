@@ -87,8 +87,21 @@
     <div id="toast">Operação realizada com sucesso!</div>
 
     <!-- MODAL DE BANIMENTO (SENTINEL 2.0) -->
+    <div id="ban-overlay" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
+        <i data-lucide="shield-off" style="width:64px;height:64px;color:#ef4444;margin-bottom:20px;"></i>
+        <h1 style="color:#ef4444;font-size:1.5rem;font-weight:900;">ACESSO BLOQUEADO</h1>
+        <p id="ban-reason-text" style="color:rgba(255,255,255,0.7);margin-top:10px;max-width:400px;">Atividade suspeita detectada pelo Sentinel 2.0.</p>
+    </div>
 
-    <!-- TELA DE LOGIN GLASS -->
+    <!-- MODAL DE TERMOS JURÍDICOS -->
+    <div id="terms-modal" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99997;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
+        <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:30px;max-width:400px;">
+            <i data-lucide="file-text" style="width:48px;height:48px;color:var(--primary);margin-bottom:15px;"></i>
+            <h2 style="font-size:1.2rem;font-weight:800;margin-bottom:10px;">TERMOS JURÍDICOS</h2>
+            <p style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-bottom:20px;">Você precisa aceitar os Termos de Uso para continuar.</p>
+            <button class="btn-primary" onclick="acceptTerms()" style="width:auto;padding:12px 30px;">ACEITAR TERMOS</button>
+        </div>
+    </div>
     <div id="page-login">
         <div class="login-box glass-premium">
             <div class="login-logo">
@@ -676,6 +689,21 @@
                 safeClass('page-register', 'add', 'hidden');
             }
             lucide.createIcons();
+        };
+
+        window.acceptTerms = async () => {
+            if (!auth.currentUser) return;
+            try {
+                const { update, ref } = await import('./firebase-database.js');
+                await update(ref(db, `users/${auth.currentUser.uid}/legal_acceptance`), {
+                    accepted: true,
+                    timestamp: serverTimestamp(),
+                    version: "2.0.4"
+                });
+                safeClass('terms-modal', 'add', 'hidden');
+            } catch (e) {
+                showToast("Erro ao aceitar termos.");
+            }
         };
 
         window.checkPasswordStrength = (pass) => {
@@ -1287,15 +1315,8 @@
             }
         };
 
-        window.copyLink = () => {
-            const input = document.getElementById('ref-link');
-            input.select();
-            input.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(input.value);
-            showToast("LINK COPIADO!");
-        };
-
-        window.rotateReferralLink = async () => {
+        // Remove copyLink duplicado (linha 1290 era sobrescrito pelo de linha 1904)
+        // A versão completa com Web Share API está abaixo
             if (!auth.currentUser) return;
             const btn = event.currentTarget;
             const icon = btn.querySelector('i');
