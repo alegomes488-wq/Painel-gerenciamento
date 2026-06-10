@@ -1760,6 +1760,31 @@ async function syncUserEmails() {
     }
 }
 
+async function deleteTestUsers() {
+    const uidsStr = prompt("UIDs para remover (separados por vírgula):", "5onHVa3N, KqJU9EJg, REFERRED, SPONSOR_");
+    if (!uidsStr) return;
+    const uids = uidsStr.split(',').map(s => s.trim()).filter(Boolean);
+    if (!uids.length) return;
+    if (!confirm(`Remover ${uids.length} usuário(s) do Firebase (DB + Auth)?\n\n${uids.join('\n')}`)) return;
+    try {
+        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const resp = await fetch(`${baseUrl}/api/studio/delete-users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uids })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            showToast(data.msg, "info");
+            console.table(data.results);
+        } else {
+            showToast("Erro: " + data.msg, "error");
+        }
+    } catch (e) {
+        showToast("Erro de conexão.", "error");
+    }
+}
+
 function renderWithdrawalsTable() {
     const tbody = document.getElementById('withdrawals-table-body');
     if (!tbody) return;

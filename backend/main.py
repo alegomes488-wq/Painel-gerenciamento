@@ -1703,6 +1703,30 @@ async def studio_sync_emails():
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
+@app.post("/api/studio/delete-users")
+async def studio_delete_users(data: dict = Body(...)):
+    """Remove usuários do Realtime Database e Firebase Auth."""
+    uids = data.get("uids", [])
+    if not uids:
+        return {"status": "error", "msg": "Nenhum UID fornecido."}
+    results = []
+    for uid in uids:
+        entry = {"uid": uid}
+        try:
+            db.reference(f"users/{uid}").delete()
+            entry["db"] = "deleted"
+        except Exception as e:
+            entry["db"] = f"error: {e}"
+        try:
+            firebase_auth.delete_user(uid)
+            entry["auth"] = "deleted"
+        except firebase_auth.UserNotFoundError:
+            entry["auth"] = "not_found"
+        except Exception as e:
+            entry["auth"] = f"error: {e}"
+        results.append(entry)
+    return {"status": "success", "results": results, "msg": f"{len(uids)} usuários processados."}
+
 @app.get("/api/studio/files")
 async def studio_files(project: str = Query("default")):
     try:
