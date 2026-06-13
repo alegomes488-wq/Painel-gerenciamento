@@ -1137,7 +1137,8 @@
             // Link de convite único por UID
             const uid = auth.currentUser?.uid;
             if (uid) {
-                document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${uid}`;
+                const ref = _user.active_referral_slug || uid;
+            document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${ref}`;
             }
         }; // fim updateUI
 
@@ -1334,6 +1335,8 @@
 
                 if (res.ok) {
                     const data = await res.json();
+                    const linkInput = document.getElementById('ref-link');
+                    if (linkInput) linkInput.value = `https://cinecash.com.br/?ref=${data.slug}`;
                     showToast("NOVO LINK GERADO!");
                 } else {
                     throw new Error("Erro ao gerar link");
