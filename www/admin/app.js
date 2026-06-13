@@ -1777,6 +1777,9 @@ function renderUsersTable() {
                     <button class="btn-table-action" style="color:#ef4444; border-color:rgba(239,68,68,0.2)" onclick="toggleUserBan('${uid}', ${u.status !== 'banido'})">
                         ${u.status === 'banido' ? 'REATIVAR' : 'BANIR'}
                     </button>
+                    <button class="btn-table-action" style="color:#10b981; border-color:rgba(16,185,129,0.3)" onclick="apiUnbanUser('${uid}')">
+                        🛠️ DESBANIR
+                    </button>
                 </div>
             </td>
         </tr>
@@ -3012,6 +3015,17 @@ function toggleUserBan(uid, shouldBan) {
             showToast(`${emoji} ${label}: Usuário ${uid.substring(0,8)} ${status}.`, status === 'banido' ? 'error' : 'success');
         })
         .catch(e => showToast('Erro ao atualizar status.', 'error'));
+}
+
+function apiUnbanUser(uid) {
+    fetch('/api/studio/unban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid })
+    })
+    .then(r => r.json())
+    .then(d => showToast(d.msg, d.status === 'success' ? 'success' : 'error'))
+    .catch(() => showToast('Erro ao conectar com backend.', 'error'));
 }
 
 function approveWithdrawal(uid, wid) {

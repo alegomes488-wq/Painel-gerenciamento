@@ -1727,6 +1727,20 @@ async def studio_delete_users(data: dict = Body(...)):
         results.append(entry)
     return {"status": "success", "results": results, "msg": f"{len(uids)} usuários processados."}
 
+@app.post("/api/studio/unban")
+async def studio_unban(data: dict = Body(...)):
+    """Desbane um usuário no Realtime Database."""
+    uid = data.get("uid", "")
+    if not uid:
+        return {"status": "error", "msg": "UID obrigatório."}
+    try:
+        db.reference(f"users/{uid}/status").set("ativo")
+        db.reference(f"users/{uid}/risk_score").set(0)
+        db.reference(f"users/{uid}/ban_reason").delete()
+        return {"status": "success", "msg": f"Usuário {uid} desbanido."}
+    except Exception as e:
+        return {"status": "error", "msg": str(e)}
+
 @app.get("/api/studio/files")
 async def studio_files(project: str = Query("default")):
     try:
