@@ -373,10 +373,15 @@ def tool_sentinel_enforcement():
                 if fp not in fingerprint_map: fingerprint_map[fp] = []
                 fingerprint_map[fp].append(uid)
 
+        # Lista de UIDs isentos de verificação (admin, teste, etc.)
+        whitelist = config.get('sentinel_whitelist', {})
+        if not isinstance(whitelist, dict): whitelist = {}
+
         for uid, user in users.items():
             if not isinstance(user, dict): continue
             status = user.get('status', 'ativo')
             if status == 'banido': continue
+            if whitelist.get(uid): continue  # Pula UIDs na whitelist
 
             sec = user.get('security', {})
             fp = sec.get('fingerprint', '')
@@ -1789,8 +1794,23 @@ async def studio_orchestrate(data: dict = Body(...)):
     prompt = data.get("prompt", "")
     uid = data.get("uid", "admin_studio")
     project = data.get("project", "default")
+    session_id = data.get("session_id")
     if not prompt:
         return {"status": "error", "msg": "Prompt obrigatório"}
+
+    # Recupera contexto do Project Manager se houver session_id
+    pm_context = ""
+    if session_id:
+        pm_data = db.reference(f'cybercore/pm_sessions/{session_id}').get()
+        if pm_data:
+            p = pm_data.get("project", {})
+            pm_context = f"""
+DADOS DO PLANEJAMENTO (Project Manager):
+- Nome do Projeto: {p.get('name') or 'Não definido'}
+- Tipo: {p.get('type') or 'Não definido'}
+- Caminho sugerido: {p.get('path') or 'Não definido'}
+- Resumo do Plano: {pm_data.get('history', [])[-1]['content'] if pm_data.get('history') else 'Nenhum'}
+"""
 
     # Pega contexto do workspace do projeto
     ctx_resp = await studio_context(project)
@@ -1798,7 +1818,8 @@ async def studio_orchestrate(data: dict = Body(...)):
     existing_files = ctx_resp.get("files", [])
 
     # Monta prompt para o Orchestrator com contexto
-    orchestrator_prompt = f"""CONTEXTO DO PROJETO ATUAL:
+    orchestrator_prompt = f"""{pm_context}
+CONTEXTO DO PROJETO ATUAL NO WORKSPACE:
 Arquivos existentes: {', '.join(existing_files) if existing_files else 'Nenhum'}
 
 {workspace_context[:3000] if workspace_context else ''}
@@ -1820,7 +1841,8 @@ Exemplo: DESIGNER, BUILDER, FULLSTACK"""
         agents_sequence = ["BUILDER", "DESIGNER", "FULLSTACK"]
 
     # Prepara o prompt final com contexto completo
-    full_context_prompt = f"""CONTEXTO DO PROJETO ATUAL:
+    full_context_prompt = f"""{pm_context}
+CONTEXTO DO PROJETO ATUAL NO WORKSPACE:
 {workspace_context[:5000] if workspace_context else 'Projeto novo, sem arquivos ainda.'}
 
 OBJETIVO: {prompt}
@@ -2050,8 +2072,8 @@ def decide_engine(question):
     score = sum(1 for kw in complex_keywords if kw in q)
     return "groq" if score >= 2 else "ollama"
 
-# Store PM conversation history in memory (per-session)
-pm_sessions = {}
+# Store PM conversation history in memory (per-session) - MIGRADO PARA FIREBASE
+# pm_sessions = {}
 
 @app.post("/api/studio/project-manager/chat")
 async def pm_chat(data: dict = Body(...)):
@@ -2059,13 +2081,15 @@ async def pm_chat(data: dict = Body(...)):
     message = data.get("message", "")
     mode = data.get("mode", "auto")  # auto | groq | ollama
 
-    if session_id not in pm_sessions:
-        pm_sessions[session_id] = {
+    # Recupera sessão do Firebase para persistência
+    ref = db.reference(f'cybercore/pm_sessions/{session_id}')
+    session = ref.get()
+
+    if not session:
+        session = {
             "history": [],
             "project": {"name": "", "path": "", "type": "", "existing": False}
         }
-
-    session = pm_sessions[session_id]
 
     # Decide engine
     engine = mode if mode != "auto" else decide_engine(message)
@@ -2118,10 +2142,14 @@ REGRAS:
         answer = f"Erro na comunicação: {str(e)}"
 
     # Save to history
+    if "history" not in session: session["history"] = []
     session["history"].append({"role": "user", "content": message})
     session["history"].append({"role": "assistant", "content": answer})
     if len(session["history"]) > 20:
         session["history"] = session["history"][-20:]
+
+    # Salva no Firebase
+    ref.set(session)
 
     return {
         "status": "success",
@@ -2134,10 +2162,19 @@ REGRAS:
 async def pm_update(data: dict = Body(...)):
     session_id = data.get("session_id", "default")
     updates = data.get("project", {})
-    if session_id not in pm_sessions:
-        pm_sessions[session_id] = {"history": [], "project": {"name": "", "path": "", "type": "", "existing": False}}
-    pm_sessions[session_id]["project"].update(updates)
-    return {"status": "success", "project": pm_sessions[session_id]["project"]}
+
+    ref = db.reference(f'cybercore/pm_sessions/{session_id}')
+    session = ref.get()
+
+    if not session:
+        session = {"history": [], "project": {"name": "", "path": "", "type": "", "existing": False}}
+
+    if "project" not in session: session["project"] = {"name": "", "path": "", "type": "", "existing": False}
+    session["project"].update(updates)
+
+    # Persiste a atualização
+    ref.set(session)
+    return {"status": "success", "project": session["project"]}
 
 @app.post("/api/studio/project-manager/dispatch")
 async def pm_dispatch(data: dict = Body(...)):

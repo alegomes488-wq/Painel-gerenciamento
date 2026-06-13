@@ -385,9 +385,67 @@ if (hubDb) {
         nexusLogs.scrollTop = nexusLogs.scrollHeight;
     });
 
-    // Nexus Intelligence (Antigo insights)
-    hubDb.ref('nexus/insights').limitToLast(10).on('value', snap => {
+    // Sentinel Alerts (Logs em tempo real)
+    hubDb.ref('logs/sentinel_alerts').limitToLast(15).on('value', snap => {
+        const sentinelLogs = document.getElementById('logs-sentinel');
+        if (!sentinelLogs) return;
+        sentinelLogs.innerHTML = '';
+        const vals = snap.val();
+        if (!vals) return;
+        Object.values(vals).forEach(log => {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--:--';
+            const msg = log.message || log.type || log.reason || 'Evento Sentinel';
+            line.innerHTML = `<span>[${time}]</span> ${msg}`;
+            sentinelLogs.appendChild(line);
+        });
+        sentinelLogs.scrollTop = sentinelLogs.scrollHeight;
+    });
 
+    // Auditor Financeiro (Status financeiro em tempo real)
+    hubDb.ref('status/financial_realtime').on('value', snap => {
+        const auditLogs = document.getElementById('logs-auditor');
+        if (!auditLogs) return;
+        const fin = snap.val() || {};
+        const hits = fin.hits || 0;
+        const rate = fin.rate || 5.25;
+        const cpm = rtState.config?.cpm || 0.18;
+        const revenue = (hits / 1000) * cpm * rate;
+
+        const now = new Date().toLocaleTimeString();
+        auditLogs.innerHTML = `
+            <div class="log-line"><span>[${now}]</span> Fluxo de caixa: R$ ${revenue.toFixed(2)} (${hits} hits)</div>
+            <div class="log-line"><span>[${now}]</span> Cotação USD: R$ ${rate.toFixed(2)} | CPM: R$ ${cpm}</div>
+            <div class="log-line"><span>[${now}]</span> Receita líquida: R$ ${(revenue - (fin.total_debt || 0)).toFixed(2)}</div>
+            ${fin.last_event ? `<div class="log-line"><span>[${new Date(fin.last_event).toLocaleTimeString()}]</span> ${fin.last_event_desc || 'Atualização financeira'}</div>` : ''}
+        `;
+        auditLogs.scrollTop = auditLogs.scrollHeight;
+    });
+
+    // Auditor Financeiro - Transações recentes (logs/financial)
+    hubDb.ref('logs/financial').limitToLast(8).on('value', snap => {
+        const auditLogs = document.getElementById('logs-auditor');
+        if (!auditLogs) return;
+        const vals = snap.val();
+        if (!vals) return;
+        Object.values(vals).reverse().forEach(log => {
+            // Evita duplicar se já tem a linha
+            const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--:--';
+            const msg = log.description || log.type || `Transação: R$${log.amount || 0}`;
+            const html = `<span>[${time}]</span> ${msg}`;
+            const exists = Array.from(auditLogs.querySelectorAll('.log-line')).some(el => el.innerHTML.includes(msg));
+            if (!exists) {
+                const line = document.createElement('div');
+                line.className = 'log-line';
+                line.innerHTML = html;
+                auditLogs.appendChild(line);
+            }
+        });
+        auditLogs.scrollTop = auditLogs.scrollHeight;
+    });
+
+    hubDb.ref('nexus/insights').limitToLast(10).on('value', snap => {
         const nexusBody = document.getElementById('agent-nexus-body');
         if (!nexusBody) return;
         nexusBody.innerHTML = '';
@@ -890,7 +948,8 @@ async function generateTeam() {
                     body: JSON.stringify({
                         prompt: prompt,
                         uid: 'admin_studio',
-                        project: currentProject
+                        project: currentProject,
+                        session_id: pmSessionId
                     })
                 });
                 const data = await resp.json();
@@ -1699,6 +1758,7 @@ function renderWatchProjects() {
                      <button onclick="showPanel('studio'); document.getElementById('studio-prompt').value='Analisar logs do nó ${p.id}'" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">DEBUG</button>
                      <button onclick="copyToClipboard('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
                      <button onclick="installAgent('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
+                     <button onclick="toggleProjectConnection('${p.id}', '${p.identifier}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
@@ -2675,7 +2735,7 @@ async function updateConfig(path, value) {
 
     try {
         await hubDb.ref('config').update({ [path]: value });
-        showNotification(`${icon} ${label[1]} ${statusText}`, 'success');
+        showToast(`${icon} ${label[1]} ${statusText}`, 'success');
 
         // Se for manutenção, avisa o servidor local imediatamente
         if (path === 'maintenance' && !value) {
@@ -3477,7 +3537,7 @@ function renderProjects() {
     if (!tbody) return;
 
     if (!connectedProjects || connectedProjects.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; opacity:0.3; padding:40px;">Nenhum projeto conectado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; opacity:0.3; padding:40px;">Nenhum projeto conectado.</td></tr>';
         return;
     }
 
@@ -3509,10 +3569,16 @@ function renderProjects() {
             </td>
             <td><small>${p.health?.last_checked ? new Date(p.health.last_checked).toLocaleTimeString() : 'Pendente'}</small></td>
             <td>
+                <button class="btn-table-action" style="${rtState?.config?.maintenance ? 'border-color:#10b981;color:#10b981;' : 'border-color:var(--warning);color:var(--warning);'}" onclick="toggleProjectConnection('${p.id}', '${p.identifier}')">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
                 <button class="btn-table-action" onclick="removeProject('${p.id}')">REMOVER</button>
             </td>
         </tr>
     `).join('');
+}
+
+function toggleProjectConnection(id, identifier) {
+    const isMaint = rtState?.config?.maintenance || false;
+    toggleSystem('maintenance', !isMaint);
 }
 
 function removeProject(id) {
@@ -3602,6 +3668,7 @@ function renderProjects() {
                         </div>
                     </div>
                 </div>
+                <button class="btn-minimal" onclick="toggleProjectConnection('${p.id}', '${p.identifier}')" style="border-color: rgba(251,191,36,0.3); color: var(--warning); padding: 6px 12px; font-size: 0.7rem; flex-shrink: 0;">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
                 <button class="btn-minimal" onclick="removeProject('${p.id}')" style="border-color: rgba(239,68,68,0.3); color: #ef4444; padding: 6px 12px; font-size: 0.7rem; flex-shrink: 0;">REMOVER</button>
             </div>
         `;

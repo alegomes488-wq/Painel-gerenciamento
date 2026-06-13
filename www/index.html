@@ -166,6 +166,10 @@
                         <i data-lucide="eye" class="password-icon-lucide" style="width:20px; height:20px;"></i>
                     </span>
                 </div>
+                <div style="display:flex;gap:6px;margin-top:6px;">
+                    <button type="button" onclick="generateStrongPassword()" style="flex:1;padding:6px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.1);color:#a855f7;cursor:pointer;transition:.2s;font-family:inherit;" onmouseover="this.style.background='rgba(168,85,247,0.2)'" onmouseout="this.style.background='rgba(168,85,247,0.1)'">⚡ Gerar Senha Forte</button>
+                    <button type="button" onclick="copyPassword()" id="btn-copy-pass" style="padding:6px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:#aaa;cursor:pointer;transition:.2s;font-family:inherit;display:none;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">📋 Copiar</button>
+                </div>
                 <!-- Medidor de Força Inteligente -->
                 <div id="password-strength-meter" style="display: flex; gap: 4px; margin-top: 8px; height: 4px;">
                     <div class="strength-bar" style="flex: 1; background: rgba(255,255,255,0.1); border-radius: 2px; transition: 0.3s;"></div>
@@ -191,16 +195,21 @@
                             <td style="padding:6px 10px;color:#666;">Número (0-9)</td>
                             <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
                         </tr>
+                        <tr id="req-symbol" style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                            <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
+                            <td style="padding:6px 10px;color:#666;">Símbolo (!@#$)</td>
+                            <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
+                        </tr>
                         <tr id="req-length">
                             <td style="padding:6px 10px;color:#666;width:20px;"><i data-lucide="circle" style="width:10px;height:10px;"></i></td>
-                            <td style="padding:6px 10px;color:#666;">Exatamente 8 caracteres</td>
+                            <td style="padding:6px 10px;color:#666;">Mínimo 8 caracteres</td>
                             <td style="padding:6px 10px;text-align:right;color:#666;">—</td>
                         </tr>
                     </table>
                 </div>
 
                 <p id="password-hint" style="font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 600; display:none;">
-                    🛡️ Use 8 caracteres: [A-Z], [a-z] e [0-9].
+                    🛡️ Mínimo 8 caracteres com letras, números e símbolos.
                 </p>
             </div>
 
@@ -714,7 +723,8 @@
             const hasUpper = /[A-Z]/.test(pass);
             const hasLower = /[a-z]/.test(pass);
             const hasNumber = /[0-9]/.test(pass);
-            const isCorrectLength = pass.length === 8;
+            const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass);
+            const isCorrectLength = pass.length >= 8;
 
             const updateReq = (id, isValid) => {
                 const el = document.getElementById(id);
@@ -736,6 +746,7 @@
             updateReq('req-upper', hasUpper);
             updateReq('req-lower', hasLower);
             updateReq('req-number', hasNumber);
+            updateReq('req-symbol', hasSymbol);
             updateReq('req-length', isCorrectLength);
             if (typeof lucide !== 'undefined') lucide.createIcons();
 
@@ -743,23 +754,78 @@
             if (hasUpper) strength++;
             if (hasLower) strength++;
             if (hasNumber) strength++;
-            if (!isCorrectLength) strength = Math.min(strength, 2);
+            if (hasSymbol) strength++;
+            if (isCorrectLength) strength += 0;
 
             bars.forEach((bar, i) => {
                 if (i < strength) {
-                    if (strength === 1) bar.style.background = '#ef4444';
-                    if (strength === 2) bar.style.background = '#fbbf24';
-                    if (strength === 3 && isCorrectLength) bar.style.background = '#10b981';
-                    else if (strength === 3) bar.style.background = '#fbbf24';
+                    if (strength <= 2) bar.style.background = '#ef4444';
+                    else if (strength <= 3) bar.style.background = '#fbbf24';
+                    else if (strength >= 4) bar.style.background = '#10b981';
                 } else {
                     bar.style.background = 'rgba(255,255,255,0.1)';
                 }
             });
 
             if (pass.length === 0) hint.innerText = "";
-            else if (!isCorrectLength) hint.innerText = "⚠️ A senha deve ter EXATAMENTE 8 caracteres.";
-            else if (strength < 3) hint.innerText = "❌ Falta misturar letras (A/a) e números.";
-            else hint.innerText = "✅ Senha Militar detectada. Proteção ativa.";
+            else if (pass.length < 8) hint.innerText = "⚠️ Mínimo 8 caracteres.";
+            else if (strength <= 2) hint.innerText = "❌ Muito fraca: misture maiúsculas, minúsculas, números e símbolos.";
+            else if (strength === 3) hint.innerText = "⚠️ Senha média: adicione símbolos (!@#$) para ficar mais forte.";
+            else hint.innerText = "✅ Senha Forte! Proteção máxima ativada.";
+        };
+
+        // Gerador de Senhas Fortes
+        window.generateStrongPassword = () => {
+            const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const lower = 'abcdefghijklmnopqrstuvwxyz';
+            const numbers = '0123456789';
+            const symbols = '!@#$%&*';
+            const all = upper + lower + numbers + symbols;
+
+            // Garante pelo menos 1 de cada tipo
+            let pass = '';
+            pass += upper[Math.floor(Math.random() * upper.length)];
+            pass += lower[Math.floor(Math.random() * lower.length)];
+            pass += numbers[Math.floor(Math.random() * numbers.length)];
+            pass += symbols[Math.floor(Math.random() * symbols.length)];
+
+            // Completa com caracteres aleatórios até 12-16
+            const len = 12 + Math.floor(Math.random() * 5);
+            for (let i = pass.length; i < len; i++) {
+                pass += all[Math.floor(Math.random() * all.length)];
+            }
+
+            // Embaralha os caracteres
+            pass = pass.split('').sort(() => Math.random() - 0.5).join('');
+
+            const input = document.getElementById('reg-password');
+            const confirm = document.getElementById('reg-confirm-password');
+            if (input) { input.value = pass; checkPasswordStrength(pass); }
+            if (confirm) confirm.value = pass;
+
+            // Mostra a senha por 3 segundos
+            const eye = document.querySelector('#reg-password').parentElement.querySelector('[data-lucide]');
+            if (eye) { eye.setAttribute('data-lucide', 'eye-off'); document.getElementById('reg-password').type = 'text'; }
+            setTimeout(() => {
+                const e2 = document.querySelector('#reg-password').parentElement.querySelector('[data-lucide]');
+                if (e2) { e2.setAttribute('data-lucide', 'eye'); document.getElementById('reg-password').type = 'password'; }
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 3000);
+
+            // Mostra botão copiar
+            const copyBtn = document.getElementById('btn-copy-pass');
+            if (copyBtn) copyBtn.style.display = 'inline-block';
+
+            showToast('⚡ Senha forte gerada! Visível por 3 segundos.', 'success');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        };
+
+        window.copyPassword = () => {
+            const input = document.getElementById('reg-password');
+            if (!input || !input.value) return;
+            navigator.clipboard.writeText(input.value).then(() => {
+                showToast('📋 Senha copiada!', 'success');
+            });
         };
 
         // Sistema de Fingerprint Digital (Identificação de Dispositivo)
@@ -916,10 +982,10 @@
 
             if(!fname || !lname || !email || !pass) return showToast("Preencha todos os campos.");
 
-            // Validação de Senha Forte (Maiúscula, Minúscula, Número e Máx 8 caracteres)
-            const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8}$/;
+            // Validação de Senha Forte (Mínimo 8 caracteres, maiúscula, minúscula, número)
+            const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
             if(!strongPassword.test(pass)) {
-                return showToast("Senha Inválida: Use 8 caracteres com letras (A e a) e números.");
+                return showToast("Senha fraca: mínimo 8 caracteres com maiúsculas, minúsculas e números.");
             }
 
             if(pass !== confirmPass) return showToast("As senhas não coincidem.");
@@ -1209,6 +1275,12 @@
                             return;
                         } else {
                             safeClass('ban-overlay', 'add', 'hidden');
+                            // Se estava banido e agora está ativo, restaura a app
+                            if (_user.status === 'ativo') {
+                                safeClass('app-container', 'remove', 'hidden');
+                                safeClass('page-login', 'remove', 'hidden');
+                                safeClass('page-register', 'remove', 'hidden');
+                            }
                         }
 
                         // 2. BLOQUEIO JURÍDICO (Se existir no seu sistema)
