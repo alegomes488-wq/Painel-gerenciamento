@@ -307,6 +307,26 @@
                         <button class="btn-claim-small" id="btn-bonus" onclick="claimDailyBonus()" style="background:var(--primary); color:white; opacity:1; cursor:pointer;">RESGATAR</button>
                     </div>
                 </div>
+
+                <!-- TABELA DE METAS -->
+                <div class="goals-section glass-premium">
+                    <div class="goals-header">
+                        <i data-lucide="trophy" style="width:18px;height:18px;color:var(--primary);"></i>
+                        <span>Suas Metas de Anúncios</span>
+                    </div>
+                    <table class="goals-table">
+                        <thead>
+                            <tr>
+                                <th>Anúncios</th>
+                                <th>Recompensa</th>
+                                <th>Progresso</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="goals-table-body">
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- ABA INTERCÂMBIO (SAQUE) -->
@@ -1302,6 +1322,25 @@
             let nextGoal = goals.find(g => vids < g) || 15000;
             let nextAmount = amounts[goals.indexOf(nextGoal)];
             document.getElementById('goal-txt').innerText = `${vids}/${nextGoal} (R$ ${nextAmount.toFixed(2)})`;
+
+            // Renderiza tabela de metas
+            const tbody = document.getElementById('goals-table-body');
+            if (tbody) {
+                tbody.innerHTML = goals.map((g, i) => {
+                    const completed = vids >= g;
+                    const isNext = !completed && (i === 0 || vids >= goals[i - 1]);
+                    const pct = Math.min(100, (vids / g) * 100);
+                    const color = completed ? '#10b981' : isNext ? 'var(--primary)' : 'var(--muted-fg)';
+                    const status = completed ? 'completed' : isNext ? 'current' : 'locked';
+                    const label = completed ? '✅ Completo' : isNext ? '🎯 Em andamento' : '🔒 Bloqueado';
+                    return `<tr>
+                        <td style="font-weight:700;">${g.toLocaleString('pt-BR')}</td>
+                        <td class="goal-reward-cell">R$ ${amounts[i].toFixed(2)}</td>
+                        <td><div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%;background:${color};"></div></div></td>
+                        <td><span class="goal-status-badge goal-status-${status}">${label}</span></td>
+                    </tr>`;
+                }).join('');
+            }
 
             document.getElementById('ref-count').innerText = _user.validReferrals || 0;
             document.getElementById('ref-total-list').innerText = _user.referralCount || 0;
