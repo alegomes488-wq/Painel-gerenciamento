@@ -507,77 +507,85 @@
 
         <!-- ABA GAMECASH -->
         <div id="tab-gamecash" class="tab-content hidden">
-            <div class="gamecash-header">
+            <div id="gamecash-coming-soon" class="gamecash-coming-soon hidden">
+                <div style="text-align:center;padding:60px 20px;">
+                    <div style="font-size:4rem;margin-bottom:20px;">🚧</div>
+                    <h2 style="font-size:1.4rem;margin-bottom:12px;">GameCash em breve!</h2>
+                    <p style="color:var(--muted-fg);font-size:0.9rem;max-width:400px;margin:0 auto;">
+                        Estamos trabalhando pra levar novas experiências para você.
+                    </p>
+                </div>
+            </div>
+            <div id="gamecash-content">
                 <h2 style="display: flex; align-items: center; gap: 12px;">
                     <i data-lucide="gamepad-2" style="color: var(--primary);"></i>
                     GameCash
                 </h2>
                 <p style="color: var(--muted-fg); font-size: 0.8rem; margin-top: 4px;">
-                    Jogue e ganhe moedas extras! Suas moedas viram saldo automaticamente.
+                    Jogue e acumule saldo! Suas recompensas são creditadas direto no seu saldo.
                 </p>
             </div>
-            <div id="gamecash-daily" class="gamecash-daily-bar">
-                <span id="gamecash-today-earned" style="font-weight: 700;">🎮 Hoje: R$ 0,00</span>
-                <span style="font-size: 0.7rem; color: var(--muted-fg);">em recompensas de jogos</span>
+            <div class="gamecash-daily-bar">
+                <span id="gamecash-today-earned" style="font-weight: 700;">🎮 Saldo de jogos: R$ 0,00</span>
+                <span style="font-size: 0.7rem; color: var(--muted-fg);">total acumulado em jogos</span>
             </div>
-            <div class="gamecash-grid">
-                <div class="game-card glass-premium" onclick="openGame('flappy')">
-                    <div class="game-card-icon" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
-                        🐦
-                    </div>
-                    <div class="game-card-info">
-                        <h3>Flappy Bird</h3>
-                        <p>Toque para voar! Quanto mais longe, mais moedas.</p>
-                        <div class="game-card-rewards">
-                            <span>10 pts = 1 🪙</span>
-                            <span>30 pts = 3 🪙</span>
-                        </div>
-                        <div class="game-card-stats">
-                            <span>🎯 <span id="flappy-best">0</span> recorde</span>
-                            <span>📅 <span id="flappy-plays">0</span>/10 hoje</span>
-                        </div>
-                    </div>
-                    <button class="btn-game-play">JOGAR</button>
-                </div>
 
-                <div class="game-card glass-premium" onclick="openGame('2048')">
-                    <div class="game-card-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-                        🔢
+            <!-- FLAPPY BIRD -->
+            <div class="goals-section glass-premium">
+                <div class="goals-header" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.5rem;">🐦</span>
+                        <span>Flappy Bird</span>
                     </div>
-                    <div class="game-card-info">
-                        <h3>2048</h3>
-                        <p>Deslize os blocos e chegue ao 2048!</p>
-                        <div class="game-card-rewards">
-                            <span>512 = 2 🪙</span>
-                            <span>1024 = 5 🪙</span>
-                            <span>2048 = 10 🪙</span>
-                        </div>
-                        <div class="game-card-stats">
-                            <span>🏆 <span id="g2048-best">0</span> máximo</span>
-                            <span>📅 <span id="g2048-plays">0</span>/5 hoje</span>
-                        </div>
+                    <div style="display:flex;align-items:center;gap:12px;font-size:0.7rem;">
+                        <span>🎯 <span id="flappy-best">0</span></span>
+                        <span>📅 <span id="flappy-plays">0</span>/10</span>
+                        <button class="btn-game-play-small" onclick="openGame('flappy')">JOGAR</button>
                     </div>
-                    <button class="btn-game-play">JOGAR</button>
                 </div>
+                <table class="goals-table">
+                    <thead><tr><th>Pontuação</th><th>Recompensa</th><th>Progresso</th><th>Status</th></tr></thead>
+                    <tbody id="goals-flappy"></tbody>
+                </table>
+            </div>
 
-                <div class="game-card glass-premium" onclick="openGame('memory')">
-                    <div class="game-card-icon" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);">
-                        🧠
+            <!-- 2048 -->
+            <div class="goals-section glass-premium">
+                <div class="goals-header" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.5rem;">🔢</span>
+                        <span>2048</span>
                     </div>
-                    <div class="game-card-info">
-                        <h3>Jogo da Memória</h3>
-                        <p>Encontre todos os pares no menor tempo!</p>
-                        <div class="game-card-rewards">
-                            <span>&lt;60s = 3 🪙</span>
-                            <span>&lt;30s = 5 🪙</span>
-                        </div>
-                        <div class="game-card-stats">
-                            <span>⏱ <span id="memory-best">--</span> melhor</span>
-                            <span>📅 <span id="memory-plays">0</span>/5 hoje</span>
-                        </div>
+                    <div style="display:flex;align-items:center;gap:12px;font-size:0.7rem;">
+                        <span>🏆 <span id="g2048-best">0</span></span>
+                        <span>📅 <span id="g2048-plays">0</span>/5</span>
+                        <button class="btn-game-play-small" onclick="openGame('2048')">JOGAR</button>
                     </div>
-                    <button class="btn-game-play">JOGAR</button>
                 </div>
+                <table class="goals-table">
+                    <thead><tr><th>Peça Máxima</th><th>Recompensa</th><th>Progresso</th><th>Status</th></tr></thead>
+                    <tbody id="goals-2048"></tbody>
+                </table>
+            </div>
+
+            <!-- MEMÓRIA -->
+            <div class="goals-section glass-premium">
+                <div class="goals-header" style="justify-content:space-between;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:1.5rem;">🧠</span>
+                        <span>Jogo da Memória</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;font-size:0.7rem;">
+                        <span>⏱ <span id="memory-best">--</span></span>
+                        <span>📅 <span id="memory-plays">0</span>/5</span>
+                        <button class="btn-game-play-small" onclick="openGame('memory')">JOGAR</button>
+                    </div>
+                </div>
+                <table class="goals-table">
+                    <thead><tr><th>Tempo</th><th>Recompensa</th><th>Progresso</th><th>Status</th></tr></thead>
+                    <tbody id="goals-memory"></tbody>
+                </table>
+            </div>
             </div>
         </div>
 
@@ -697,29 +705,31 @@
             "como sacar": "Vá em Intercâmbio, escolha o valor, informe sua chave PIX com o tipo correto e solicite. O pagamento é processado via Asaas.",
             "intercambio": "A aba Intercâmbio é onde você solicita saques. Escolha entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Informe sua chave PIX (CPF, CNPJ, email, telefone ou aleatória) e confirme.",
             "como funciona": "O CineCash usa IA para validar anúncios. Você processa os anúncios no botão principal, a IA analisa os dados e você recebe parte do lucro em saldo real. Seu saldo atual é exibido no topo.",
-            "me mostre o site": "Claro! O site tem 4 abas: Início (processar anúncios e ver saldo), Intercâmbio (sacar via PIX), Convites (convidar amigos e ganhar bônus) e Histórico (transações).",
+            "me mostre o site": "Claro! O site tem abas: Início (processar anúncios e metas), Intercâmbio (sacar via PIX), Convites (convidar amigos e ganhar bônus), GameCash (jogar e ganhar saldo) e Histórico (transações).",
             "indicacao": "Sistema de convites: cada amigo que você convida, ao assistir 25 anúncios, rende R$ 0,20 no seu saldo. A cada 5 amigos válidos, você ganha R$ 1,00 extra de bônus!",
             "convites": "Na aba Convites você encontra seu link único para compartilhar. Cada amigo que se cadastrar e assistir 25 anúncios rende R$ 0,20. A cada 5 válidos, +R$ 1,00 de bônus.",
-            "gamecash": "No GameCash você joga Flappy Bird, 2048 e Jogo da Memória para ganhar moedas extras! Cada moeda vale R$ 0,01 e é creditada direto no seu saldo.",
-            "jogos": "Temos 3 jogos no GameCash: Flappy Bird (toque para voar), 2048 (deslize os números) e Jogo da Memória (encontre os pares). Todos pagam moedas!",
-            "flappy bird": "No Flappy Bird, toque na tela para o pássaro voar. 10 pontos = 1 moeda, 30 pontos = 3 moedas. Máximo de 10 partidas por dia.",
-            "2048": "No 2048, deslize os blocos para somar números. 512 = 2 moedas, 1024 = 5 moedas, 2048 = 10 moedas. Máximo de 5 partidas por dia.",
-            "jogo da memoria": "No Jogo da Memória, encontre todos os pares de cartas. Menos de 60s = 3 moedas, menos de 30s = 5 moedas. Máximo de 5 partidas por dia.",
-            "dúvidas": "Eu sou o Nexus, seu guia CineCash. Posso ajudar com: saques, bônus diário, convites, jogos, processar anúncios, metas, ou qualquer dúvida sobre a plataforma.",
+            "gamecash": "No GameCash você joga Flappy Bird, 2048 e Jogo da Memória para ganhar saldo! Cada jogo tem metas progressivas com recompensas em R$ creditadas direto no seu saldo. Exemplo: Flappy 10 pts = R$ 0,01, 30 pts = R$ 0,03. Veja a tabela de metas de cada jogo para saber todas as recompensas.",
+            "jogos": "Temos 3 jogos no GameCash: Flappy Bird (toque para voar), 2048 (deslize os números) e Jogo da Memória (encontre os pares). Cada jogo exibe uma tabela de metas com níveis, recompensa em R$, barra de progresso e status (Completo, Em andamento, Bloqueado).",
+            "flappy bird": "No Flappy Bird, toque na tela para o pássaro voar. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Máximo de 10 partidas por dia. O progresso é mostrado na tabela de metas.",
+            "2048": "No 2048, deslize os blocos para somar números. Metas: 512 = R$ 0,02, 1024 = R$ 0,05, 2048 = R$ 0,10. Máximo de 5 partidas por dia. O progresso é mostrado na tabela de metas.",
+            "jogo da memoria": "No Jogo da Memória, encontre todos os pares de cartas. Metas: menos de 60s = R$ 0,03, menos de 30s = R$ 0,05. Máximo de 5 partidas por dia. O progresso é mostrado na tabela de metas.",
+            "dúvidas": "Eu sou o Nexus, seu guia CineCash. Posso ajudar com: saques, bônus diário, convites, jogos, processar anúncios, metas de anúncios e de jogos, ou qualquer dúvida sobre a plataforma.",
             "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela.",
-            "saldo": "Seu saldo atual aparece no topo da página. Você ganha saldo processando anúncios, com bônus diário e com indicações de amigos.",
-            "anúncios": "Clique no botão principal 'Processar Anúncios' para ativar a IA. Cada anúncio processado equivale a uma validação da rede neural. Você pode ver seu progresso nas metas.",
+            "saldo": "Seu saldo atual aparece no topo da página. Você ganha saldo processando anúncios, com bônus diário, com indicações de amigos e jogando no GameCash.",
+            "anúncios": "Clique no botão principal 'Processar Anúncios' para ativar a IA. Cada anúncio processado equivale a uma validação da rede neural. Você pode ver seu progresso nas metas na aba Início.",
             "processar": "O botão principal 'Processar Anúncios' ativa a rede neural CyberCore para validar campanhas. Cada clique rende créditos que se acumulam em saldo real.",
             "bonus diario": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
             "bônus diário": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
-            "metas": "O sistema de metas acompanha seu progresso de anúncios processados: 150 ads → R$ 0,50 | 900 ads → R$ 3,00 | 1500 ads → R$ 5,00 | 3000 ads → R$ 10,00 | 15000 ads → R$ 50,00.",
+            "metas": "O sistema de metas acompanha seu progresso: Metas de Anúncios (150 ads → R$ 0,50 | 900 → R$ 3,00 | 1500 → R$ 5,00 | 3000 → R$ 10,00 | 15000 → R$ 50,00) na aba Início, e Metas de Jogos no GameCash com níveis de recompensa em R$ para cada jogo.",
+            "metas de anúncios": "Na aba Início, veja a tabela de metas de anúncios: 150 ads → R$ 0,50, 900 ads → R$ 3,00, 1500 ads → R$ 5,00, 3000 ads → R$ 10,00, 15000 ads → R$ 50,00. Cada meta tem barra de progresso e status.",
+            "metas de jogos": "No GameCash, cada jogo tem sua tabela de metas: Flappy Bird (10 pts → R$ 0,01, 30 pts → R$ 0,03), 2048 (512 → R$ 0,02, 1024 → R$ 0,05, 2048 → R$ 0,10), Memória (<60s → R$ 0,03, <30s → R$ 0,05). Progresso visível com barra e status.",
             "historico": "Na aba Histórico você vê todas as suas transações: saques solicitados, status (Pendente, Pago, Recusado) e bônus recebidos.",
             "pix": "Tipos de chave PIX aceitos: CPF (11 números), CNPJ (14 números), e-mail, telefone (com DDD, 10-13 dígitos) e chave aleatória (EVP - formato UUID).",
             "chave pix": "Para sacar, informe sua chave PIX no tipo correto: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (com DDD) ou chave aleatória.",
             "banido": "Se seu status for 'banido', você não pode acessar o sistema. Entre em contato com o suporte para mais informações.",
             "termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
             "aceitar termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
-            "renda": "Você ganha de 3 formas: 1) Processando anúncios (via IA CyberCore), 2) Bônus diário de R$ 0,20 (fins de semana), 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5)."
+            "renda": "Você ganha de 4 formas: 1) Processando anúncios (via IA CyberCore), 2) Bônus diário de R$ 0,20 (fins de semana), 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5), 4) Jogando no GameCash (recompensas em R$ por meta atingida)."
         };
 
         // --- SISTEMA DESPERTADOR (WAKE-UP) ---
@@ -1537,8 +1547,17 @@
                 else console.error("[CineCash] Erro: loadReferrals não está definida!");
             }
             if (id === 'gamecash') {
-                console.log("[CineCash] Chamando loadGameStats()...");
-                if (typeof loadGameStats === 'function') loadGameStats();
+                const comingSoon = document.getElementById('gamecash-coming-soon');
+                const content = document.getElementById('gamecash-content');
+                if (IS_PRODUCTION_DOMAIN) {
+                    if (comingSoon) safeClass(comingSoon, 'remove', 'hidden');
+                    if (content) safeClass(content, 'add', 'hidden');
+                } else {
+                    if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
+                    if (content) safeClass(content, 'remove', 'hidden');
+                    console.log("[CineCash] Chamando loadGameStats()...");
+                    if (typeof loadGameStats === 'function') loadGameStats();
+                }
             }
         };
 
@@ -1917,7 +1936,7 @@
                     action: () => window.switchTab('referrals', document.querySelectorAll('.nav-item')[2])
                 },
                 {
-                    msg: "No GameCash, jogue Flappy Bird, 2048 e Jogo da Memória para ganhar moedas extras! 🎮",
+                    msg: "No GameCash, jogue Flappy Bird, 2048 e Jogo da Memória para ganhar saldo! Cada jogo tem metas progressivas com recompensas em R$. 🎮",
                     action: () => window.switchTab('gamecash', document.querySelectorAll('.nav-item')[3])
                 },
                 {
@@ -2182,12 +2201,58 @@
                         if (v.totalEarned) totalEarned += v.totalEarned;
                     });
                     document.getElementById('gamecash-today-earned').textContent =
-                        `🎮 Hoje: R$ ${totalEarned.toFixed(2)}`;
+                        `🎮 Saldo de jogos: R$ ${totalEarned.toFixed(2)}`;
+
+                    // Render goals tables for each game
+                    renderGameGoals('flappy', flappy, [
+                        { tier: '10 pts', target: 10, reward: 0.01 },
+                        { tier: '30 pts', target: 30, reward: 0.03 },
+                    ]);
+                    renderGameGoals('2048', g2048, [
+                        { tier: '512', target: 512, reward: 0.02 },
+                        { tier: '1024', target: 1024, reward: 0.05 },
+                        { tier: '2048', target: 2048, reward: 0.10 },
+                    ]);
+                    renderGameGoals('memory', mem, [
+                        { tier: '< 60s', target: 60, reward: 0.03, reverse: true },
+                        { tier: '< 30s', target: 30, reward: 0.05, reverse: true },
+                    ]);
                 }, { onlyOnce: false });
             } catch (e) {
                 console.warn('[GameCash] Erro ao carregar stats:', e);
             }
         };
+
+        function renderGameGoals(gameId, stats, tiers) {
+            const tbody = document.getElementById(`goals-${gameId}`);
+            if (!tbody) return;
+            const score = gameId === 'memory' ? (stats.lastScore || 999) : (stats.lastScore || 0);
+            const plays = stats.playsToday || 0;
+            tbody.innerHTML = tiers.map(t => {
+                let completed;
+                if (t.reverse) {
+                    completed = score <= t.target;
+                } else {
+                    completed = score >= t.target;
+                }
+                const isNext = !completed;
+                let pct;
+                if (t.reverse) {
+                    pct = score >= t.target ? 100 : Math.max(0, Math.min(100, ((t.target - score) / t.target) * 100));
+                    pct = 100 - pct;
+                } else {
+                    pct = Math.min(100, (score / t.target) * 100);
+                }
+                const status = completed ? 'completed' : isNext ? 'current' : 'locked';
+                const label = completed ? '✅ Completo' : isNext ? '🎯 Em andamento' : '🔒 Bloqueado';
+                return `<tr>
+                    <td style="font-weight:700;">${t.tier}</td>
+                    <td class="goal-reward-cell">R$ ${t.reward.toFixed(2)}</td>
+                    <td><div class="goal-progress-bar"><div class="goal-progress-fill" style="width:${pct}%;background:${completed ? '#10b981' : 'var(--primary)'};"></div></div></td>
+                    <td><span class="goal-status-badge goal-status-${status}">${label}</span></td>
+                </tr>`;
+            }).join('');
+        }
 
         // --- FLAPPY BIRD ---
         function initFlappy() {
@@ -2944,7 +3009,7 @@
             if (!container) return;
             const welcome = document.createElement('div');
             welcome.className = 'cybercore-msg cybercore-msg-ai';
-            welcome.innerHTML = `Olá! Sou o <strong>Agente Nexus</strong>, seu tutor oficial CineCash. <br><br>Estou aqui para guiar você pela plataforma e garantir que sua experiência com a IA <strong>CyberCore</strong> seja lucrativa. <br><br>Deseja que eu te mostre como o sistema funciona?`;
+            welcome.innerHTML = `Olá! Sou o <strong>Agente Nexus</strong>, seu tutor oficial CineCash. <br><br>Estou aqui para guiar você pela plataforma e garantir que sua experiência com o <strong>Site CineCash</strong> seja lucrativa. <br><br>Deseja que eu te mostre como o sistema funciona?`;
             container.appendChild(welcome);
         }
 

@@ -3822,6 +3822,37 @@ body.premium-theme::before {
     transform: scale(1.02);
 }
 
+.btn-game-play-small {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--primary), #a044ff);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: inherit;
+}
+
+.btn-game-play-small:hover {
+    opacity: 0.85;
+}
+
+.gamecash-coming-soon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.gamecash-coming-soon h2 {
+    background: linear-gradient(135deg, var(--primary), #a044ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
 /* Game Overlay */
 #game-overlay {
     position: fixed;
