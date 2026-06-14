@@ -249,7 +249,7 @@
                 <button class="nav-item active" onclick="switchTab('dashboard', this)">Início</button>
                 <button class="nav-item" onclick="switchTab('withdraw', this)">Intercâmbio</button>
                 <button class="nav-item" onclick="switchTab('referrals', this)">Convites</button>
-                <button class="nav-item" onclick="switchTab('gamecash', this)">GameCash</button>
+                <button class="nav-item" id="nav-gamecash" onclick="switchTab('gamecash', this)">GameCash</button>
             </div>
             <div class="logout" onclick="logout()">
                 <i data-lucide="log-out" style="width:18px; height:18px;"></i>
@@ -827,6 +827,10 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            if (IS_PRODUCTION_DOMAIN) {
+                const navGamecash = document.getElementById('nav-gamecash');
+                if (navGamecash) navGamecash.style.display = 'none';
+            }
         });
 
         window.switchAuthMode = (mode) => {
