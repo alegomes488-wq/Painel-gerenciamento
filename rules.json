@@ -32,9 +32,10 @@
       ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
     },
     "users": {
+      ".read": "auth != null",
+      ".indexOn": ["referredBy", "status", "email"],
       "$uid": {
-        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')",
-        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')"
       }
     },
     "withdrawals": {

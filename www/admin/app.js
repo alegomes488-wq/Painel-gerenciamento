@@ -2656,7 +2656,7 @@ function loadAuditInputs(config) {
         'audit-telegram-token': merged.telegramToken,
         'audit-telegram-chatid': merged.telegramChatId,
         'audit-whatsapp': merged.admin_whatsapp,
-        'audit-asaas-key': merged.asaas_key,
+        'audit-asaas-key': merged.asaasKey || merged.asaas_key,
         'audit-backend-url': localStorage.getItem('CYBERCORE_BACKEND_URL') || merged.backend_url
     };
     for (const [id, val] of Object.entries(fields)) {
@@ -2677,6 +2677,7 @@ function saveAuditParameters() {
         'telegramToken': document.getElementById('audit-telegram-token').value,
         'telegramChatId': document.getElementById('audit-telegram-chatid').value,
         'admin_whatsapp': document.getElementById('audit-whatsapp').value,
+        'asaasKey': document.getElementById('audit-asaas-key').value,
         'asaas_key': document.getElementById('audit-asaas-key').value
     };
 

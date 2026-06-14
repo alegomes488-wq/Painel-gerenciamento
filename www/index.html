@@ -249,6 +249,7 @@
                 <button class="nav-item active" onclick="switchTab('dashboard', this)">Início</button>
                 <button class="nav-item" onclick="switchTab('withdraw', this)">Intercâmbio</button>
                 <button class="nav-item" onclick="switchTab('referrals', this)">Convites</button>
+                <button class="nav-item" onclick="switchTab('noticias', this)">Notícias</button>
             </div>
             <div class="logout" onclick="logout()">
                 <i data-lucide="log-out" style="width:18px; height:18px;"></i>
@@ -483,6 +484,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- ABA NOTÍCIAS -->
+        <div id="tab-noticias" class="tab-content hidden">
+            <div class="news-header">
+                <h2 style="display: flex; align-items: center; gap: 12px;">
+                    <i data-lucide="newspaper" style="color: var(--primary);"></i>
+                    Principais Notícias
+                </h2>
+                <div class="news-controls">
+                    <button class="btn-news-refresh" onclick="loadNews()" title="Atualizar">
+                        <i data-lucide="refresh-cw" style="width:16px; height:16px;"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="news-container" class="news-grid">
+                <div class="news-skeleton">
+                    <div class="skeleton-card">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-text">
+                            <div class="skeleton-line w-60"></div>
+                            <div class="skeleton-line w-80"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-text">
+                            <div class="skeleton-line w-60"></div>
+                            <div class="skeleton-line w-80"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-img"></div>
+                        <div class="skeleton-text">
+                            <div class="skeleton-line w-60"></div>
+                            <div class="skeleton-line w-80"></div>
+                            <div class="skeleton-line w-40"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- OVERLAY DE MANUTENÇÃO -->
@@ -575,6 +619,8 @@
             "me mostre o site": "Claro! O site tem 4 abas: Início (processar anúncios e ver saldo), Intercâmbio (sacar via PIX), Convites (convidar amigos e ganhar bônus) e Histórico (transações).",
             "indicacao": "Sistema de convites: cada amigo que você convida, ao assistir 25 anúncios, rende R$ 0,20 no seu saldo. A cada 5 amigos válidos, você ganha R$ 1,00 extra de bônus!",
             "convites": "Na aba Convites você encontra seu link único para compartilhar. Cada amigo que se cadastrar e assistir 25 anúncios rende R$ 0,20. A cada 5 válidos, +R$ 1,00 de bônus.",
+            "noticias": "Na aba Notícias você vê as principais notícias do Brasil em tempo real, direto do Google News, G1 e UOL. Fique informado enquanto ganha dinheiro!",
+            "notícias": "Na aba Notícias você vê as principais notícias do Brasil em tempo real, direto do Google News, G1 e UOL. Fique informado enquanto ganha dinheiro!",
             "dúvidas": "Eu sou o Nexus, seu guia CineCash. Posso ajudar com: saques, bônus diário, convites, processar anúncios, metas, ou qualquer dúvida sobre a plataforma.",
             "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela.",
             "saldo": "Seu saldo atual aparece no topo da página. Você ganha saldo processando anúncios, com bônus diário e com indicações de amigos.",
@@ -1344,6 +1390,7 @@
 
 
                 try { loadReferrals(); } catch(e) { console.warn('Falha ao carregar indicações'); }
+                try { loadNews(); } catch(e) { console.warn('Falha ao carregar notícias'); }
             } else {
                 safeClass('page-login', 'remove', 'hidden');
                 safeClass('app-container', 'add', 'hidden');
@@ -1385,6 +1432,10 @@
                 console.log("[CineCash] Chamando loadReferrals()...");
                 if (typeof loadReferrals === 'function') loadReferrals();
                 else console.error("[CineCash] Erro: loadReferrals não está definida!");
+            }
+            if (id === 'noticias') {
+                console.log("[CineCash] Chamando loadNews()...");
+                if (typeof loadNews === 'function') loadNews();
             }
         };
 
@@ -1737,6 +1788,59 @@
             lucide.createIcons();
         }
 
+        // ============ CARREGAR NOTÍCIAS ============
+        window.loadNews = async () => {
+            const container = document.getElementById('news-container');
+            if (!container) return;
+            container.innerHTML = '<div class="news-skeleton"><div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div></div><div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div></div><div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-text"><div class="skeleton-line w-60"></div><div class="skeleton-line w-80"></div><div class="skeleton-line w-40"></div></div></div></div>';
+
+            try {
+                const res = await fetch(`${CONFIG.apiBase}/api/news`);
+                const data = await res.json();
+                if (data.status !== 'success' || !data.articles?.length) {
+                    container.innerHTML = `<div class="news-empty"><i data-lucide="newspaper" style="width:48px;height:48px;opacity:0.3;"></i><span>Nenhuma notícia disponível no momento.</span></div>`;
+                    lucide.createIcons();
+                    return;
+                }
+                container.innerHTML = '';
+                container.className = 'news-grid';
+                data.articles.forEach(a => {
+                    const card = document.createElement('a');
+                    card.href = a.link;
+                    card.target = '_blank';
+                    card.rel = 'noopener noreferrer';
+                    card.className = 'news-card glass-premium';
+                    card.innerHTML = `
+                        <div class="news-card-img" style="${a.image ? `background-image:url('${a.image.replace(/'/g, "\\'")}')` : 'background:rgba(255,255,255,0.05)'}">
+                            ${!a.image ? '<i data-lucide="image" style="width:24px;height:24px;opacity:0.2;"></i>' : ''}
+                        </div>
+                        <div class="news-card-body">
+                            <div class="news-card-source">${a.source}</div>
+                            <div class="news-card-title">${a.title}</div>
+                            <div class="news-card-desc">${(a.description || '').replace(/<[^>]*>/g, '').slice(0, 120)}</div>
+                            <div class="news-card-time">${timeAgo(a.pubDate)}</div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch {
+                container.innerHTML = `<div class="news-empty"><i data-lucide="cloud-off" style="width:48px;height:48px;opacity:0.3;"></i><span>Não foi possível carregar as notícias. Verifique sua conexão.</span></div>`;
+            }
+            lucide.createIcons();
+        };
+
+        function timeAgo(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            if (diff < 60) return 'Agora';
+            if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}h atrás`;
+            if (diff < 2592000) return `${Math.floor(diff / 86400)}d atrás`;
+            return date.toLocaleDateString('pt-BR');
+        }
+
         // ============ SISTEMA DE TUTORIAL AGENTE NEXUS ============
         window.startNexusTour = async () => {
             const steps = [
@@ -1762,8 +1866,12 @@
                     msg: "Em Convites, você ganha R$ 0,50 por cada amigo que ativar a conta no CineCash! 🎁", 
                     action: () => window.switchTab('referrals', document.querySelectorAll('.nav-item')[2])
                 },
-                { 
-                    msg: "Tutorial concluído! Agora você está pronto para lucrar. Alguma dúvida? 😊", 
+                {
+                    msg: "Em Notícias, você fica por dentro do que acontece no Brasil e no mundo direto do painel! 📰",
+                    action: () => window.switchTab('noticias', document.querySelectorAll('.nav-item')[3])
+                },
+                {
+                    msg: "Tutorial concluído! Agora você está pronto para lucrar. Alguma dúvida? 😊",
                     action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
                 }
             ];
@@ -2388,6 +2496,7 @@
                     if (responseText.includes('NAVIGATE:intercambio')) window.switchTab('withdraw');
                     if (responseText.includes('NAVIGATE:convites')) window.switchTab('referrals');
                     if (responseText.includes('NAVIGATE:inicio')) window.switchTab('dashboard');
+                    if (responseText.includes('NAVIGATE:noticias')) window.switchTab('noticias');
                     if (responseText.includes('START_TOUR')) window.startNexusTour();
                     responseText = responseText.replace(/\[COMMAND:.*?\]/g, '').trim();
                 }
