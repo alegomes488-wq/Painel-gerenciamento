@@ -470,47 +470,6 @@ def health():
         "app_mounted": os.path.exists(WWW_PATH)
     }
 
-@app.get("/api/news")
-async def get_news():
-    """Busca notícias recentes do Brasil via RSS"""
-    import xml.etree.ElementTree as ET
-
-    sources = [
-        ("https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-br", "Google News"),
-        ("https://g1.globo.com/rss/g1/", "G1"),
-        ("https://rss.uol.com.br/feed/noticias.xml", "UOL"),
-    ]
-
-    for url, name in sources:
-        try:
-            resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
-            if resp.status_code != 200:
-                continue
-            root = ET.fromstring(resp.content)
-            articles = []
-            for item in root.iter("item"):
-                title = (item.findtext("title") or "")
-                link = (item.findtext("link") or "")
-                desc = (item.findtext("description") or "")
-                pub = (item.findtext("pubDate") or "")
-
-                media = item.find(".//{http://search.yahoo.com/mrss/}content")
-                img = media.get("url", "") if media is not None else ""
-
-                articles.append({
-                    "title": title,
-                    "link": link,
-                    "description": desc,
-                    "pubDate": pub,
-                    "image": img,
-                    "source": name,
-                })
-            if articles:
-                return {"status": "success", "articles": articles[:20]}
-        except:
-            continue
-    return {"status": "error", "articles": [], "message": "Nenhuma fonte disponível"}
-
 @app.get("/api/metrics")
 async def api_metrics():
     try:
