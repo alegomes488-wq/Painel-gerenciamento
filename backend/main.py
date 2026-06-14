@@ -2527,6 +2527,50 @@ async def heartbeat(data: dict = Body(default={"source": "direct_access"})):
     except:
         return {"ok": False, "error": "Firebase logic failed"}
 
+@app.post("/api/game/reward/{uid}")
+async def game_reward(uid: str, data: dict = Body(...)):
+    """Credita recompensa de jogo ao saldo do usuário"""
+    game_id = data.get("gameId", "")
+    score = data.get("score", 0)
+    reward = float(data.get("reward", 0))
+
+    if reward <= 0 or not game_id:
+        return {"status": "error", "message": "Recompensa inválida"}
+
+    user_ref = db.reference(f'users/{uid}')
+    user = user_ref.get()
+    if not user:
+        return {"status": "error", "message": "Usuário não encontrado"}
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    games_data = user.get('games', {})
+    game_data = games_data.get(game_id, {})
+    last_date = game_data.get('lastDate', '')
+    plays_today = game_data.get('playsToday', 0) if last_date == today else 0
+
+    max_plays = {"flappy": 10, "2048": 5, "memory": 5}
+    max_play = max_plays.get(game_id, 10)
+
+    if plays_today >= max_play:
+        return {"status": "error", "message": f"Limite diário de {max_play} partidas atingido"}
+
+    total_earned = game_data.get('totalEarned', 0)
+    if last_date != today:
+        total_earned = 0
+        plays_today = 0
+
+    new_balance = float(user.get('balance', 0)) + reward
+
+    user_ref.update({
+        'balance': new_balance,
+        f'games/{game_id}/playsToday': plays_today + 1,
+        f'games/{game_id}/lastDate': today,
+        f'games/{game_id}/lastScore': score,
+        f'games/{game_id}/totalEarned': total_earned + reward,
+    })
+
+    return {"status": "success", "balance": new_balance, "reward": reward}
+
 # --- PAINEL GERENCIAMENTO INTEGRATION ---
 @app.post("/api/cybercore/heartbeat")
 async def painel_heartbeat():
