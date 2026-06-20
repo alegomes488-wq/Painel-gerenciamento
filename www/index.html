@@ -843,10 +843,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
-            if (IS_PRODUCTION_DOMAIN) {
-                const navGamecash = document.getElementById('nav-gamecash');
-                if (navGamecash) navGamecash.style.display = 'none';
-            }
         });
 
         window.switchAuthMode = (mode) => {
@@ -1592,15 +1588,10 @@
             if (id === 'gamecash') {
                 const comingSoon = document.getElementById('gamecash-coming-soon');
                 const content = document.getElementById('gamecash-content');
-                if (IS_PRODUCTION_DOMAIN) {
-                    if (comingSoon) safeClass(comingSoon, 'remove', 'hidden');
-                    if (content) safeClass(content, 'add', 'hidden');
-                } else {
-                    if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
-                    if (content) safeClass(content, 'remove', 'hidden');
-                    console.log("[CineCash] Chamando loadGameStats()...");
-                    if (typeof loadGameStats === 'function') loadGameStats();
-                }
+                if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
+                if (content) safeClass(content, 'remove', 'hidden');
+                console.log("[CineCash] Chamando loadGameStats()...");
+                if (typeof loadGameStats === 'function') loadGameStats();
             }
         };
 
