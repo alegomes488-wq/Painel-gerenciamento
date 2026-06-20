@@ -826,10 +826,10 @@
             }
         }
 
-        // Monitoramento de Modo Manutenção (Global)
+        // Monitoramento de Modo Manutenção (Global) — só ativa em produção
         onValue(ref(db, 'config/maintenance'), (snapshot) => {
             const isMaintenance = snapshot.val();
-            if (isMaintenance) {
+            if (isMaintenance && IS_PRODUCTION_DOMAIN) {
                 safeClass('maintenance-overlay', 'remove', 'hidden');
                 lucide.createIcons();
             } else {
