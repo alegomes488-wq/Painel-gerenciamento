@@ -17,7 +17,7 @@
     },
     "cybercore_memory": {
       ".read": "auth != null",
-      ".write": "auth != null"
+      ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
     },
     "neural": {
       ".read": "auth != null && (auth.token.email === 'alegomes488@gmail.com')",
@@ -32,15 +32,16 @@
       ".write": "auth != null && auth.token.email === 'alegomes488@gmail.com'"
     },
     "users": {
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
       ".indexOn": ["referredBy", "status", "email"],
       "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')",
         ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')"
       }
     },
     "withdrawals": {
       ".indexOn": ["uid", "status"],
-      ".read": "auth != null",
+      ".read": "auth != null && auth.token.email === 'alegomes488@gmail.com'",
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'alegomes488@gmail.com')",
         "$wid": {

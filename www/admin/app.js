@@ -243,7 +243,7 @@ let rtState = {
     stock: {}
 };
 
-let _withdrawalFilter = 'pending';
+let _withdrawalFilter = 'all';
 let lastWithdrawCount = 0;
 let _pendingWrite = false;
 
@@ -640,77 +640,8 @@ function renderCmdProjectsTable() {
 }
 
 function cmdGerarEquipe() {
-    const name = document.getElementById('cmd-project-name').value.trim();
-    const type = document.getElementById('cmd-project-type').value;
-    const desc = document.getElementById('cmd-project-desc').value.trim();
-    
-    if (!name || !desc) {
-        return showToast("Preencha o nome e o objetivo do projeto.", "error");
-    }
-    
-    showToast(`🤖 Gerando equipe para o projeto: ${name}...`, "info");
-    
-    const list = document.getElementById('cmd-suggested-team-list');
-    list.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#a855f7">●</span> Builder</span>
-            <span style="color:#10b981">✓</span>
-        </div>
-    `;
-    
-    if (type === 'android') {
-        list.innerHTML += `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-                <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#84cc16">●</span> Java Core</span>
-                <span style="color:#10b981">✓</span>
-            </div>
-        `;
-    } else if (type === 'website' || type === 'api') {
-        list.innerHTML += `
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-                <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#3b82f6">●</span> FullStack</span>
-                <span style="color:#10b981">✓</span>
-            </div>
-        `;
-    }
-    
-    list.innerHTML += `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#ec4899">●</span> Designer</span>
-            <span style="color:#10b981">✓</span>
-        </div>
-    `;
-    
-    const projectId = 'PRJ' + Date.now().toString(36).toUpperCase();
-    const projectData = {
-        id: projectId,
-        name: name,
-        type: type,
-        identifier: type === 'website' ? `https://${name.toLowerCase().replace(/\s+/g, '')}.com` : `com.empresa.${name.toLowerCase().replace(/\s+/g, '')}`,
-        framework: type === 'website' ? 'React' : type === 'android' ? 'Android SDK / Kotlin' : 'REST API / Node.js',
-        addedAt: new Date().toISOString()
-    };
-    
-    fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: projectId, data: projectData })
-    })
-    .then(r => r.json())
-    .then(resp => {
-        if (resp.status === 'success') {
-            showToast(`Projeto '${name}' criado e adicionado ao painel!`, "success");
-
-            // Invoca o Studio para gerar os arquivos base
-            showPanel('studio');
-            document.getElementById('studio-prompt').value = `Scaffold inicial para o projeto ${name} (${type}): ${desc}`;
-            selectAgent(type === 'android' ? 'JAVA' : (type === 'python' ? 'PYTHON' : 'BUILDER'));
-            setTimeout(generateTeam, 1000);
-
-            document.getElementById('cmd-project-name').value = '';
-            document.getElementById('cmd-project-desc').value = '';
-        }
-    });
+    showToast("🚀 Vá na aba Studio para criar um novo projeto com a equipe completa!", "info");
+    showPanel('studio');
 }
 
 function sendCmdOrchestratorCommand() {
@@ -1896,30 +1827,59 @@ function renderWithdrawalsTable() {
     const tbody = document.getElementById('withdrawals-table-body');
     if (!tbody) return;
     let html = '';
-    let totalPending = 0;
+    let totalValue = 0;
 
-    Object.entries(rtState.history).forEach(([uid, userWs]) => {
+    // Converte para array e ordena por timestamp (mais recentes primeiro)
+    const allWithdrawals = [];
+    Object.entries(rtState.history || {}).forEach(([uid, userWs]) => {
+        if (typeof userWs !== 'object') return;
         Object.entries(userWs).forEach(([wid, w]) => {
-            if (w.status !== _withdrawalFilter) return;
-            if (w.status === 'pending') totalPending += parseFloat(w.amount || 0);
-            html += `
-                <tr>
-                    <td><strong>${w.fullname || 'Usuário'}</strong></td>
-                    <td class="font-mono">${w.pixKey || '-'}</td>
-                    <td style="font-weight:800">R$ ${parseFloat(w.amount || 0).toFixed(2)}</td>
-                    <td><span class="badge status-${w.status}">${w.status.toUpperCase()}</span></td>
-                    <td>
-                        ${w.status === 'pending' ? `
-                            <button class="btn-table-action" style="background:#10b981; color:white" onclick="approveWithdrawal('${uid}', '${wid}')">PAGAR</button>
-                            <button class="btn-table-action" style="color:#ef4444" onclick="rejectWithdrawal('${uid}', '${wid}')">RECUSAR</button>
-                        ` : '<small opacity="0.5">Finalizado</small>'}
-                    </td>
-                </tr>
-            `;
+            allWithdrawals.push({ ...w, uid, wid });
         });
     });
-    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:20px; opacity:0.3;">Vazio.</td></tr>';
-    updateEl('total-pendente-display', `R$ ${totalPending.toFixed(2)}`);
+
+    allWithdrawals.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    allWithdrawals.forEach(w => {
+        if (_withdrawalFilter !== 'all' && w.status !== _withdrawalFilter) return;
+
+        const amount = parseFloat(w.amount || 0);
+        totalValue += amount;
+
+        // Tenta pegar o nome do objeto do saque ou do cache de usuários
+        const userName = w.fullname || (rtState.users[w.uid] ? rtState.users[w.uid].fullname : 'Usuário Desconhecido');
+
+        html += `
+            <tr class="fade-in">
+                <td>
+                    <div style="display:flex; flex-direction:column">
+                        <span style="font-weight:800; color:var(--text-primary)">${userName}</span>
+                        <small style="font-size:9px; opacity:0.5; color:var(--primary)">ID: ${w.uid.substring(0,8)}...</small>
+                    </div>
+                </td>
+                <td class="font-mono" style="font-size:12px; color:var(--text-secondary)">${w.pixKey || '-'}</td>
+                <td style="font-weight:800; color:var(--primary)">R$ ${amount.toFixed(2)}</td>
+                <td><span class="badge status-${w.status}" style="font-size:9px;">${w.status.toUpperCase()}</span></td>
+                <td>
+                    <div style="display:flex; gap:8px;">
+                        ${w.status === 'pending' ? `
+                            <button class="btn-table-action" style="background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="approveWithdrawal('${w.uid}', '${w.wid}')">PAGAR</button>
+                            <button class="btn-table-action" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="rejectWithdrawal('${w.uid}', '${w.wid}')">RECUSAR</button>
+                        ` : `
+                            <small style="opacity:0.4; font-size:10px;">Finalizado em ${w.processed_at ? new Date(w.processed_at).toLocaleDateString() : 'N/A'}</small>
+                        `}
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:40px; opacity:0.3;">Nenhuma solicitação encontrada nesta categoria.</td></tr>';
+
+    const displayTotal = document.getElementById('total-pendente-display');
+    if (displayTotal) {
+        displayTotal.innerHTML = `R$ ${totalValue.toFixed(2)}`;
+    }
 }
 
 // ============ AGENTES & TERMINAL PREMIUM ============

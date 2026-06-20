@@ -2376,6 +2376,26 @@ async def resolve_referral_slug(slug: str):
     except Exception as e:
         return {"status": "error", "message": f"Erro ao resolver link: {str(e)}"}
 
+@app.get("/api/referral/list/{uid}")
+async def list_referrals(uid: str):
+    """Retorna usuários que se cadastraram usando o link de indicação do usuário."""
+    try:
+        users_ref = db.reference('users')
+        all_users = users_ref.order_by_child('referredBy').equal_to(uid).get() or {}
+        result = []
+        for ref_uid, data in all_users.items():
+            if isinstance(data, dict):
+                result.append({
+                    "uid": ref_uid,
+                    "fullname": data.get("fullname") or data.get("firstname") or "Usuário",
+                    "username": data.get("username") or "",
+                    "videosWatched": data.get("videosWatched", 0),
+                    "status": data.get("status", "ativo")
+                })
+        return {"status": "success", "referrals": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.post("/video/complete/{uid}")
 async def video_complete(uid: str):
     try:
@@ -2394,12 +2414,25 @@ async def video_complete(uid: str):
                 user_ref.update({"risk_score": risk})
                 return {"status": "error", "message": "Processamento muito rápido. Aguarde o tempo da IA."}
 
-        # Incrementa saldo (R$ 0.15) e contador de vídeos
+        # Incrementa contador de vídeos (sem crédito por vídeo — recompensa é por metas)
         current_balance = float(user_data.get('balance', 0))
         current_videos = int(user_data.get('videosWatched', 0))
 
-        new_balance = current_balance + 0.15
         new_videos = current_videos + 1
+
+        # Verifica se atingiu uma meta e credita a recompensa
+        milestones = [500, 2000, 5000, 10000, 25000]
+        rewards = [0.25, 0.50, 1.00, 2.00, 3.50]
+        claimed = user_data.get('milestones', {})
+        reward_total = 0
+
+        for i, milestone in enumerate(milestones):
+            m_key = str(milestone)
+            if new_videos >= milestone and not claimed.get(m_key):
+                reward_total += rewards[i]
+                claimed[m_key] = True
+
+        new_balance = current_balance + reward_total
 
         # Sistema de Indicação: Ao atingir 25 anúncios, o padrinho ganha R$ 0,20 + bônus a cada 5 indicados
         if new_videos == 25:
@@ -2441,13 +2474,17 @@ async def video_complete(uid: str):
                     }
                     db.reference('logs/referrals').push(log_data)
 
-        user_ref.update({
+        update_data = {
             "balance": new_balance,
             "videosWatched": new_videos,
             "last_video_at": datetime.now().isoformat()
-        })
+        }
+        if reward_total > 0:
+            update_data["milestones"] = claimed
 
-        return {"status": "success", "new_balance": new_balance, "videos_count": new_videos}
+        user_ref.update(update_data)
+
+        return {"status": "success", "new_balance": new_balance, "videos_count": new_videos, "milestone_reward": reward_total}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2498,6 +2535,7 @@ async def request_withdrawal(uid: str, data: dict = Body(...)):
             "timestamp": ts,
             "created_at": datetime.now().isoformat(),
             "uid": uid,
+            "fullname": user_data.get('fullname', 'Usuário Cyber'),
             "projectId": project_id,
             "fingerprint": data.get("fingerprint", "unknown"),
             "fp_detail": data.get("fp_detail", {})

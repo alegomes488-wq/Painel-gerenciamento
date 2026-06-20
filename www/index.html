@@ -549,25 +549,6 @@
                 </table>
             </div>
 
-            <!-- 2048 -->
-            <div class="goals-section glass-premium">
-                <div class="goals-header" style="justify-content:space-between;">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:1.5rem;">🔢</span>
-                        <span>2048</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;font-size:0.7rem;">
-                        <span>🏆 <span id="g2048-best">0</span></span>
-                        <span>📅 <span id="g2048-plays">0</span>/5</span>
-                        <button class="btn-game-play-small" onclick="openGame('2048')">JOGAR</button>
-                    </div>
-                </div>
-                <table class="goals-table">
-                    <thead><tr><th>Peça Máxima</th><th>Recompensa</th><th>Progresso</th><th>Status</th></tr></thead>
-                    <tbody id="goals-2048"></tbody>
-                </table>
-            </div>
-
             <!-- MEMÓRIA -->
             <div class="goals-section glass-premium">
                 <div class="goals-header" style="justify-content:space-between;">
@@ -628,6 +609,7 @@
     <!-- OVERLAY DE VALIDAÇÃO NEURAL (OFFLINE-READY) -->
     <div id="video-overlay" class="hidden">
         <div class="timer-badge">
+            <span class="timer-icon">⚡</span>
             SINCRO IA: <span id="timer">30</span>s
         </div>
 
@@ -635,14 +617,22 @@
             <div class="neural-ring"></div>
             <div class="neural-ring"></div>
             <div class="neural-core"></div>
-            <span style="font-size: 5rem; z-index: 3;">🧠</span>
+            <div class="neural-brain">🧠</div>
         </div>
 
-        <div class="neural-status-text">Validando Sessão</div>
-
-        <div style="position: absolute; bottom: 50px; width: 80%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;">
-            <div id="progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: 1s linear;"></div>
+        <div class="neural-status-wrapper">
+            <div class="neural-status-text" id="neural-status-text">Validando Sessão</div>
+            <div class="neural-sub-status" id="neural-sub-status">Conectando à rede neural...</div>
         </div>
+
+        <div class="progress-wrap">
+            <div class="progress-track">
+                <div id="progress-bar" class="progress-fill"></div>
+            </div>
+            <div class="progress-pulse"></div>
+        </div>
+
+        <div class="particles-container" id="particles-container"></div>
     </div>
 
     <!-- IA CYBERCORE (CHAT FLUTUANTE PREMIUM - AGENTE NEXUS) -->
@@ -700,36 +690,69 @@
         const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space');
         const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
 
+        const NEXUS_PERSONALITY = {
+            greetings: [
+                'Fala aí! 😄',
+                'Opa! Tudo bem? 👋',
+                'E aí, beleza? 🔥',
+                'Fala, meu querido! 🚀',
+                'Oie! 💜',
+            ],
+            reactions: {
+                positive: ['Boa demais! 🎉', 'Aí sim em! 🔥', 'Mandou bem! 👊', 'Isso aí! 💪', 'Maravilha! 🌟'],
+                thinking: ['Deixa eu ver aqui... 🤔', 'Perai, vou pesquisar... 🧐', 'Boa pergunta! Deixa eu checar... 📋'],
+                celebrate: ['Uhul! 🎊', 'Consegui! 😎', 'Prontinho! ✨'],
+                casual: ['Cara', 'Cara,', 'Cara,', 'Rapaz,', 'Mano,', 'Mano,', 'Vish,', 'Pois é,', 'Então,', 'Olha,']
+            }
+        };
+
+        let NEXUS_USER_DATA = { name: null, balance: 0, uid: null };
+
+        function nexusSpeak(text) {
+            const casual = NEXUS_PERSONALITY.reactions.casual;
+            const prefix = Math.random() < 0.35 ? casual[Math.floor(Math.random() * casual.length)] + ' ' : '';
+            return prefix + text;
+        }
+
+        function nexusReact(type) {
+            const arr = NEXUS_PERSONALITY.reactions[type] || NEXUS_PERSONALITY.reactions.positive;
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function nexusGreet() {
+            const arr = NEXUS_PERSONALITY.greetings;
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
         const NEXUS_KNOWLEDGE = {
-            "sacar": "Para sacar, vá na aba 'Intercâmbio', insira sua chave PIX e solicite. Valores disponíveis: R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 e R$ 50,00. Mínimo de saque: R$ 0,50. Tipos de chave: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (10-13 dígitos) ou chave aleatória (EVP).",
-            "como sacar": "Vá em Intercâmbio, escolha o valor, informe sua chave PIX com o tipo correto e solicite. O pagamento é processado via Asaas.",
-            "intercambio": "A aba Intercâmbio é onde você solicita saques. Escolha entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Informe sua chave PIX (CPF, CNPJ, email, telefone ou aleatória) e confirme.",
-            "como funciona": "O CineCash usa IA para validar anúncios. Você processa os anúncios no botão principal, a IA analisa os dados e você recebe parte do lucro em saldo real. Seu saldo atual é exibido no topo.",
-            "me mostre o site": "Claro! O site tem abas: Início (processar anúncios e metas), Intercâmbio (sacar via PIX), Convites (convidar amigos e ganhar bônus), GameCash (jogar e ganhar saldo) e Histórico (transações).",
-            "indicacao": "Sistema de convites: cada amigo que você convida, ao assistir 25 anúncios, rende R$ 0,20 no seu saldo. A cada 5 amigos válidos, você ganha R$ 1,00 extra de bônus!",
-            "convites": "Na aba Convites você encontra seu link único para compartilhar. Cada amigo que se cadastrar e assistir 25 anúncios rende R$ 0,20. A cada 5 válidos, +R$ 1,00 de bônus.",
-            "gamecash": "No GameCash você joga Flappy Bird, 2048 e Jogo da Memória para ganhar saldo! Cada jogo tem metas progressivas com recompensas em R$ creditadas direto no seu saldo. Exemplo: Flappy 10 pts = R$ 0,01, 30 pts = R$ 0,03. Veja a tabela de metas de cada jogo para saber todas as recompensas.",
-            "jogos": "Temos 3 jogos no GameCash: Flappy Bird (toque para voar), 2048 (deslize os números) e Jogo da Memória (encontre os pares). Cada jogo exibe uma tabela de metas com níveis, recompensa em R$, barra de progresso e status (Completo, Em andamento, Bloqueado).",
-            "flappy bird": "No Flappy Bird, toque na tela para o pássaro voar. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Máximo de 10 partidas por dia. O progresso é mostrado na tabela de metas.",
-            "2048": "No 2048, deslize os blocos para somar números. Metas: 512 = R$ 0,02, 1024 = R$ 0,05, 2048 = R$ 0,10. Máximo de 5 partidas por dia. O progresso é mostrado na tabela de metas.",
-            "jogo da memoria": "No Jogo da Memória, encontre todos os pares de cartas. Metas: menos de 60s = R$ 0,03, menos de 30s = R$ 0,05. Máximo de 5 partidas por dia. O progresso é mostrado na tabela de metas.",
-            "dúvidas": "Eu sou o Nexus, seu guia CineCash. Posso ajudar com: saques, bônus diário, convites, jogos, processar anúncios, metas de anúncios e de jogos, ou qualquer dúvida sobre a plataforma.",
-            "tour": "Iniciando tour guiado... Observe os elementos destacados na sua tela.",
-            "saldo": "Seu saldo atual aparece no topo da página. Você ganha saldo processando anúncios, com bônus diário, com indicações de amigos e jogando no GameCash.",
-            "anúncios": "Clique no botão principal 'Processar Anúncios' para ativar a IA. Cada anúncio processado equivale a uma validação da rede neural. Você pode ver seu progresso nas metas na aba Início.",
-            "processar": "O botão principal 'Processar Anúncios' ativa a rede neural CyberCore para validar campanhas. Cada clique rende créditos que se acumulam em saldo real.",
-            "bonus diario": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
-            "bônus diário": "O bônus diário de R$ 0,20 está disponível nos finais de semana (sábado e domingo). Vá na aba Início e clique em 'COLETAR BÔNUS'. Disponível 1 vez por dia.",
-            "metas": "O sistema de metas acompanha seu progresso: Metas de Anúncios (150 ads → R$ 0,50 | 900 → R$ 3,00 | 1500 → R$ 5,00 | 3000 → R$ 10,00 | 15000 → R$ 50,00) na aba Início, e Metas de Jogos no GameCash com níveis de recompensa em R$ para cada jogo.",
-            "metas de anúncios": "Na aba Início, veja a tabela de metas de anúncios: 150 ads → R$ 0,50, 900 ads → R$ 3,00, 1500 ads → R$ 5,00, 3000 ads → R$ 10,00, 15000 ads → R$ 50,00. Cada meta tem barra de progresso e status.",
-            "metas de jogos": "No GameCash, cada jogo tem sua tabela de metas: Flappy Bird (10 pts → R$ 0,01, 30 pts → R$ 0,03), 2048 (512 → R$ 0,02, 1024 → R$ 0,05, 2048 → R$ 0,10), Memória (<60s → R$ 0,03, <30s → R$ 0,05). Progresso visível com barra e status.",
-            "historico": "Na aba Histórico você vê todas as suas transações: saques solicitados, status (Pendente, Pago, Recusado) e bônus recebidos.",
-            "pix": "Tipos de chave PIX aceitos: CPF (11 números), CNPJ (14 números), e-mail, telefone (com DDD, 10-13 dígitos) e chave aleatória (EVP - formato UUID).",
-            "chave pix": "Para sacar, informe sua chave PIX no tipo correto: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (com DDD) ou chave aleatória.",
-            "banido": "Se seu status for 'banido', você não pode acessar o sistema. Entre em contato com o suporte para mais informações.",
-            "termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
-            "aceitar termos": "Você precisa aceitar os Termos de Uso e Política de Privacidade para usar o CineCash. O modal aparece no primeiro acesso.",
-            "renda": "Você ganha de 4 formas: 1) Processando anúncios (via IA CyberCore), 2) Bônus diário de R$ 0,20 (fins de semana), 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5), 4) Jogando no GameCash (recompensas em R$ por meta atingida)."
+            "sacar": "Claro! Pra sacar é super tranquilo: vai na aba **Intercâmbio**, escolhe o valor que quer sacar (R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00), informa sua chave PIX com o tipo certinho e pronto! O pagamento cai rapidinho via Asaas. 😉",
+            "como sacar": "É facinho! Abre a aba Intercâmbio, escolhe o valor, coloca sua chave PIX (CPF, email, telefone, etc) com o tipo certo e confirma. O Asaas processa pra você! 💰",
+            "intercambio": "A aba Intercâmbio é onde você faz o saque do seu saldo! Pode escolher entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Só precisa informar sua chave PIX direitinho e confirmar. Simples, né? 😄",
+            "como funciona": "O CineCash usa inteligência artificial pra validar anúncios! Você clica no botão principal, a IA CyberCore processa os dados e você recebe parte do lucro em saldo de verdade. Quanto mais anúncios, mais você ganha! 🚀",
+            "me mostre o site": "Claro! Vou te dar um tour rapidinho: temos a aba **Início** (processar anúncios e ver metas), **Intercâmbio** (sacar via PIX), **Convites** (chamar amigos e ganhar bônus), **GameCash** (jogar e ganhar saldo) e **Histórico** (suas transações). Qual te interessa? 😊",
+            "indicacao": "Ah, o sistema de convites é sensacional! Cada amigo que você indica e se cadastra, depois que ele assiste 25 anúncios, você ganha R$ 0,20! E mais: a cada 5 amigos que atingem isso, você leva R$ 1,00 extra de bônus! É gain demais! 🎁",
+            "convites": "Bora indicar amigos! Na aba Convites tem seu link exclusivo pra compartilhar. Cada amigo que entra pelo seu link e assiste 25 anúncios rende R$ 0,20 no seu bolso. E de 5 em 5 amigos válidos, ainda ganha R$ 1,00 de bônus! 😎",
+            "gamecash": "GameCash é diversão que vira dinheiro! 🎮 Temos 2 jogos: **Flappy Bird** e **Jogo da Memória**. Cada jogo tem metas com recompensas em R$ que caem direto no seu saldo. Por exemplo: Flappy 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá uma olhada na tabela de metas de cada jogo!",
+            "jogos": "Temos 2 jogos irados no GameCash: **Flappy Bird** (pura adrenalina) e **Jogo da Memória** (teste sua memória). Todos com metas progressivas e recompensa em dinheiro de verdade! 🎯",
+            "flappy bird": "Flappy Bird é viciante! 🐦 É só tocar na tela pro pássaro voar e passar pelos obstáculos. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá pra jogar até 10 partidas por dia. Bora bater esse recorde? 🔥",
+            "jogo da memoria": "Jogo da Memória é encontrar todos os pares de cartas no menor tempo! 🧠 Metas: menos de 60 segundos = R$ 0,03, menos de 30 segundos = R$ 0,05. Máximo de 5 partidas por dia. Qual seu tempo recorde? ⏱️",
+            "dúvidas": "Pode perguntar à vontade! Posso ajudar com: saques no Intercâmbio, bônus diário, convites e indicações, jogos do GameCash, processamento de anúncios, metas de anúncios e de jogos... é só falar! 💬",
+            "tour": "Bora fazer um tour guiado! Fica de olho nos elementos que vou destacar na tela pra você conhecer tudo. 🚀",
+            "saldo": "Seu saldo atual aparece lá no topo da página! Você acumula ele de várias formas: processando anúncios, coletando bônus diário, indicando amigos e jogando no GameCash. Quanto mais você participa, mais ele cresce! 📈",
+            "anúncios": "Os anúncios são processados pelo botão principal 'Processar Anúncios'. A IA CyberCore ativa e valida cada campanha. Dá pra acompanhar seu progresso nas metas na aba Início! Cada anúncio conta! 🎬",
+            "processar": "É só clicar no botão 'Processar Anúncios' que a IA CyberCore entra em ação! Cada clique valida campanhas e acumula créditos que viram saldo real. Quanto mais clicar, mais ganhar! ⚡",
+            "bonus diario": "Final de semana tem bônus! 🎉 Sábado e domingo você pode coletar R$ 0,20 de bônus diário na aba Início, só clicar em 'COLETAR BÔNUS'. Mas atenção: só vale 1 vez por dia, hein!",
+            "bônus diário": "Final de semana é dia de bônus! 🤑 Sábado e domingo, vai na aba Início e clica em 'COLETAR BÔNUS' pra ganhar R$ 0,20. Disponível uma vez por dia!",
+            "metas": "Temos dois tipos de metas: as **Metas de Anúncios** (na aba Início) e as **Metas de Jogos** (no GameCash)! Nas de anúncios: 500 ads → R$ 0,25, 2.000 → R$ 0,50, 5.000 → R$ 1,00, 10.000 → R$ 2,00, 25.000 → R$ 3,50. Nos jogos, cada um tem suas próprias metas com recompensas em R$! 🎯",
+            "metas de anúncios": "Na aba Início você encontra a tabela de metas de anúncios: 500 ads → R$ 0,25, 2.000 ads → R$ 0,50, 5.000 ads → R$ 1,00, 10.000 ads → R$ 2,00, 25.000 ads → R$ 3,50. Cada uma tem barra de progresso e status! Completo, Em andamento ou Bloqueado. ✅",
+            "metas de jogos": "No GameCash, cada jogo tem sua própria tabela de metas: Flappy Bird (10 pts → R$ 0,01 e 30 pts → R$ 0,03) e Memória (<60s → R$ 0,03, <30s → R$ 0,05). Tudo com barra de progresso e status! 🎮",
+            "historico": "Na aba Histórico você consegue ver todas as suas transações: saques que pediu com o status (Pendente, Pago ou Recusado), bônus que recebeu... tudo organizadinho! 📋",
+            "pix": "Os tipos de chave PIX que aceitamos: **CPF** (11 números), **CNPJ** (14 números), **e-mail**, **telefone** (com DDD, 10 a 13 dígitos) ou **chave aleatória** (EVP - formato UUID). Escolhe a sua e bora sacar! 💸",
+            "chave pix": "Pra sacar, você precisa informar sua chave PIX no tipo certo: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (com DDD) ou chave aleatória (EVP). Fácil, né? 😊",
+            "banido": "Poxa, se seu status está como 'banido' infelizmente você não consegue acessar o sistema. Recomendo entrar em contato com o suporte pra entender o que aconteceu. 😕",
+            "termos": "Pra usar o CineCash, você precisa aceitar os Termos de Uso e a Política de Privacidade. O modal aparece automaticamente no seu primeiro acesso! ✅",
+            "aceitar termos": "Só aceitar os Termos de Uso e Política de Privacidade que aparecem no primeiro acesso e pronto! Sem isso não dá pra usar a plataforma. 📝",
+            "renda": "Você ganha dinheiro de **4 formas** aqui: 1) Processando anúncios com a IA CyberCore, 2) Bônus diário de R$ 0,20 nos fins de semana, 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5), 4) Jogando no GameCash (recompensas em R$ por meta). É gain demais! 🔥"
         };
 
         // --- SISTEMA DESPERTADOR (WAKE-UP) ---
@@ -814,14 +837,7 @@
             }
         });
 
-        // Controle de Exibição de Anúncios
-        let adsEnabled = true;
-        onValue(ref(db, 'config/adsEnabled'), (snap) => {
-            adsEnabled = snap.val() !== false;
-            console.log('[Ads] Enabled:', adsEnabled);
-        });
-
-
+        // ============ USER / BONUS / FINGERPRINT ============
         let _user = null;
         let _bonusClaimedToday = false;
 
@@ -1158,7 +1174,7 @@
                             referredBy = refData.uid;
                         } else {
                             console.warn("[CineCash] Slug de indicação inválido ou expirado.");
-                            referredBy = null; // Limpa para evitar lixo no banco
+                            referredBy = null;
                         }
                     } catch (e) {
                         console.warn("[CineCash] Falha ao conectar ao resolvedor de slugs:", e);
@@ -1169,32 +1185,42 @@
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
 
-                await set(ref(db, `users/${uid}`), {
-                    fullname: `${fname} ${lname}`,
-                    firstname: fname,
-                    lastname: lname,
-                    username: username,
-                    email: email,
-                    balance: 0,
-                    videosWatched: 0,
-                    referralCount: 0,
-                    status: "ativo",
-                    createdAt: serverTimestamp(),
-                    referredBy: referredBy,
-                    security: {
-                        fingerprint: fingerprint,
-                        device_info: navigator.userAgent,
-                        fp_detail: fpData,
-                        ip_check_required: false
-                    },
-                    legal_acceptance: {
-                        accepted: true,
-                        timestamp: serverTimestamp(),
-                        version: "2.0.4",
-                        platform: "CineCash Web Hub Registration",
-                        fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
+                try {
+                    await set(ref(db, `users/${uid}`), {
+                        fullname: `${fname} ${lname}`,
+                        firstname: fname,
+                        lastname: lname,
+                        username: username,
+                        email: email,
+                        balance: 0,
+                        videosWatched: 0,
+                        referralCount: 0,
+                        status: "ativo",
+                        createdAt: serverTimestamp(),
+                        referredBy: referredBy,
+                        security: {
+                            fingerprint: fingerprint,
+                            device_info: navigator.userAgent,
+                            fp_detail: fpData,
+                            ip_check_required: false
+                        },
+                        legal_acceptance: {
+                            accepted: true,
+                            timestamp: serverTimestamp(),
+                            version: "2.0.4",
+                            platform: "CineCash Web Hub Registration",
+                            fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
+                        }
+                    });
+                } catch (dbErr) {
+                    console.error("[CineCash] Falha ao salvar dados no DB, removendo conta do Auth:", dbErr);
+                    try { await auth.currentUser?.delete(); } catch (delErr) {
+                        console.error("[CineCash] Falha ao remover conta órfã do Auth:", delErr);
                     }
-                });
+                    if(dbErr.code === 'PERMISSION_DENIED') showToast("Erro de permissão ao criar conta.");
+                    else showToast("Erro ao criar conta. Tente novamente.");
+                    return;
+                }
 
                 showToast("Conta VIP criada com sucesso!");
             } catch (err) {
@@ -1331,18 +1357,20 @@
             }
 
             const vids = _user.videosWatched || 0;
-            const goals = [150, 900, 1500, 3000, 15000];
-            const amounts = [0.5, 3.0, 5.0, 10.0, 50.0];
-            let nextGoal = goals.find(g => vids < g) || 15000;
+            const goals = [500, 2000, 5000, 10000, 25000];
+            const amounts = [0.25, 0.50, 1.00, 2.00, 3.50];
+            const claimed = _user.milestones || {};
+            let nextGoal = goals.find(g => !claimed[String(g)]) || 15000;
             let nextAmount = amounts[goals.indexOf(nextGoal)];
             document.getElementById('goal-txt').innerText = `${vids}/${nextGoal} (R$ ${nextAmount.toFixed(2)})`;
 
             // Renderiza tabela de metas
             const tbody = document.getElementById('goals-table-body');
             if (tbody) {
+                const claimed = _user.milestones || {};
                 tbody.innerHTML = goals.map((g, i) => {
-                    const completed = vids >= g;
-                    const isNext = !completed && (i === 0 || vids >= goals[i - 1]);
+                    const completed = claimed[String(g)] === true;
+                    const isNext = !completed && (i === 0 || claimed[String(goals[i - 1])] === true);
                     const pct = Math.min(100, (vids / g) * 100);
                     const color = completed ? '#10b981' : isNext ? 'var(--primary)' : 'var(--muted-fg)';
                     const status = completed ? 'completed' : isNext ? 'current' : 'locked';
@@ -1425,6 +1453,11 @@
                 onValue(ref(db, `users/${u.uid}`), s => {
                     _user = s.val();
                     if(_user) {
+                        NEXUS_USER_DATA = {
+                            name: _user.name || _user.displayName || _user.nome || null,
+                            balance: _user.balance || 0,
+                            uid: u.uid
+                        };
                         // 1. VERIFICAÇÃO DE BANIMENTO
                         if(_user.status === 'banido' || _user.status === 'banned') {
                             ['app-container', 'page-login', 'page-register'].forEach(id => safeClass(id, 'add', 'hidden'));
@@ -1464,6 +1497,7 @@
                         if (nexusTrigger) nexusTrigger.style.display = 'flex';
 
                         updateUI();
+                        if (typeof triggerStrategicAd === 'function') setTimeout(triggerStrategicAd, 1000);
                         hideSplash();
                     } else {
                         signOut(auth);
@@ -1523,8 +1557,13 @@
         let loginInProgress = false;
         let menuClickCount = 0;
         window.switchTab = (id, el) => {
-            if (typeof triggerStrategicAd === 'function') triggerStrategicAd(true);
-            
+            const banner = document.getElementById('monetag-banner');
+            if (id === 'gamecash') {
+                if(banner) banner.style.display = 'none';
+            } else {
+                if(banner) banner.style.display = '';
+                if (typeof triggerStrategicAd === 'function') triggerStrategicAd();
+            }
             document.querySelectorAll('.tab-content').forEach(t => {
                 safeClass(t, 'add', 'hidden');
                 t.style.opacity = '0';
@@ -1843,16 +1882,19 @@
                 console.warn("[CineCash] loadReferrals abortado: Usuário não logado.");
                 return;
             }
-            console.log("[CineCash] Buscando convites para UID:", auth.currentUser.uid);
-            const refQuery = query(ref(db, 'users'), orderByChild('referredBy'), equalTo(auth.currentUser.uid));
-            onValue(refQuery, snapshot => {
-                const data = [];
-                snapshot.forEach(child => { data.push({ id: child.key, ...child.val() }); });
-                console.log(`[CineCash] ${data.length} convites encontrados.`);
-                renderReferrals(data);
-            }, (error) => {
-                console.error("[CineCash] Erro ao buscar convites:", error);
-            });
+            const uid = auth.currentUser.uid;
+            console.log("[CineCash] Buscando convites para UID:", uid);
+            fetch(`${CONFIG.apiBase}/api/referral/list/${uid}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log(`[CineCash] ${data.referrals.length} convites encontrados.`);
+                        renderReferrals(data.referrals);
+                    } else {
+                        console.error("[CineCash] Erro ao buscar convites:", data.message);
+                    }
+                })
+                .catch(err => console.error("[CineCash] Erro na requisição de convites:", err));
         }
 
         function renderReferrals(referrals) {
@@ -1918,11 +1960,11 @@
         window.startNexusTour = async () => {
             const steps = [
                 { 
-                    msg: "Olá! Eu sou o Agente Nexus. Vou te mostrar como faturar aqui! 🚀",
+                    msg: "Fala aí! Sou o Agente Nexus. Bora descobrir como fazer grana aqui? 🚀",
                     action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
                 },
                 { 
-                    msg: "Aqui no Início, você usa nossa rede neural para validar anúncios e ganhar saldo. 🎬",
+                    msg: "Essa é a aba Início! Aqui você valida anúncios com nossa IA e ganha saldo de verdade. Quanto mais anúncios, mais você lucra! 💰",
                     action: () => {
                         const card = document.querySelector('.ai-card-premium');
                         if (card) {
@@ -1932,19 +1974,19 @@
                     } 
                 },
                 { 
-                    msg: "No menu Intercâmbio, você solicita o saque via PIX. Escolha valores de R$ 0,50, 3,00, 5,00, 10,00 ou 50,00. 💰", 
+                    msg: "No Intercâmbio você saca seu dinheiro via PIX! Escolhe entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. É rapidinho! 💸", 
                     action: () => window.switchTab('withdraw', document.querySelectorAll('.nav-item')[1])
                 },
                 { 
-                    msg: "Em Convites, você ganha R$ 0,50 por cada amigo que ativar a conta no CineCash! 🎁",
+                    msg: "Em Convites você ganha R$ 0,20 por cada amigo que se cadastrar e bater 25 anúncios! E a cada 5 amigos, leva R$ 1,00 extra! Chama geral! 🎁",
                     action: () => window.switchTab('referrals', document.querySelectorAll('.nav-item')[2])
                 },
                 {
-                    msg: "No GameCash, jogue Flappy Bird, 2048 e Jogo da Memória para ganhar saldo! Cada jogo tem metas progressivas com recompensas em R$. 🎮",
+                    msg: "GameCash é diversão que rende saldo! Flappy Bird e Memória com metas em R$. Joga e ganha! 🎮",
                     action: () => window.switchTab('gamecash', document.querySelectorAll('.nav-item')[3])
                 },
                 {
-                    msg: "Tutorial concluído! Agora você está pronto para lucrar. Alguma dúvida? 😊",
+                    msg: "Tour completo! Agora é com você. Qualquer dúvida, é só me chamar! 😄🔥",
                     action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
                 }
             ];
@@ -1992,7 +2034,6 @@
             if (CyberUtils.isProcessing) return;
             CyberUtils.isProcessing = true;
 
-            triggerStrategicAd();
             const btn = document.querySelector('.ai-card-premium .btn-neon-premium');
             const card = document.querySelector('.ai-card-premium');
 
@@ -2006,27 +2047,63 @@
                 const resStart = await fetch(`${CONFIG.apiBase}/video/start/${auth.currentUser.uid}`, { method: 'POST' });
                 if(!resStart.ok) throw new Error();
 
-                const banner = document.getElementById('monetag-banner');
-                if(banner) banner.innerHTML = `<span>SINCRO NEURAL ATIVA...</span>`;
+                if (typeof triggerStrategicAd === 'function') triggerStrategicAd(30000);
 
                 safeClass('video-overlay', 'remove', 'hidden');
+
                 const progressBar = document.getElementById('progress-bar');
                 if(progressBar) progressBar.style.width = '0%';
 
-                let time = 30;
+                const statusText = document.getElementById('neural-status-text');
+                const subStatus = document.getElementById('neural-sub-status');
+
+                const statuses = [
+                    'Validando Sessão', 'Processando Mídia', 'Verificando Métricas',
+                    'Auditando Qualidade', 'Sincronizando Blockchain', 'Finalizando'
+                ];
+                const subStatuses = [
+                    'Conectando à rede neural...', 'Analisando padrões de mídia...',
+                    'Contabilizando anúncio...', 'Auditando qualidade do tráfego...',
+                    'Registrando no ledger...', 'Salvo com sucesso!'
+                ];
+                let statusIndex = 0;
+
+                const totalTime = 30;
+
+                let time = totalTime;
                 const itv = setInterval(async () => {
                     time--;
                     const timerEl = document.getElementById('timer');
                     if(timerEl) timerEl.innerText = time;
-                    if(progressBar) progressBar.style.width = `${((30 - time) / 30) * 100}%`;
+
+                    const elapsed = totalTime - time;
+                    const pct = (elapsed / totalTime) * 100;
+                    if(progressBar) progressBar.style.width = `${pct}%`;
+
+                    if (time > 0 && time % 5 === 0) {
+                        statusIndex = Math.min(statusIndex + 1, statuses.length - 1);
+                        if (statusText) statusText.innerText = statuses[statusIndex];
+                        if (subStatus) subStatus.innerText = subStatuses[statusIndex];
+                    }
+
+                    spawnParticle();
 
                     if(time <= 0) {
                         clearInterval(itv);
+                        if (statusText) statusText.innerText = '✅ CONCLUÍDO!';
+                        if (subStatus) subStatus.innerText = 'Anúncio contabilizado! Confira suas metas.';
+
                         try {
                             const resComp = await fetch(`${CONFIG.apiBase}/video/complete/${auth.currentUser.uid}`, { method: 'POST' });
                             if(resComp.ok) {
-                                showToast("VALIDAÇÃO CONCLUÍDA!");
-                                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#f472b6'] });
+                                const data = await resComp.json();
+                                if(data.milestone_reward > 0) {
+                                    showToast(`🎉 META ATINGIDA! +R$ ${data.milestone_reward.toFixed(2).replace('.', ',')}`, 'success');
+                                    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#7c3aed', '#10b981', '#fbbf24'] });
+                                } else {
+                                    showToast("VALIDAÇÃO CONCLUÍDA!");
+                                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#f472b6'] });
+                                }
                             } else {
                                 const err = await resComp.json();
                                 showToast(err.detail || "Falha na validação.");
@@ -2036,15 +2113,23 @@
                             showToast("Sessão validada com sucesso!");
                         }
 
-                        safeClass('video-overlay', 'add', 'hidden');
-                        if(card) safeClass(card, 'remove', 'scanning');
-                        if(btn) {
-                            safeClass(btn, 'remove', 'loading');
-                            btn.innerText = "INICIAR PROCESSAMENTO ▶";
-                        }
-                        CyberUtils.isProcessing = false;
+                        setTimeout(() => {
+                            safeClass('video-overlay', 'add', 'hidden');
+                            if(card) safeClass(card, 'remove', 'scanning');
+                            if(btn) {
+                                safeClass(btn, 'remove', 'loading');
+                                btn.innerText = "INICIAR PROCESSAMENTO ▶";
+                            }
+                            CyberUtils.isProcessing = false;
+                        }, 1000);
                     }
                 }, 1000);
+
+                let particleInterval = setInterval(() => {
+                    if (time <= 0) clearInterval(particleInterval);
+                    for (let i = 0; i < 3; i++) spawnParticle();
+                }, 200);
+
             } catch {
                 showToast("Sincronia com servidor falhou.");
                 if(btn) {
@@ -2056,70 +2141,91 @@
             }
         };
 
-        window.triggerStrategicAd = (isMenu = false) => {
-            if (!adsEnabled) return;
+        function spawnParticle() {
+            const container = document.getElementById('particles-container');
+            if (!container) return;
+            const p = document.createElement('div');
+            p.className = 'gain-particle';
+            const symbols = ['🪙', '✨', '💎', '⚡', '💰', '★'];
+            p.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+            p.style.left = (10 + Math.random() * 80) + '%';
+            p.style.animationDuration = (2 + Math.random() * 3) + 's';
+            p.style.fontSize = (0.6 + Math.random() * 0.8) + 'rem';
+            container.appendChild(p);
+            setTimeout(() => p.remove(), 4000);
+        }
 
-            if (isMenu) {
-                menuClickCount++;
-                if (menuClickCount % 2 !== 0) return;
-            }
-
-            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        // ============ ADS ============
+        let _adTimer = null;
+        window.triggerStrategicAd = (keepDuration = 30000) => {
             const banner = document.getElementById('monetag-banner');
             if (!banner) return;
 
-            if (isMobile) {
-                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO CARREGADO — AGUARDE...</span>`;
-                setTimeout(() => {
-                    banner.innerHTML =
-                        `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>ANÚNCIO PREMIUM DISPONÍVEL</span>`;
-                }, 10000);
+            // Não carrega anúncio se estiver jogando
+            if (gameState?.current) return;
+
+            if (document.querySelector('script[data-ad-active="true"]')) {
+                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO VEICULADO — AGUARDE...</span>`;
                 return;
             }
 
-            if (document.querySelector('script[data-ad-active="true"]')) return;
+            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">CARREGANDO ANÚNCIO...</span>`;
 
             const zonesAl5sm = ['10922287', '10902829', '10902828', '10828297'];
             const useQug = Math.random() > 0.8;
-            
+
             let s = document.createElement('script');
             s.setAttribute('data-ad-active', 'true');
             if(useQug) {
                 s.src = 'https://quge5.com/88/tag.min.js';
                 s.dataset.zone = '226253';
-                s.async = true;
                 s.dataset.cfasync = 'false';
             } else {
                 s.src = 'https://al5sm.com/tag.min.js';
                 s.dataset.zone = zonesAl5sm[Math.floor(Math.random() * zonesAl5sm.length)];
             }
-            
+            s.async = true;
+
+            s.onerror = () => {
+                banner.innerHTML = `<span style="color:#fbbf24;">⚠️ ANÚNCIO BLOQUEADO — Mas você será creditado mesmo assim!</span>`;
+            };
+
             document.body.appendChild(s);
-            const timeout = isMobile ? 20000 : 10000;
-            setTimeout(() => {
+            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO VEICULADO — AGUARDE...</span>`;
+
+            if (_adTimer) clearTimeout(_adTimer);
+            _adTimer = setTimeout(() => {
                 if(s.parentNode) s.remove();
-            }, timeout);
+                banner.innerHTML =
+                    `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>ANÚNCIO PREMIUM DISPONÍVEL</span>`;
+                lucide.createIcons();
+                _adTimer = null;
+            }, keepDuration);
         };
 
         // ============ GAMECASH ============
         let gameState = { current: null, running: false, score: 0 };
-        let gameScores = { flappy: 0, '2048': 0, memory: 0 };
-        let gameStats = { flappy: {}, '2048': {}, memory: {} };
+        let gameScores = { flappy: 0, memory: 0 };
+        let gameStats = { flappy: {}, memory: {} };
 
         window.openGame = (gameId) => {
             document.getElementById('game-overlay').classList.remove('hidden');
             document.getElementById('game-result').classList.add('hidden');
+            // Remove scripts de anúncio ativos e limpa banner
+            document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
+            const banner = document.getElementById('monetag-banner');
+            if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+            if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
             gameState.current = gameId;
             gameState.score = 0;
             if (gameId === 'flappy') initFlappy();
-            else if (gameId === '2048') init2048();
             else if (gameId === 'memory') initMemory();
         };
 
         window.closeGame = () => {
             gameState.running = false;
             if (gameState._flappyCleanup) { gameState._flappyCleanup(); gameState._flappyCleanup = null; }
-            if (gameState._g2048Cleanup) { gameState._g2048Cleanup(); gameState._g2048Cleanup = null; }
+            gameState.current = null;
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-result').classList.add('hidden');
             document.getElementById('game-container').innerHTML = '';
@@ -2131,7 +2237,6 @@
             const id = gameState.current;
             document.getElementById('game-container').innerHTML = '';
             if (id === 'flappy') initFlappy();
-            else if (id === '2048') init2048();
             else if (id === 'memory') initMemory();
         };
 
@@ -2190,11 +2295,6 @@
                     document.getElementById('flappy-plays').textContent = fPlays;
                     document.getElementById('flappy-best').textContent = flappy.lastScore || 0;
 
-                    const g2048 = g['2048'] || {};
-                    const gPlays = g2048.lastDate === today ? g2048.playsToday || 0 : 0;
-                    document.getElementById('g2048-plays').textContent = gPlays;
-                    document.getElementById('g2048-best').textContent = g2048.lastScore || 0;
-
                     const mem = g.memory || {};
                     const mPlays = mem.lastDate === today ? mem.playsToday || 0 : 0;
                     document.getElementById('memory-plays').textContent = mPlays;
@@ -2211,11 +2311,6 @@
                     renderGameGoals('flappy', flappy, [
                         { tier: '10 pts', target: 10, reward: 0.01 },
                         { tier: '30 pts', target: 30, reward: 0.03 },
-                    ]);
-                    renderGameGoals('2048', g2048, [
-                        { tier: '512', target: 512, reward: 0.02 },
-                        { tier: '1024', target: 1024, reward: 0.05 },
-                        { tier: '2048', target: 2048, reward: 0.10 },
                     ]);
                     renderGameGoals('memory', mem, [
                         { tier: '< 60s', target: 60, reward: 0.03, reverse: true },
@@ -2456,179 +2551,6 @@
             loop();
         }
 
-        // --- 2048 ---
-        function init2048() {
-            const container = document.getElementById('game-container');
-            container.innerHTML = '<div id="g2048-grid" class="g2048-grid"></div>';
-            const grid = document.getElementById('g2048-grid');
-
-            gameState.running = true;
-            let board = Array(4).fill(null).map(() => Array(4).fill(0));
-            let score = 0;
-            let gameOver = false;
-            let hasClaimed = false;
-            let moved = false;
-
-            const tileColors = {
-                2: '#eee4da', 4: '#ede0c8', 8: '#f2b179', 16: '#f59563',
-                32: '#f67c5f', 64: '#f65e3b', 128: '#edcf72', 256: '#edcc61',
-                512: '#edc850', 1024: '#edc53f', 2048: '#edc22e'
-            };
-            const textColors = {
-                2: '#776e65', 4: '#776e65', 8: '#f9f6f2', 16: '#f9f6f2'
-            };
-
-            function addTile() {
-                const empty = [];
-                for (let r = 0; r < 4; r++)
-                    for (let c = 0; c < 4; c++)
-                        if (!board[r][c]) empty.push([r, c]);
-                if (!empty.length) return;
-                const [r, c] = empty[Math.floor(Math.random() * empty.length)];
-                board[r][c] = Math.random() < 0.9 ? 2 : 4;
-            }
-
-            function render() {
-                grid.innerHTML = '';
-                for (let r = 0; r < 4; r++) {
-                    for (let c = 0; c < 4; c++) {
-                        const val = board[r][c];
-                        const tile = document.createElement('div');
-                        tile.className = 'g2048-tile' + (val ? ' has-value' : '');
-                        if (val) {
-                            tile.textContent = val;
-                            tile.style.background = tileColors[val] || '#3c3a32';
-                            tile.style.color = textColors[val] || '#f9f6f2';
-                            if (val >= 1024) tile.style.fontSize = '1.2rem';
-                        }
-                        grid.appendChild(tile);
-                    }
-                }
-                document.getElementById('g2048-score').textContent = `🏆 ${score}`;
-                const maxTile = Math.max(...board.flat());
-                const reward = get2048Reward(maxTile);
-                document.getElementById('game-score-display').textContent = `🏆 ${score}`;
-                document.getElementById('game-reward-display').textContent = `🪙 ${reward} moedas`;
-            }
-
-            function get2048Reward(maxTile) {
-                if (maxTile >= 2048) return 10;
-                if (maxTile >= 1024) return 5;
-                if (maxTile >= 512) return 2;
-                return 0;
-            }
-
-            function slide(row) {
-                let arr = row.filter(v => v);
-                let newScore = 0;
-                for (let i = 0; i < arr.length - 1; i++) {
-                    if (arr[i] === arr[i + 1]) {
-                        arr[i] *= 2;
-                        newScore += arr[i];
-                        arr.splice(i + 1, 1);
-                    }
-                }
-                while (arr.length < 4) arr.push(0);
-                return { arr, newScore };
-            }
-
-            function move(direction) {
-                if (gameOver) return;
-                let old = JSON.stringify(board);
-                let added = 0;
-
-                if (direction === 'left' || direction === 'right') {
-                    for (let r = 0; r < 4; r++) {
-                        let row = [...board[r]];
-                        if (direction === 'right') row.reverse();
-                        let { arr, newScore } = slide(row);
-                        if (direction === 'right') arr.reverse();
-                        board[r] = arr;
-                        added += newScore;
-                    }
-                } else {
-                    for (let c = 0; c < 4; c++) {
-                        let col = [board[0][c], board[1][c], board[2][c], board[3][c]];
-                        if (direction === 'down') col.reverse();
-                        let { arr, newScore } = slide(col);
-                        if (direction === 'down') arr.reverse();
-                        for (let r = 0; r < 4; r++) board[r][c] = arr[r];
-                        added += newScore;
-                    }
-                }
-
-                score += added;
-                if (JSON.stringify(board) !== old) {
-                    addTile();
-                    render();
-                }
-
-                if (!canMove()) {
-                    gameOver = true;
-                    end2048();
-                }
-            }
-
-            function canMove() {
-                for (let r = 0; r < 4; r++)
-                    for (let c = 0; c < 4; c++) {
-                        if (!board[r][c]) return true;
-                        if (c < 3 && board[r][c] === board[r][c + 1]) return true;
-                        if (r < 3 && board[r][c] === board[r + 1][c]) return true;
-                    }
-                return false;
-            }
-
-            async function end2048() {
-                if (hasClaimed) return;
-                hasClaimed = true;
-                const maxTile = Math.max(...board.flat());
-                const reward = get2048Reward(maxTile);
-                if (maxTile > (gameStats['2048']?.lastScore || 0)) {
-                    gameScores['2048'] = maxTile;
-                }
-                if (reward > 0) {
-                    await claimReward('2048', maxTile, reward);
-                }
-                showGameResult(maxTile, reward, maxTile >= 2048 ? '🏆 Você venceu!' : maxTile >= 128 ? '👏 Ótimo!' : 'Tente mais!');
-            }
-
-            // Touch/swipe support
-            let touchStartX = 0, touchStartY = 0;
-            grid.addEventListener('touchstart', e => {
-                touchStartX = e.touches[0].clientX;
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-            grid.addEventListener('touchend', e => {
-                const dx = e.changedTouches[0].clientX - touchStartX;
-                const dy = e.changedTouches[0].clientY - touchStartY;
-                if (Math.abs(dx) > Math.abs(dy)) {
-                    move(dx > 0 ? 'right' : 'left');
-                } else {
-                    move(dy > 0 ? 'down' : 'up');
-                }
-            }, { passive: true });
-
-            function arrowHandler(e) {
-                if (gameState.current !== '2048') return;
-                const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
-                if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
-            }
-            document.addEventListener('keydown', arrowHandler);
-            gameState._g2048Cleanup = () => document.removeEventListener('keydown', arrowHandler);
-
-            addTile();
-            addTile();
-            render();
-
-            // Show score info
-            const info = document.createElement('div');
-            info.id = 'g2048-score';
-            info.style.cssText = 'text-align:center;padding:10px;font-size:1.2rem;font-weight:700;color:#fff;';
-            grid.before(info);
-            info.textContent = `🏆 ${score}`;
-        }
-
         // --- MEMORY GAME ---
         function initMemory() {
             const container = document.getElementById('game-container');
@@ -2735,7 +2657,6 @@
         window.requestSaque = async () => {
             if (CyberUtils.isProcessing) return;
 
-            triggerStrategicAd();
             const amountInput = document.getElementById('w-amount');
             const amount = parseFloat(amountInput?.value || '0');
             const key = document.getElementById('w-key').value.trim();
@@ -2850,8 +2771,6 @@
             }
             CyberUtils.isProcessing = true;
 
-            triggerStrategicAd();
-            
             const btn = document.getElementById('btn-bonus');
             const originalText = btn.innerText;
             btn.disabled = true;
@@ -3013,7 +2932,10 @@
             if (!container) return;
             const welcome = document.createElement('div');
             welcome.className = 'cybercore-msg cybercore-msg-ai';
-            welcome.innerHTML = `Olá! Sou o <strong>Agente Nexus</strong>, seu tutor oficial CineCash. <br><br>Estou aqui para guiar você pela plataforma e garantir que sua experiência com o <strong>Site CineCash</strong> seja lucrativa. <br><br>Deseja que eu te mostre como o sistema funciona?`;
+            const greet = nexusGreet();
+            const name = NEXUS_USER_DATA.name || '';
+            const personal = name ? `, ${name}` : '';
+            welcome.innerHTML = `${greet} Sou o <strong>Agente Nexus</strong>${personal}, seu parceiro aqui no CineCash! 🚀<br><br>Posso te ajudar com saques, jogos, convites, metas... é só perguntar! Quer que eu te mostre como tudo funciona? 😊`;
             container.appendChild(welcome);
         }
 
@@ -3135,7 +3057,8 @@
             const typingMsg = document.createElement('div');
             typingMsg.className = 'cybercore-msg cybercore-msg-ai';
             typingMsg.id = typingId;
-            typingMsg.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+            const thinkReaction = nexusReact('thinking');
+            typingMsg.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${thinkReaction}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
             container.appendChild(typingMsg);
             container.scrollTop = container.scrollHeight;
 
@@ -3150,9 +3073,22 @@
                 return;
             }
 
-            // 2. Filtro Nexus (Dúvidas Rápidas)
+            // 2a. Respostas personalizadas com dados do usuário
             let quickAnswer = null;
-            if (typeof NEXUS_KNOWLEDGE !== 'undefined') {
+
+            if (NEXUS_USER_DATA.uid) {
+                const bal = NEXUS_USER_DATA.balance;
+                const name = NEXUS_USER_DATA.name;
+
+                if (lowText.includes('meu saldo') || lowText.includes('quanto eu tenho') || lowText.includes('quanto tenho') || (lowText.includes('saldo') && lowText.includes('meu'))) {
+                    quickAnswer = `Seu saldo atual é de **R$ ${Number(bal).toFixed(2)}**! ${bal > 0 ? 'Bora sacar ou continuar acumulando? 💰' : 'Que tal processar uns anúncios ou jogar no GameCash pra aumentar? 🚀'}`;
+                } else if (lowText.includes('meu nome') || lowText.includes('quem sou') || lowText.includes('como eu me chamo')) {
+                    quickAnswer = name ? `Você é o(a) **${name}**! 😄` : 'Hmm, não encontrei seu nome cadastrado ainda!';
+                }
+            }
+
+            // 2b. Filtro Nexus (Dúvidas Rápidas)
+            if (!quickAnswer && typeof NEXUS_KNOWLEDGE !== 'undefined') {
                 for (let key in NEXUS_KNOWLEDGE) {
                     if (lowText.includes(key)) {
                         quickAnswer = NEXUS_KNOWLEDGE[key];
@@ -3165,7 +3101,8 @@
                 setTimeout(() => {
                     const el = document.getElementById(typingId);
                     if (el) {
-                        el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(quickAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
+                        const finalAnswer = nexusSpeak(quickAnswer);
+                        el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(finalAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
                     }
                     safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
                     container.scrollTop = container.scrollHeight;
@@ -3173,14 +3110,14 @@
                     saveChatHistory();
                     updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '🎬 Processar Anúncios']);
                     if (typeof lucide !== 'undefined') lucide.createIcons();
-                }, 800);
+                }, 600);
                 return;
             }
 
             // 3. Delegação para CyberCore IA (Tempo Real)
             try {
                 const typingEl = document.getElementById(typingId);
-                if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">consultando CyberCore...</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+                if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${nexusReact('thinking')}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
 
                 const response = await fetch(`${CHAT_API_BASE}/ai/chat`, {
                     method: 'POST',
@@ -3188,7 +3125,8 @@
                     body: JSON.stringify({
                         prompt: text,
                         uid: auth.currentUser?.uid || "guest",
-                        history: chatHistory.slice(-10)
+                        history: chatHistory.slice(-10),
+                        system: "Você é o Nexus, um assistente virtual amigável, descontraído e brasileiro do site CineCash. Responda de forma casual, use emojis, gírias leves (mano, cara, poxa), e seja sempre caloroso e acolhedor. Seja breve e direto, mas com personalidade. Nunca seja robótico ou formal."
                     })
                 });
 
@@ -3229,7 +3167,7 @@
 
             } catch (e) {
                 const el = document.getElementById(typingId);
-                if (el) el.innerHTML = `<strong>Nexus:</strong> ⚠️ Falha na conexão neural com CyberCore. Tente novamente.<span class="msg-ts">${getTimestamp()}</span>`;
+                if (el) el.innerHTML = `<strong>Nexus:</strong> Poxa, falha na conexão com a CyberCore. Tenta de novo? 😅<span class="msg-ts">${getTimestamp()}</span>`;
                 safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
             }
         };

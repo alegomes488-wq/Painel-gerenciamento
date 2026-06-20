@@ -68,18 +68,10 @@
             </div>
 
             <nav class="premium-nav">
-                <!-- Section: Command -->
-                <div class="nav-section-title">🧠 Command Center</div>
-                <div class="nav-group">
-                    <button class="nav-link active" id="btn-nav-overview" onclick="showPanel('overview')" title="Painel Principal">
-                        <span>🧠</span> Command Center
-                    </button>
-                </div>
-
                 <!-- Section: Watch -->
                 <div class="nav-section-title">🛡️ CyberCore Watch</div>
                 <div class="nav-group">
-                    <button class="nav-link" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
+                    <button class="nav-link active" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
                         <span>🛡️</span> CyberCore Watch
                     </button>
                     <div class="sub-nav">
@@ -431,7 +423,7 @@
                 </div>
 
                 <!-- Painel: WATCH (Monitoramento + Conector) -->
-                <div id="panel-watch" class="panel-view">
+                <div id="panel-watch" class="panel-view active">
                     <div class="panel-scanner"></div>
                     <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;padding:25px;">
                         <!-- Header -->
@@ -614,248 +606,6 @@
                             <div class="system-card premium-glass tech-border" style="padding:20px; min-height:500px;">
                                 <div id="memory-content-viewer">
                                     <h4 style="color:var(--gold);">Selecione um módulo de memória para inspecionar.</h4>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Painel: ESTOQUE (Drink Stock) -->
-
-                <div id="panel-overview" class="panel-view active">
-                    <div class="panel-scanner"></div>
-                    <div class="command-dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; padding: 30px; position: relative; z-index: 2;">
-                        <!-- Column 1: CyberCore Studio -->
-                        <div class="system-card premium-glass tech-border-glow" style="padding: 25px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <div>
-                                    <h3 style="font-family: 'JetBrains Mono'; color: var(--gold); font-size: 16px; margin: 0; letter-spacing: 1px;">🚀 CYBERCORE STUDIO</h3>
-                                    <p style="font-size: 10px; color: var(--text-secondary); margin: 2px 0 0 0;">Agentes de Criação e Desenvolvimento</p>
-                                </div>
-                                <button class="btn-premium" onclick="showPanel('studio')" style="width: auto; padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 800;">CRIAR</button>
-                            </div>
-                            
-                            <!-- Agents Grid -->
-                            <div class="agents-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 15px 0;">
-                                <div class="agent-card builder" onclick="showPanel('studio'); selectAgent('BUILDER')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🏗️</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">BUILDER</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Páginas & Interfaces</small>
-                                    <span class="status-tag online" id="ov-status-BUILDER" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                                <div class="agent-card designer" onclick="showPanel('studio'); selectAgent('DESIGNER')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🎨</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">DESIGNER</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">UI / UX Design</small>
-                                    <span class="status-tag online" id="ov-status-DESIGNER" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                                <div class="agent-card fullstack" onclick="showPanel('studio'); selectAgent('FULLSTACK')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">⚡</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">FULLSTACK</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Sistemas Completos</small>
-                                    <span class="status-tag online" id="ov-status-FULLSTACK" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                                <div class="agent-card python" onclick="showPanel('studio'); selectAgent('PYTHON')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🐍</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">PYTHON CORE</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Automações & Scripts</small>
-                                    <span class="status-tag online" id="ov-status-PYTHON" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                                <div class="agent-card java" onclick="showPanel('studio'); selectAgent('JAVA')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🤖</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">JAVA CORE</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Apps Android</small>
-                                    <span class="status-tag online" id="ov-status-JAVA" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                                <div class="agent-card software" onclick="showPanel('studio'); selectAgent('SOFTWARE')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🏛️</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">SOFTWARE</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Arquitetura & Docs</small>
-                                    <span class="status-tag online" id="ov-status-SOFTWARE" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● VERIFICANDO</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Novo Projeto -->
-                            <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; margin-top: 20px;">
-                                <div>
-                                    <span style="font-size: 11px; font-weight: 800; color: var(--gold); letter-spacing: 1px; display: block; margin-bottom: 12px;">NOVO PROJETO</span>
-                                    <div class="control-item" style="margin-bottom: 12px;">
-                                        <label style="font-size: 8px;">Nome do Projeto</label>
-                                        <input type="text" id="cmd-project-name" placeholder="Ex: CashVideo" style="padding: 8px 12px; font-size: 11px; border-radius: 8px; width: 100%;">
-                                    </div>
-                                    <div class="control-item" style="margin-bottom: 12px;">
-                                        <label style="font-size: 8px;">Tipo do Projeto</label>
-                                        <select id="cmd-project-type" style="padding: 8px 12px; font-size: 11px; border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--border-glass); width: 100%;">
-                                            <option value="website">🌐 Website</option>
-                                            <option value="android">🤖 Aplicativo Android</option>
-                                            <option value="api">☁️ API / Serviço</option>
-                                            <option value="local">🖥️ Sistema Local</option>
-                                        </select>
-                                    </div>
-                                    <div class="control-item" style="margin-bottom: 15px;">
-                                        <label style="font-size: 8px;">Objetivo do Projeto</label>
-                                        <textarea id="cmd-project-desc" placeholder="Descreva o objetivo do projeto..." style="padding: 8px 12px; font-size: 11px; border-radius: 8px; height: 60px; resize: none; width: 100%;"></textarea>
-                                    </div>
-                                    <button class="btn-premium holo-shimmer" onclick="cmdGerarEquipe()" style="padding: 10px; border-radius: 8px; font-size: 11px; font-weight: 800; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                                        👥 GERAR EQUIPE
-                                    </button>
-                                </div>
-                                <div>
-                                    <span style="font-size: 11px; font-weight: 800; color: var(--gold); letter-spacing: 1px; display: block; margin-bottom: 15px;">EQUIPE SUGERIDA</span>
-                                    <div id="cmd-suggested-team-list" style="display: flex; flex-direction: column; gap: 8px; font-size: 11px;">
-                                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-                                            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#a855f7">●</span> Builder</span>
-                                            <span style="color:#10b981">✓</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-                                            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#ec4899">●</span> Designer</span>
-                                            <span style="color:#10b981">✓</span>
-                                        </div>
-                                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid var(--border-glass);">
-                                            <span style="display: flex; align-items: center; gap: 8px;"><span style="color:#3b82f6">●</span> FullStack</span>
-                                            <span style="color:#10b981">✓</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Column 2: CyberCore Watch -->
-                        <div class="system-card premium-glass tech-border-glow" style="padding: 25px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                <div>
-                                    <h3 style="font-family: 'JetBrains Mono'; color: var(--cyan); font-size: 16px; margin: 0; letter-spacing: 1px;">🛡️ CYBERCORE WATCH</h3>
-                                    <p style="font-size: 10px; color: var(--text-secondary); margin: 2px 0 0 0;">Agentes de Monitoramento e Operações</p>
-                                </div>
-                                <button class="btn-premium" onclick="showPanel('watch')" style="width: auto; padding: 6px 16px; border-radius: 8px; font-size: 10px; font-weight: 800; background: rgba(0, 243, 255, 0.1); border-color: rgba(0, 243, 255, 0.2); color: var(--cyan);">MONITORAR</button>
-                            </div>
-
-                            <!-- Agents Grid -->
-                            <div class="agents-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 15px 0;">
-                                <div class="agent-card sentinel" onclick="showPanel('security')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🤖</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">SENTINEL</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Monitoramento 24h</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                                <div class="agent-card auditor" onclick="showPanel('saques')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🛡️</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">AUDITOR</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Auditoria de Códigos</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                                <div class="agent-card fiscal" onclick="showPanel('saques')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">💸</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">FISCAL</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Custos & Pagamentos</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                                <div class="agent-card security" onclick="showPanel('security')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">🔒</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">SECURITY</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Vulnerabilidades</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                                <div class="agent-card uptime" onclick="showPanel('watch')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">⚡</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">UPTIME</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Disponibilidade</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                                <div class="agent-card performance" onclick="showPanel('analytics')" style="padding: 15px 10px; border-radius: 12px;">
-                                    <div class="agent-icon" style="font-size: 20px;">📊</div>
-                                    <span style="font-size: 11px; font-weight: 800; display: block; margin-top: 5px; color: #fff;">PERFORMANCE</span>
-                                    <small style="font-size: 8px; opacity: 0.6; display: block; margin-top: 2px;">Performance & CPU</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block; background: rgba(6, 182, 212, 0.1); color: var(--cyan);">● ATIVO</span>
-                                </div>
-                            </div>
-
-                            <!-- Resumo dos Projetos Monitorados -->
-                            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; margin-top: 20px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                    <span style="font-size: 11px; font-weight: 800; color: var(--cyan); letter-spacing: 1px;">RESUMO DOS PROJETOS MONITORADOS</span>
-                                    <span onclick="showPanel('watch')" style="font-size: 10px; color: var(--cyan); cursor: pointer; font-weight: 600;">Ver todos</span>
-                                </div>
-
-                                <!-- Tabs -->
-                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <button class="filter-btn active" id="cmd-tab-sites" onclick="filterCmdProjects('website', this)" style="padding: 6px 12px; font-size: 9px; font-weight: 800; border-radius: 6px; border: 1px solid rgba(0, 243, 255, 0.2); background: rgba(0, 243, 255, 0.1); color: #fff; cursor: pointer;">SITES</button>
-                                    <button class="filter-btn" id="cmd-tab-apps" onclick="filterCmdProjects('android', this)" style="padding: 6px 12px; font-size: 9px; font-weight: 800; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer;">APPS</button>
-                                    <button class="filter-btn" id="cmd-tab-apis" onclick="filterCmdProjects('api', this)" style="padding: 6px 12px; font-size: 9px; font-weight: 800; border-radius: 6px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer;">APIS</button>
-                                </div>
-
-                                <!-- Projects Table -->
-                                <div style="overflow-x: auto; background: rgba(0,0,0,0.2); border-radius: 10px; border: 1px solid var(--border-glass);">
-                                    <table class="premium-table" style="width: 100%; border-collapse: collapse; font-size: 10px;">
-                                        <thead>
-                                            <tr style="border-bottom: 1px solid var(--border-glass); text-align: left;">
-                                                <th style="padding: 10px 12px;">PROJETO</th>
-                                                <th style="padding: 10px 12px;">TIPO</th>
-                                                <th style="padding: 10px 12px;">STATUS</th>
-                                                <th style="padding: 10px 12px;">UPTIME</th>
-                                                <th style="padding: 10px 12px;">PERF</th>
-                                                <th style="padding: 10px 12px;">ÚLTIMA VERIFICAÇÃO</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="cmd-projects-table-body">
-                                            <!-- Preenchido dinamicamente por JS -->
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bottom Row: Command Center Orchestrator -->
-                    <div class="system-card premium-glass tech-border-glow" style="margin: 0 30px 30px 30px; padding: 25px; position: relative; z-index: 2;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <div class="ai-brain-icon" style="font-size: 32px; filter: drop-shadow(0 0 10px rgba(0, 243, 255, 0.4));">🧠</div>
-                                <div>
-                                    <h3 style="font-family: 'JetBrains Mono'; font-size: 16px; margin: 0; color: #fff; letter-spacing: 1px;">COMMAND CENTER</h3>
-                                    <p style="font-size: 10px; color: var(--text-secondary); margin: 2px 0 0 0;">Orchestrator - O Cérebro do CyberCore</p>
-                                </div>
-                            </div>
-                            
-                            <div style="display: flex; gap: 10px; align-items: center; width: 60%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-glass); border-radius: 12px; padding: 4px 15px;">
-                                <span style="opacity: 0.5; font-size: 12px;">💬</span>
-                                <input type="text" id="cmd-orchestrator-input" placeholder="Digite seu comando para a IA... (ex: 'Criar aplicativo Android de afiliados')" style="background: transparent; border: none; color: #fff; padding: 8px 0; font-size: 12px; outline: none; width: 100%;">
-                                <button class="btn-premium holo-shimmer" onclick="sendCmdOrchestratorCommand()" style="width: auto; padding: 6px 20px; border-radius: 8px; font-size: 11px; font-weight: 800; background: linear-gradient(90deg, #00f3ff, #00b8ff); color: #000; flex-shrink: 0; border: none;">
-                                    ⚡ EXECUTAR
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 0.8fr 1.2fr 2.6fr; gap: 30px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
-                            <!-- Orchestrator status -->
-                            <div style="display: flex; gap: 15px; align-items: center; background: rgba(255,255,255,0.01); border: 1px solid var(--border-glass); border-radius: 12px; padding: 15px;">
-                                <div style="font-size: 28px;">🔮</div>
-                                <div>
-                                    <span style="font-size: 12px; font-weight: 800; color: #fff; display: block;">ORCHESTRATOR</span>
-                                    <small style="font-size: 9px; color: var(--text-secondary); display: block; margin-top: 2px;">Coordenador de Agentes</small>
-                                    <span class="status-tag online" style="font-size: 7px; padding: 2px 6px; margin-top: 5px; display: inline-block;">● ATIVO</span>
-                                </div>
-                            </div>
-
-                            <!-- Exemplo de execução -->
-                            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-glass); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center;">
-                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;">EXEMPLO DE EXECUÇÃO</span>
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 11px;">
-                                    <span style="font-weight: 600; color: #fff; font-family: var(--font-mono);">Criar aplicativo Android de afiliados</span>
-                                    <span style="color: var(--cyan); cursor: pointer;" onclick="useCmdExample('Criar aplicativo Android de afiliados')">➔</span>
-                                </div>
-                            </div>
-
-                            <!-- Distribuição Automática -->
-                            <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--border-glass); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; justify-content: center;">
-                                <span style="font-size: 9px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">DISTRIBUIÇÃO AUTOMÁTICA (AGENT PIPELINE)</span>
-                                <div style="display: flex; align-items: center; gap: 10px; font-size: 9px; font-weight: 700;">
-                                    <div style="padding: 6px 10px; background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.2); color: #ec4899; border-radius: 6px;">DESIGNER (Interface)</div>
-                                    <span style="opacity: 0.5;">➔</span>
-                                    <div style="padding: 6px 10px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 6px;">JAVA CORE (APK)</div>
-                                    <span style="opacity: 0.5;">➔</span>
-                                    <div style="padding: 6px 10px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #3b82f6; border-radius: 6px;">FULLSTACK (API)</div>
-                                    <span style="opacity: 0.5;">➔</span>
-                                    <div style="padding: 6px 10px; background: rgba(232, 184, 48, 0.1); border: 1px solid rgba(232, 184, 48, 0.2); color: var(--gold); border-radius: 6px;">AUDITOR (Revisão)</div>
                                 </div>
                             </div>
                         </div>
@@ -1404,7 +1154,8 @@
                             </div>
                             <div style="display: flex; align-items: center; gap: 20px;">
                                 <div class="filter-group" style="display: flex; gap: 10px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 12px; border: 1px solid var(--border-glass);">
-                                    <button class="filter-btn active" onclick="setWithdrawalFilter('pending', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 11px; font-weight: 800;">PENDENTES</button>
+                                     <button class="filter-btn active" onclick="setWithdrawalFilter('all', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: var(--primary); color: white; cursor: pointer; font-size: 11px; font-weight: 800;">TODOS</button>
+                                    <button class="filter-btn" onclick="setWithdrawalFilter('pending', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; font-weight: 800;">PENDENTES</button>
                                     <button class="filter-btn" onclick="setWithdrawalFilter('paid', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; font-weight: 800;">PAGOS</button>
                                     <button class="filter-btn" onclick="setWithdrawalFilter('rejected', this)" style="padding: 8px 15px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; font-weight: 800;">RECUSADOS</button>
                                 </div>
