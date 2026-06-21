@@ -2212,6 +2212,13 @@
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
+            // Força remoção de iframes e containers de anúncio
+            document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], [id*="google_ads"], iframe[src*="ads"], iframe[src*="doubleclick"]').forEach(el => el.remove());
+            // Adiciona CSS que esconde anúncios enquanto joga
+            const s = document.createElement('style');
+            s.id = 'game-adblock-css';
+            s.textContent = 'iframe:not(#game-container iframe){display:none!important}[id^="MON_"],[class*="monetag"],[id*="google_ads"]{display:none!important}';
+            document.head.appendChild(s);
             gameState.current = gameId;
             gameState.score = 0;
             if (gameId === 'flappy') initFlappy();
@@ -2225,6 +2232,8 @@
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-result').classList.add('hidden');
             document.getElementById('game-container').innerHTML = '';
+            const adCss = document.getElementById('game-adblock-css');
+            if(adCss) adCss.remove();
             lucide.createIcons();
         };
 
