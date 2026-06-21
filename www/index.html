@@ -2207,15 +2207,24 @@
         window.openGame = (gameId) => {
             const go = document.getElementById('game-overlay');
             go.classList.remove('hidden');
-            // Move overlay para o FINAL do body (último na ordem = primeiro no empilhamento)
             go.parentElement.appendChild(go);
             go.style.zIndex = '999999999999999';
             document.getElementById('game-result').classList.add('hidden');
-            // Remove scripts de anúncio ativos e limpa banner
             document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
+            // CSP: bloqueia novos iframes e scripts externos durante o jogo
+            const csp = document.createElement('meta');
+            csp.id = 'game-csp';
+            csp.httpEquiv = 'Content-Security-Policy';
+            csp.content = "frame-src 'none'; script-src 'self' https://*.firebaseio.com https://*.firebase.com https://*.googleapis.com https://*.gstatic.com 'unsafe-eval';";
+            document.head.appendChild(csp);
+            // Bloqueia pop-ups (window.open)
+            if (!window.__origOpen) window.__origOpen = window.open;
+            window.open = () => null;
+            // Remove service workers (push notifications)
+            navigator.serviceWorker?.getRegistrations().then(r => r.forEach(r => r.unregister()));
             gameState.current = gameId;
             gameState.score = 0;
             // CSS anti-anúncio forçado
@@ -2223,36 +2232,45 @@
             as.id = 'game-adblock-css';
             as.textContent = 'iframe:not(#game-container iframe){display:none!important;visibility:hidden!important}[style*="position:fixed"]{display:none!important}[style*="position: fixed"]{display:none!important}[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]{display:none!important}';
             document.head.appendChild(as);
-            // Limpeza única profunda: remove QUALQUER elemento com position:fixed e z-index >= 1000
+            // Limpeza única: qualquer elemento com position:fixed/absolute + z-index >= 1000
             document.querySelectorAll('*').forEach(el => {
                 if (el.id === 'game-overlay' || el.id === 'game-result' || el.id === 'toast' || el.closest?.('#game-overlay')) return;
                 const s = window.getComputedStyle(el);
                 if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) >= 1000) el.remove();
             });
-            // MutationObserver: aniquila qualquer novo elemento suspeito em tempo real
+            // MutationObserver: remove instantaneamente qualquer elemento suspeito novo ou alterado
             if (gameState._adObserver) gameState._adObserver.disconnect();
             gameState._adObserver = new MutationObserver(muts => {
                 for (const m of muts) {
+                    if (m.type === 'attributes' && m.attributeName === 'style') {
+                        const el = m.target;
+                        if (el.closest?.('#game-overlay')) continue;
+                        const s = window.getComputedStyle(el);
+                        if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) >= 1000) { el.remove(); continue; }
+                    }
+                    if (m.type !== 'childList') continue;
                     for (const n of m.addedNodes) {
                         if (n.nodeType !== 1) continue;
                         const el = n;
                         if (el.closest?.('#game-overlay')) continue;
-                        // Fast inline style check (não força layout)
                         if (el.style?.position === 'fixed' || el.style?.position === 'absolute') {
                             if (parseInt(el.style?.zIndex) >= 1000) { el.remove(); continue; }
                         } else {
-                            // Fallback: computed style
                             const s = window.getComputedStyle(el);
                             if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) >= 1000) { el.remove(); continue; }
                         }
-                        // Remove iframes e containers dentro do elemento adicionado
-                        el.querySelectorAll?.('iframe,[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(c => {
-                            if (!document.getElementById('game-container')?.contains(c)) c.remove();
+                        // Remove iframes e sobe para remover o container pai
+                        el.querySelectorAll?.('iframe').forEach(c => {
+                            if (document.getElementById('game-container')?.contains(c)) return;
+                            const p = c.parentElement;
+                            c.remove();
+                            if (p && !p.children.length && (p.style?.position === 'fixed' || p.id?.includes('ScriptRoot'))) p.remove();
                         });
+                        el.querySelectorAll?.('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(c => c.remove());
                     }
                 }
             });
-            gameState._adObserver.observe(document.body, { childList: true, subtree: true });
+            gameState._adObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
             if (gameId === 'flappy') initFlappy();
             else if (gameId === 'memory') initMemory();
         };
@@ -2261,6 +2279,8 @@
             gameState.running = false;
             if (gameState._flappyCleanup) { gameState._flappyCleanup(); gameState._flappyCleanup = null; }
             if (gameState._adObserver) { gameState._adObserver.disconnect(); gameState._adObserver = null; }
+            // Restaura pop-ups
+            if (window.__origOpen) { window.open = window.__origOpen; window.__origOpen = null; }
             gameState.current = null;
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-overlay').style.zIndex = '';
@@ -2268,6 +2288,8 @@
             document.getElementById('game-container').innerHTML = '';
             const ac = document.getElementById('game-adblock-css');
             if(ac) ac.remove();
+            const mc = document.getElementById('game-csp');
+            if(mc) mc.remove();
             lucide.createIcons();
         };
 
