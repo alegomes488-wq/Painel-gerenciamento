@@ -2214,17 +2214,26 @@
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
-            // CSP: bloqueia novos iframes e scripts externos durante o jogo
-            const csp = document.createElement('meta');
-            csp.id = 'game-csp';
-            csp.httpEquiv = 'Content-Security-Policy';
-            csp.content = "frame-src 'none'; script-src 'self' https://*.firebaseio.com https://*.firebase.com https://*.googleapis.com https://*.gstatic.com 'unsafe-eval';";
-            document.head.appendChild(csp);
-            // Bloqueia pop-ups (window.open)
+            // Bloqueia pop-ups
             if (!window.__origOpen) window.__origOpen = window.open;
             window.open = () => null;
-            // Remove service workers (push notifications)
-            navigator.serviceWorker?.getRegistrations().then(r => r.forEach(r => r.unregister()));
+            // Remove e bloqueia Service Workers do Monetag (push notifications)
+            if (navigator.serviceWorker) {
+                navigator.serviceWorker.getRegistrations().then(r => r.forEach(r => r.unregister()));
+                const origRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+                navigator.serviceWorker.register = () => Promise.reject(new Error('SW blocked during game'));
+                navigator.serviceWorker.__origRegister = origRegister;
+                // Bloqueia PushManager subscribe
+                if (PushManager.prototype.__origSubscribe) {
+                    // already blocked
+                } else {
+                    PushManager.prototype.__origSubscribe = PushManager.prototype.subscribe;
+                    PushManager.prototype.subscribe = function() {
+                        if (gameState?.current) return Promise.reject(new Error('Push blocked during game'));
+                        return this.__origSubscribe.apply(this, arguments);
+                    };
+                }
+            }
             gameState.current = gameId;
             gameState.score = 0;
             // CSS anti-anúncio forçado
@@ -2281,6 +2290,16 @@
             if (gameState._adObserver) { gameState._adObserver.disconnect(); gameState._adObserver = null; }
             // Restaura pop-ups
             if (window.__origOpen) { window.open = window.__origOpen; window.__origOpen = null; }
+            // Restaura Service Worker
+            if (navigator.serviceWorker?.__origRegister) {
+                navigator.serviceWorker.register = navigator.serviceWorker.__origRegister;
+                navigator.serviceWorker.__origRegister = null;
+            }
+            // Restaura PushManager
+            if (PushManager.prototype.__origSubscribe) {
+                PushManager.prototype.subscribe = PushManager.prototype.__origSubscribe;
+                PushManager.prototype.__origSubscribe = null;
+            }
             gameState.current = null;
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-overlay').style.zIndex = '';
@@ -2288,8 +2307,6 @@
             document.getElementById('game-container').innerHTML = '';
             const ac = document.getElementById('game-adblock-css');
             if(ac) ac.remove();
-            const mc = document.getElementById('game-csp');
-            if(mc) mc.remove();
             lucide.createIcons();
         };
 
