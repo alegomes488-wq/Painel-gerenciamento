@@ -1555,7 +1555,10 @@
         window.switchTab = (id, el) => {
             const banner = document.getElementById('monetag-banner');
             if (id === 'gamecash') {
-                if(banner) banner.style.display = 'none';
+                if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+                document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
+                if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
+                document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
             } else {
                 if(banner) banner.style.display = '';
                 if (typeof triggerStrategicAd === 'function') triggerStrategicAd();
@@ -2152,8 +2155,10 @@
             const banner = document.getElementById('monetag-banner');
             if (!banner) return;
 
-            // Não carrega anúncio se estiver jogando
+            // Não carrega anúncio se estiver jogando ou na aba GameCash
             if (gameState?.current) return;
+            const activeTab = document.querySelector('.tab-content:not(.hidden)');
+            if (activeTab && activeTab.id === 'tab-gamecash') return;
 
             if (document.querySelector('script[data-ad-active="true"]')) {
                 banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO VEICULADO — AGUARDE...</span>`;
