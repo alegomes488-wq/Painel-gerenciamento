@@ -2208,7 +2208,7 @@
             const go = document.getElementById('game-overlay');
             go.classList.remove('hidden');
             // Sobe z-index do overlay para ficar acima de qualquer anúncio
-            go.style.zIndex = '2147483647';
+            go.style.zIndex = '9999999999';
             document.getElementById('game-result').classList.add('hidden');
             // Remove scripts de anúncio ativos e limpa banner
             document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
@@ -2222,7 +2222,7 @@
             as.id = 'game-adblock-css';
             as.textContent = 'iframe:not(#game-container iframe){display:none!important;visibility:hidden!important}[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"],[id^="M"][id$="ScriptRoot"]{display:none!important}';
             document.head.appendChild(as);
-            // Varredura periódica: remove qualquer iframe ou container de anúncio que apareça
+            // Varredura periódica: remove iframes e containers de anúncio que apareçam
             if (gameState._adCleanup) clearInterval(gameState._adCleanup);
             gameState._adCleanup = setInterval(() => {
                 document.querySelectorAll('iframe:not(#game-container iframe)').forEach(el => el.remove());
