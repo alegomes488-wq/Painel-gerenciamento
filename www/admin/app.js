@@ -37,7 +37,7 @@ window.safeClass = (idOrEl, method, className) => {
     }
 };
 
-// --- CONFIGURAÇÃO CYBERCORE IA (LOCAL ONLY) ---
+// --- CONFIGURAÇÃO BRASIL HEXA (LOCAL ONLY) ---
 const LOCAL_BACKEND = 'http://localhost:7860';
 // Prioriza o que está no localStorage ou o LOCAL_BACKEND
 let CYBERCORE_BACKEND_URL = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
@@ -56,7 +56,7 @@ async function forceWakeUpBackend() {
         const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/health` : '/health';
         await fetch(url, { mode: 'no-cors' });
     } catch (e) {
-        console.warn("Nexus: Aguardando resposta do núcleo...");
+        console.warn("Agente Canarinho: Aguardando resposta do núcleo...");
     }
 }
 forceWakeUpBackend();
@@ -266,7 +266,7 @@ function initRealTimeSystem() {
     updateTelemetria();
     checkPythonCoreStatus();
     checkAIEngineStatus();
-    initNexusAgent();
+    initCanarinhoAgent();
     updateWarRoom();
 
 // --- FIREBASE LISTENERS (Só ativam se Firebase estiver disponível) ---
@@ -280,7 +280,7 @@ if (hubDb) {
         const target = cmd.target.replace('/', '');
         if (['overview', 'users', 'security', 'saques', 'audit', 'settings'].includes(target)) {
             showPanel(target);
-            showToast(`NEXUS: Navegando para ${target.toUpperCase()}`, 'info');
+            showToast(`CANARINHO: Navegando para ${target.toUpperCase()}`, 'info');
         }
     });
 
@@ -385,7 +385,7 @@ if (hubDb) {
         nexusLogs.scrollTop = nexusLogs.scrollHeight;
     });
 
-    // Sentinel Alerts (Logs em tempo real)
+    // VAR Alerts (Logs em tempo real)
     hubDb.ref('logs/sentinel_alerts').limitToLast(15).on('value', snap => {
         const sentinelLogs = document.getElementById('logs-sentinel');
         if (!sentinelLogs) return;
@@ -396,14 +396,14 @@ if (hubDb) {
             const line = document.createElement('div');
             line.className = 'log-line';
             const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--:--';
-            const msg = log.message || log.type || log.reason || 'Evento Sentinel';
+            const msg = log.message || log.type || log.reason || 'Evento VAR';
             line.innerHTML = `<span>[${time}]</span> ${msg}`;
             sentinelLogs.appendChild(line);
         });
         sentinelLogs.scrollTop = sentinelLogs.scrollHeight;
     });
 
-    // Auditor Financeiro (Status financeiro em tempo real)
+    // VAR Financeiro (Status financeiro em tempo real)
     hubDb.ref('status/financial_realtime').on('value', snap => {
         const auditLogs = document.getElementById('logs-auditor');
         if (!auditLogs) return;
@@ -461,7 +461,7 @@ if (hubDb) {
     });
 
     initProfitChart();
-    console.log("[NEXUS] Telemetria de Gráficos Iniciada");
+    console.log("[CANARINHO] Telemetria de Gráficos Iniciada");
 } // fim if hubDb
 } // fim initRealTimeSystem
 
@@ -553,15 +553,15 @@ function showPanel(id, filterType = null) {
             overview: '[SYS_DASHBOARD] // COMMAND CENTER',
             analytics: '[SYS_ANALYTICS] // ANALYTICS & TELEMETRIA',
             projects: '[SYS_CONNECTOR] // INTEL CONNECTOR',
-            watch: '[SYS_WATCH] // CYBERCORE WATCH',
-            studio: '[SYS_STUDIO] // CYBERCORE STUDIO',
+            watch: '[SYS_WATCH] // MONITOR CANARINHO',
+            studio: '[SYS_STUDIO] // CT CANARINHO',
             users: '[SYS_DATABASE] // USUÁRIOS',
             memory: '[SYS_NEURAL] // MEMÓRIA',
-            security: '[SYS_SENTINEL] // SEGURANÇA',
+            security: '[SYS_VAR] // SEGURANÇA',
             settings: '[SYS_CONFIG] // CONFIGURAÇÕES',
             saques: '[SYS_FINANCE] // SAQUES PIX',
             terminal: '[SYS_TERMINAL] // LOGS',
-            audit: '[SYS_AUDIT] // AUDITORIA NEXUS',
+            audit: '[SYS_AUDIT] // VAR CANARINHO',
             stock: '[SYS_STOCK] // ESTOQUE'
         };
         const titleEl = document.getElementById('current-panel-name');
@@ -682,7 +682,7 @@ async function sendOrchestratorCommand() {
     const loading = document.createElement('div');
     loading.className = 'ai-msg';
     loading.style.cssText = 'display:flex;gap:12px;opacity:0.6;';
-    loading.innerHTML = `<span class="avatar">🧠</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#94a3b8;">CyberCore procesando...</div>`;
+    loading.innerHTML = `<span class="avatar">🧠</span><div class="msg-bubble" style="padding:12px 16px;border-radius:12px;font-size:13px;color:#94a3b8;">Brasil Hexa processando...</div>`;
     chat.appendChild(loading);
     chat.scrollTop = chat.scrollHeight;
 
@@ -848,7 +848,7 @@ async function generateTeam() {
 
     if (body) {
         const source = gptmakerAgentId ? 'GPT Maker' : 'ORCHESTRATOR';
-        body.innerHTML += `<div style="color:#fff;margin-top:15px;font-family:'JetBrains Mono';font-size:12px;">[SISTEMA] Analisando projeto e convocando equipe CyberCore...</div>`;
+        body.innerHTML += `<div style="color:#fff;margin-top:15px;font-family:'JetBrains Mono';font-size:12px;">[SISTEMA] Analisando projeto e convocando Seleção Brasil Hexa...</div>`;
         body.scrollTop = body.scrollHeight;
 
         try {
@@ -965,7 +965,7 @@ async function fetchWorkspaceContext() {
     }
 }
 
-// --- CYBER CORE CEO: Chat, Plano e Execução ---
+// --- BRASIL HEXA CEO: Chat, Plano e Execução ---
 let cybercoreLastPlan = [];
 let cybercoreLastRaciocinio = "";
 
@@ -994,7 +994,7 @@ function cybercoreAddMessage(role, content, extra = '') {
     } else if (role === 'raciocinio') {
         msg.style.background = 'rgba(232,184,48,0.05)';
         msg.style.borderLeft = '2px solid var(--gold)';
-        msg.innerHTML = `<span style="color:var(--gold);font-weight:800;">🧠 CYBER CORE</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
+        msg.innerHTML = `<span style="color:var(--gold);font-weight:800;">🧠 BRASIL HEXA</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
     } else if (role === 'plano') {
         msg.style.background = 'rgba(59,130,246,0.05)';
         msg.style.borderLeft = '2px solid #3b82f6';
@@ -1029,7 +1029,7 @@ async function cybercoreChat() {
     const loading = document.createElement('div');
     loading.id = 'cybercore-loading';
     loading.style.cssText = 'padding:8px;color:var(--gold);font-size:10px;font-family:JetBrains Mono;opacity:0.6;';
-    loading.textContent = '🧠 CyberCore está analisando...';
+    loading.textContent = '🧠 Brasil Hexa está analisando...';
     document.getElementById('cybercore-conversation').appendChild(loading);
 
     try {
@@ -1182,12 +1182,12 @@ function cybercoreShowMemory() {
     const conv = document.getElementById('cybercore-conversation');
     if (!conv) return;
     conv.innerHTML = '';
-    cybercoreAddMessage('raciocinio', '📚 **MEMÓRIA CYBER CORE**<br><br>Projetos, agentes e arquitetura são persistidos em <code>cybercore-memory/</code><br><br>• <strong>projects/</strong> — contexto, tech stack, status de cada projeto<br>• <strong>agents/</strong> — instruções e estado de cada agente<br>• <strong>architecture/</strong> — documentação da arquitetura do sistema<br>• <strong>logs/</strong> — histórico de execuções');
+    cybercoreAddMessage('raciocinio', '📚 **MEMÓRIA BRASIL HEXA**<br><br>Projetos, agentes e arquitetura são persistidos em <code>cybercore-memory/</code><br><br>• <strong>projects/</strong> — contexto, tech stack, status de cada projeto<br>• <strong>agents/</strong> — instruções e estado de cada agente<br>• <strong>architecture/</strong> — documentação da arquitetura do sistema<br>• <strong>logs/</strong> — histórico de execuções');
 }
 
 function cybercoreClear() {
     const conv = document.getElementById('cybercore-conversation');
-    if (conv) conv.innerHTML = '<div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">🧠 CyberCore aguardando seu comando...</div>';
+    if (conv) conv.innerHTML = '<div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">🧠 Brasil Hexa aguardando seu comando...</div>';
     cybercoreLastPlan = [];
     cybercoreLastRaciocinio = '';
     const executeBtn = document.getElementById('cybercore-execute-btn');
@@ -1700,6 +1700,14 @@ function renderWatchProjects() {
 
 function renderGlobalStats() {
     const users = Object.values(rtState.users);
+    // Filtra usuários de teste (mesmo filtro da tabela)
+    const testIds = ['5onHVa3N', 'KqJU9EJg', 'REFERRED', 'SPONSOR_'];
+    const testEmails = ['alegomas@gmail.com', 'usuarioteste@gmail.com'];
+    const realUsers = users.filter(u => {
+        if (u.status === 'banido') return false;
+        if (testEmails.includes((u.email || '').toLowerCase())) return false;
+        return true;
+    });
     const totalDebt = users.reduce((acc, u) => acc + parseFloat(u.balance || 0), 0);
     const hits = rtState.config?.stats?.hits || 0;
     const cpm = rtState.config?.cpm || 0.18;
@@ -1708,7 +1716,7 @@ function renderGlobalStats() {
     const revenueBrl = (hits / 1000) * cpm * dollar;
     const netProfit = revenueBrl - totalDebt;
     updateEl('stat-profit-brl-total', `R$ ${revenueBrl.toFixed(2)}`);
-    updateEl('stat-users', users.length);
+    updateEl('stat-users', realUsers.length);
     updateEl('stat-profit-usd', `$ ${(revenueBrl / dollar).toFixed(2)}`);
     updateEl('stat-profit-brl', `R$ ${revenueBrl.toFixed(2)}`);
     updateEl('stat-balance', `R$ ${totalDebt.toFixed(2)}`);
@@ -1718,8 +1726,8 @@ function renderGlobalStats() {
 
     // Variação semanal de usuários (compara com criação de conta)
     const weekAgo = Date.now() - 7 * 86400000;
-    const weekStart = users.filter(u => (u.createdAt || u.created_at || 0) < weekAgo).length;
-    const weekChange = weekStart > 0 ? ((users.length - weekStart) / weekStart) * 100 : 0;
+    const weekStart = realUsers.filter(u => (u.createdAt || u.created_at || 0) < weekAgo).length;
+    const weekChange = weekStart > 0 ? ((realUsers.length - weekStart) / weekStart) * 100 : 0;
     const weekEl = document.getElementById('stat-users-week');
     if (weekEl) {
         weekEl.textContent = weekChange >= 0 ? `+${weekChange.toFixed(0)}% esta semana` : `${weekChange.toFixed(0)}% esta semana`;
@@ -1957,7 +1965,7 @@ async function sendIACommand() {
         return;
     }
 
-    // [CYBERCORE] Comandos de Simulação de Caos (Sentinel/Chaos Testing)
+    // [BRASIL HEXA] Comandos de Simulação de Caos (VAR/Chaos Testing)
     if (cmd.includes("kill agent") || cmd.includes("fail agent")) {
         const agent = cmd.split(" ").pop();
         try {
@@ -1994,7 +2002,7 @@ async function sendIACommand() {
 
     if (cmd.includes("chaos") || cmd.includes("simulação")) {
         typeIAResponse("Selecione o tipo de falha para simular no ecossistema:", 'nexus', false, [
-            { label: "Falha Sentinel", type: "danger", actionId: "chaos", decision: "fail sentinel" },
+            { label: "Falha VAR", type: "danger", actionId: "chaos", decision: "fail sentinel" },
             { label: "Latência Alta", type: "warning", actionId: "chaos", decision: "high latency" },
             { label: "Offline Mode", type: "info", actionId: "chaos", decision: "offline" }
         ]);
@@ -2052,7 +2060,7 @@ async function sendIACommand() {
             } catch {}
         }
 
-        if (!answer) answer = "Núcleo sem resposta. Verifique a conexão com o Nexus local.";
+        if (!answer) answer = "Núcleo sem resposta. Verifique a conexão com o Agente Canarinho local.";
 
         document.getElementById(thinkingId)?.remove();
         typeIAResponse(answer, agentId);
@@ -2089,7 +2097,7 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
         'cfo': { name: 'CFO (Auditor)', seed: 'CFO', color: 'b6e3f4' },
         'coo': { name: 'COO (Segurança)', seed: 'COO', color: 'c0aede' },
         'cmo': { name: 'CMO (Growth)', seed: 'CMO', color: 'ffd5dc' },
-        'nexus': { name: 'NEXUS (Operações)', seed: 'Nexus', color: 'c0aede' }
+        'nexus': { name: 'CANARINHO (Operações)', seed: 'Nexus', color: 'c0aede' }
     };
     const meta = agentMeta[agentId] || agentMeta['cmo'];
 
@@ -2316,16 +2324,16 @@ async function checkAIEngineStatus() {
     }
 }
 
-function initNexusAgent() {
+function initCanarinhoAgent() {
     setInterval(() => {
         const el = document.getElementById('sentinel-status-text');
         if (el) {
-            const logs = ["ESCANEANDO...", "NOMINAL", "TRÁFEGO OK", "SENTINEL ATIVO"];
+            const logs = ["ANALISANDO...", "NOMINAL", "JOGADAS OK", "VAR ATIVO"];
             el.innerText = logs[Math.floor(Math.random() * logs.length)];
         }
     }, 5000);
 
-    // Monitor de Auditoria em tempo real para Logs do Nexus
+    // Monitor de VAR em tempo real para Logs do Agente Canarinho
     hubDb.ref('agent_data/incoming').limitToLast(5).on('child_added', snap => {
         const data = snap.val();
         if (!data || data.type !== 'telemetry') return;
@@ -2337,7 +2345,7 @@ function initNexusAgent() {
             line.className = 'log-line';
             line.style.borderLeft = '2px solid var(--teal)';
             const time = new Date(data.received_at).toLocaleTimeString();
-            line.innerHTML = `<span>[${time}]</span> <strong style="color:var(--teal)">AUDIT:</strong> ${data.payload.uid} sync detectado.`;
+            line.innerHTML = `<span>[${time}]</span> <strong style="color:var(--teal)">VAR:</strong> ${data.payload.uid} sync detectado.`;
             auditLog.appendChild(line);
             if (auditLog.children.length > 20) auditLog.removeChild(auditLog.firstChild);
             auditLog.scrollTop = auditLog.scrollHeight;
@@ -2427,7 +2435,15 @@ window.addEventListener('pagehide', () => {
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
 function updatePulseCoreUI() {
     const hits = rtState.status?.total_hits || 0;
-    const active = rtState.status?.active_users || Object.keys(rtState.users).length;
+    // Usa o mesmo filtro de usuários reais do renderGlobalStats
+    const testIds = ['5onHVa3N', 'KqJU9EJg', 'REFERRED', 'SPONSOR_'];
+    const testEmails = ['alegomas@gmail.com', 'usuarioteste@gmail.com'];
+    const realUsers = Object.values(rtState.users).filter(u => {
+        if (u.status === 'banido') return false;
+        if (testEmails.includes((u.email || '').toLowerCase())) return false;
+        return true;
+    });
+    const active = rtState.status?.active_users || realUsers.length;
     updateEl('stat-users', active);
 
     // Atualiza cards de telemetria com dados reais se disponíveis
@@ -2677,7 +2693,7 @@ function saveAuditParameters() {
 }
 
 const CONFIG_LABELS = {
-    active: ['Núcleo IA', 'Núcleo CyberCore IA'],
+    active: ['Núcleo IA', 'Núcleo Brasil Hexa'],
     maintenance: ['Manutenção', 'Modo Manutenção do Sistema'],
     deviceIdSecurity: ['ID Único', 'Segurança de ID Único'],
     production: ['Produção', 'Ambiente de Produção'],
@@ -2854,7 +2870,7 @@ function updateWarRoom() {
             }
         }).catch(() => {});
 
-    // 1. REDE DE AGENTES NEXUS — anima conexões SVG
+    // 1. REDE DE AGENTES CANARINHO — anima conexões SVG
     const agents = ['sentinel', 'auditor', 'nexus', 'fiscal'];
     agents.forEach(name => {
         const line = document.getElementById(`link-${name}`);
@@ -2960,8 +2976,8 @@ function updateWarRoom() {
     if (cmdsEl) {
         const now = new Date().toLocaleTimeString();
         const cmds = [
-            { time: now, agent: 'SENTINEL', cmd: 'Varredura de segurança' },
-            { time: now, agent: 'NEXUS', cmd: `Analisando ${Object.keys(rtState.users).length} usuários` },
+            { time: now, agent: 'VAR', cmd: 'Varredura de segurança' },
+            { time: now, agent: 'CANARINHO', cmd: `Analisando ${Object.keys(rtState.users).length} usuários` },
             { time: now, agent: 'AUDITOR', cmd: `Fluxo: R$ ${Object.values(rtState.users).reduce((s, u) => s + parseFloat(u.balance || 0), 0).toFixed(2)}` }
         ];
         cmdsEl.innerHTML = cmds.map(c => `
@@ -2982,7 +2998,7 @@ function updateSentinelStatus() {
     }
     const text = document.getElementById('sentinel-status-text');
     if (text) {
-        const statuses = ["ESCANEANDO NÓS...", "PROTEÇÃO ATIVA", "NOMINAL", "AGENTE SENTINEL OK"];
+        const statuses = ["ANALISANDO LANCES...", "VAR ATIVO", "NOMINAL", "AGENTE VAR OK"];
         text.innerText = statuses[Math.floor(Math.random() * statuses.length)];
     }
 }
@@ -3155,7 +3171,7 @@ function confirmarTransferencia() {
     const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/payments/approve/${wid}` : `/payments/approve/${wid}`;
 
     closePixModal();
-    showToast('🚀 Iniciando auditoria e liquidação...', 'info');
+    showToast('🚀 Iniciando VAR e liquidação...', 'info');
 
     fetch(url, { method: 'POST' })
         .then(r => r.json())
@@ -3208,7 +3224,7 @@ async function generateAIReport() {
     const revenue = ((hits / 1000) * cpm * dollar).toFixed(2);
 
     const lines = [
-        "RELATÓRIO DE MONITORAMENTO CYBERCORE IA:",
+        "RELATÓRIO DE MONITORAMENTO BRASIL HEXA:",
         `📡 Ping: ${metrics.ping || 0}ms | CPU: ${metrics.cpu || 0}% | RAM: ${metrics.ram || '0MB'}`,
         `👥 Usuários: ${totalUsers} total | ${activeUsers} ativos`,
         `💰 Saldo total: R$ ${totalBalance.toFixed(2)}`,
@@ -3268,7 +3284,7 @@ function showAddProjectModal() {
                 <div class="modal-body">
                     <div id="connector-step-1">
                         <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">
-                            Insira a URL do projeto. O CyberCore analisará o stack tecnológico e protocolos de segurança automaticamente.
+                            Insira a URL do projeto. O Brasil Hexa analisará o stack tecnológico e protocolos de segurança automaticamente.
                         </p>
                         <div class="p-input-group">
                             <label>URL DO PROJETO</label>
@@ -3350,7 +3366,7 @@ function confirmarConexaoProjeto() {
         connected_at: firebase.database.ServerValue.TIMESTAMP,
         token: 'cc_' + Math.random().toString(36).substr(2, 16)
     }).then(() => {
-        showToast("🚀 Nó conectado ao Hub CyberCore!", "success");
+        showToast("🚀 Nó conectado ao Hub Brasil Hexa!", "success");
         const modal = document.getElementById('modal-add-project-overlay');
         if (modal) modal.remove();
         // O renderProjects será chamado pelo listener do RTDB
