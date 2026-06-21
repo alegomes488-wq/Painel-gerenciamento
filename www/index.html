@@ -2217,10 +2217,10 @@
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
             gameState.current = gameId;
             gameState.score = 0;
-            // CSS anti-anúncio forçado
+            // CSS anti-anúncio forçado — bloqueia iframes, containers monetag, e overlays com position:fixed inline
             const as = document.createElement('style');
             as.id = 'game-adblock-css';
-            as.textContent = 'iframe:not(#game-container iframe){display:none!important;visibility:hidden!important}[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"],[id^="M"][id$="ScriptRoot"]{display:none!important}';
+            as.textContent = 'iframe:not(#game-container iframe){display:none!important;visibility:hidden!important}[style*="position:fixed"]{display:none!important}[style*="position: fixed"]{display:none!important}[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]{display:none!important}';
             document.head.appendChild(as);
             // Varredura periódica: remove iframes e containers de anúncio que apareçam
             if (gameState._adCleanup) clearInterval(gameState._adCleanup);
