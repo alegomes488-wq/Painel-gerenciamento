@@ -2212,15 +2212,15 @@
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
-            // Força remoção de iframes e containers de anúncio
-            document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], [id*="google_ads"], iframe[src*="ads"], iframe[src*="doubleclick"]').forEach(el => el.remove());
-            // Adiciona CSS que esconde anúncios enquanto joga
-            const s = document.createElement('style');
-            s.id = 'game-adblock-css';
-            s.textContent = 'iframe:not(#game-container iframe){display:none!important}[id^="MON_"],[class*="monetag"],[id*="google_ads"]{display:none!important}';
-            document.head.appendChild(s);
             gameState.current = gameId;
             gameState.score = 0;
+            // Varredura anti-anúncio durante o jogo
+            if (gameState._adCleanup) clearInterval(gameState._adCleanup);
+            gameState._adCleanup = setInterval(() => {
+                document.querySelectorAll('iframe, [id^="MON_"], [id*="google_ads"], script[src*="quge5"], script[src*="al5sm"]').forEach(el => {
+                    if (!document.getElementById('game-container')?.contains(el)) el.remove();
+                });
+            }, 300);
             if (gameId === 'flappy') initFlappy();
             else if (gameId === 'memory') initMemory();
         };
@@ -2228,6 +2228,7 @@
         window.closeGame = () => {
             gameState.running = false;
             if (gameState._flappyCleanup) { gameState._flappyCleanup(); gameState._flappyCleanup = null; }
+            if (gameState._adCleanup) { clearInterval(gameState._adCleanup); gameState._adCleanup = null; }
             gameState.current = null;
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-result').classList.add('hidden');
