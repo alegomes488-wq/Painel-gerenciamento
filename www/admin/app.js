@@ -39,8 +39,19 @@ window.safeClass = (idOrEl, method, className) => {
 
 // --- CONFIGURAÇÃO BRASIL HEXA (LOCAL ONLY) ---
 const LOCAL_BACKEND = 'http://localhost:7860';
+
+// Função de migração de localStorage (CyberCore -> Brasil Hexa)
+(function migrateStorage() {
+    const legacyUrl = localStorage.getItem('CYBERCORE_BACKEND_URL');
+    if (legacyUrl && !localStorage.getItem('BRASILHEXA_BACKEND_URL')) {
+        localStorage.setItem('BRASILHEXA_BACKEND_URL', legacyUrl);
+        // Opcional: manter o antigo por compatibilidade temporária ou remover
+        // localStorage.removeItem('CYBERCORE_BACKEND_URL');
+    }
+})();
+
 // Prioriza o que está no localStorage ou o LOCAL_BACKEND
-let CYBERCORE_BACKEND_URL = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+let BRASILHEXA_BACKEND_URL = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
 
 let currentProject = localStorage.getItem('studioProject') || 'default';
 
@@ -48,12 +59,12 @@ let currentProject = localStorage.getItem('studioProject') || 'default';
 localStorage.setItem('studioProject', currentProject);
 
 // Desativa qualquer ponte com Hugging Face ou portas antigas
-localStorage.setItem('CYBERCORE_BACKEND_URL', CYBERCORE_BACKEND_URL);
+localStorage.setItem('BRASILHEXA_BACKEND_URL', BRASILHEXA_BACKEND_URL);
 
 // --- SISTEMA DESPERTADOR (WAKE-UP) ---
 async function forceWakeUpBackend() {
     try {
-        const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/health` : '/health';
+        const url = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/health` : '/health';
         await fetch(url, { mode: 'no-cors' });
     } catch (e) {
         console.warn("Agente Canarinho: Aguardando resposta do núcleo...");
@@ -67,7 +78,7 @@ let backendOnline = false;
 
 async function checkBackendHealth() {
     try {
-        const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/health` : '/health';
+        const url = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/health` : '/health';
         const resp = await fetch(url);
         backendOnline = resp.ok;
     } catch (e) {
@@ -112,7 +123,7 @@ async function sendPM() {
     container.innerHTML += '<div style="text-align:center;padding:8px;color:var(--text-secondary);font-size:10px;">🤔 Processando...</div>';
     container.scrollTop = container.scrollHeight;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/project-manager/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -192,7 +203,7 @@ function pmQuickAction(action) {
 // ===== CREDIT SYSTEM =====
 async function loadCredits() {
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/credits`);
         const data = await resp.json();
         if (data.status !== 'success') return;
@@ -666,7 +677,7 @@ async function sendOrchestratorCommand() {
     const prompt = input?.value?.trim();
     if (!prompt) return showToast("Digite um comando para o Orchestrator.", "error");
 
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     const chat = document.getElementById('orch-chat-messages');
 
     // Mensagem do usuario
@@ -687,7 +698,7 @@ async function sendOrchestratorCommand() {
     chat.scrollTop = chat.scrollHeight;
 
     try {
-        const resp = await fetch(`${baseUrl}/api/cybercore/chat`, {
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt, project: 'default', uid: 'admin_orchestrator' })
@@ -749,7 +760,7 @@ async function sendOrchestratorCommand() {
 
 async function executeOrchestratorPlan() {
     const chat = document.getElementById('orch-chat-messages');
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
 
     if (!lastOrchestratorPlan || lastOrchestratorPlan.length === 0) {
         const errMsg = document.createElement('div');
@@ -768,7 +779,7 @@ async function executeOrchestratorPlan() {
     chat.scrollTop = chat.scrollHeight;
 
     try {
-        const resp = await fetch(`${baseUrl}/api/cybercore/execute`, {
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/execute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -852,7 +863,7 @@ async function generateTeam() {
         body.scrollTop = body.scrollHeight;
 
         try {
-            const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+            const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
             let answer = '';
 
             if (gptmakerAgentId) {
@@ -863,7 +874,7 @@ async function generateTeam() {
                     body: JSON.stringify({
                         agent_id: gptmakerAgentId,
                         prompt: `Contexto do projeto:\n${await fetchWorkspaceContext()}\n\nObjetivo: ${prompt}\n\nGere JSON {"arquivo": "conteudo"}`,
-                        context_id: 'cybercore_studio'
+                        context_id: 'brasilhexa_studio'
                     })
                 });
                 const data = await resp.json();
@@ -953,7 +964,7 @@ async function generateTeam() {
 
 async function fetchWorkspaceContext() {
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/context?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
         if (data.status === 'success') {
@@ -966,22 +977,22 @@ async function fetchWorkspaceContext() {
 }
 
 // --- BRASIL HEXA CEO: Chat, Plano e Execução ---
-let cybercoreLastPlan = [];
-let cybercoreLastRaciocinio = "";
+let brasilHexaLastPlan = [];
+let brasilHexaLastRaciocinio = "";
 
-function toggleCyberCorePanel() {
-    const body = document.getElementById('cybercore-panel-body');
-    const icon = document.getElementById('cybercore-toggle-icon');
+function toggleBrasilHexaPanel() {
+    const body = document.getElementById('brasilhexa-panel-body');
+    const icon = document.getElementById('brasilhexa-toggle-icon');
     if (body) {
         const show = body.style.display !== 'block';
         body.style.display = show ? 'block' : 'none';
         if (icon) icon.textContent = show ? '▴' : '▾';
-        if (show) cybercoreLoadProject(document.getElementById('cybercore-project-select')?.value || 'default');
+        if (show) brasilHexaLoadProject(document.getElementById('brasilhexa-project-select')?.value || 'default');
     }
 }
 
-function cybercoreAddMessage(role, content, extra = '') {
-    const conv = document.getElementById('cybercore-conversation');
+function brasilHexaAddMessage(role, content, extra = '') {
+    const conv = document.getElementById('brasilhexa-conversation');
     if (!conv) return;
 
     const msg = document.createElement('div');
@@ -994,7 +1005,7 @@ function cybercoreAddMessage(role, content, extra = '') {
     } else if (role === 'raciocinio') {
         msg.style.background = 'rgba(232,184,48,0.05)';
         msg.style.borderLeft = '2px solid var(--gold)';
-        msg.innerHTML = `<span style="color:var(--gold);font-weight:800;">🧠 BRASIL HEXA</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
+        msg.innerHTML = `<span style="color:var(--gold);font-weight:800;">🧠 AGENTE CANARINHO</span><br><span style="color:#d4d4d8;font-size:10px;">${content}</span>`;
     } else if (role === 'plano') {
         msg.style.background = 'rgba(59,130,246,0.05)';
         msg.style.borderLeft = '2px solid #3b82f6';
@@ -1014,37 +1025,37 @@ function cybercoreAddMessage(role, content, extra = '') {
     conv.scrollTop = conv.scrollHeight;
 }
 
-async function cybercoreChat() {
-    const input = document.getElementById('cybercore-chat-input');
+async function brasilHexaChat() {
+    const input = document.getElementById('brasilhexa-chat-input');
     const prompt = input?.value?.trim();
-    if (!prompt) return showToast("Digite um objetivo para a Cyber Core.", "error");
+    if (!prompt) return showToast("Digite um objetivo para o Agente Canarinho.", "error");
 
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-    const project = document.getElementById('cybercore-project-select')?.value || 'default';
-    const executeBtn = document.getElementById('cybercore-execute-btn');
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const project = document.getElementById('brasilhexa-project-select')?.value || 'default';
+    const executeBtn = document.getElementById('brasilhexa-execute-btn');
 
-    cybercoreAddMessage('user', prompt);
+    brasilHexaAddMessage('user', prompt);
     input.value = '';
 
     const loading = document.createElement('div');
-    loading.id = 'cybercore-loading';
+    loading.id = 'brasilhexa-loading';
     loading.style.cssText = 'padding:8px;color:var(--gold);font-size:10px;font-family:JetBrains Mono;opacity:0.6;';
-    loading.textContent = '🧠 Brasil Hexa está analisando...';
-    document.getElementById('cybercore-conversation').appendChild(loading);
+    loading.textContent = '🧠 Agente Canarinho está analisando...';
+    document.getElementById('brasilhexa-conversation').appendChild(loading);
 
     try {
-        const resp = await fetch(`${baseUrl}/api/cybercore/chat`, {
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, project, uid: 'admin_cybercore' })
+            body: JSON.stringify({ prompt, project, uid: 'admin_brasilhexa' })
         });
         const data = await resp.json();
 
-        document.getElementById('cybercore-loading')?.remove();
+        document.getElementById('brasilhexa-loading')?.remove();
 
         if (data.status === 'success') {
             // Raciocínio
-            if (data.raciocinio) cybercoreAddMessage('raciocinio', data.raciocinio);
+            if (data.raciocinio) brasilHexaAddMessage('raciocinio', data.raciocinio);
 
             // Plano
             if (data.plano && data.plano.length > 0) {
@@ -1060,10 +1071,10 @@ async function cybercoreChat() {
                     </div>`;
                 });
                 planHtml += `</div>`;
-                cybercoreAddMessage('plano', planHtml);
+                brasilHexaAddMessage('plano', planHtml);
 
-                cybercoreLastPlan = data.plano;
-                cybercoreLastRaciocinio = data.raciocinio || '';
+                brasilHexaLastPlan = data.plano;
+                brasilHexaLastRaciocinio = data.raciocinio || '';
 
                 if (executeBtn) {
                     executeBtn.style.display = 'inline-flex';
@@ -1074,25 +1085,25 @@ async function cybercoreChat() {
             // Atualiza o prompt master com o mesmo prompt para consistência
             document.getElementById('studio-prompt').value = prompt;
         } else {
-            cybercoreAddMessage('erro', data.msg || 'Falha na comunicação com a CyberCore.');
+            brasilHexaAddMessage('erro', data.msg || 'Falha na comunicação com o Agente Canarinho.');
         }
     } catch (e) {
-        document.getElementById('cybercore-loading')?.remove();
-        cybercoreAddMessage('erro', `Erro de conexão: ${e.message}`);
+        document.getElementById('brasilhexa-loading')?.remove();
+        brasilHexaAddMessage('erro', `Erro de conexão: ${e.message}`);
     }
 }
 
-async function cybercoreExecute() {
-    if (!cybercoreLastPlan || cybercoreLastPlan.length === 0) {
+async function brasilHexaExecute() {
+    if (!brasilHexaLastPlan || brasilHexaLastPlan.length === 0) {
         return showToast("Nenhum plano para executar. Use ANALISAR primeiro.", "error");
     }
 
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-    const project = document.getElementById('cybercore-project-select')?.value || 'default';
-    const executeBtn = document.getElementById('cybercore-execute-btn');
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const project = document.getElementById('brasilhexa-project-select')?.value || 'default';
+    const executeBtn = document.getElementById('brasilhexa-execute-btn');
     if (executeBtn) executeBtn.disabled = true;
 
-    cybercoreAddMessage('raciocinio', '⚡ Iniciando execução distribuída do plano...');
+    brasilHexaAddMessage('raciocinio', '⚡ Iniciando execução distribuída do plano...');
 
     try {
         // Pega contexto extra do workspace
@@ -1103,13 +1114,13 @@ async function cybercoreExecute() {
             if (ctxData.status === 'success') contextExtra = ctxData.context?.slice(0, 2000) || '';
         } catch {}
 
-        const resp = await fetch(`${baseUrl}/api/cybercore/execute`, {
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/execute`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                plano: cybercoreLastPlan,
+                plano: brasilHexaLastPlan,
                 project,
-                uid: 'admin_cybercore',
+                uid: 'admin_brasilhexa',
                 contexto_extra: contextExtra
             })
         });
@@ -1126,32 +1137,32 @@ async function cybercoreExecute() {
                 </div>`;
             });
             relatorio += `</div>`;
-            cybercoreAddMessage('resultado', relatorio);
+            brasilHexaAddMessage('resultado', relatorio);
 
             // Atualiza workspace files
             listStudioFiles();
 
             showToast(`${data.concluidos}/${data.total} tarefas concluídas!`, 'success');
         } else {
-            cybercoreAddMessage('erro', data.msg || 'Falha na execução.');
+            brasilHexaAddMessage('erro', data.msg || 'Falha na execução.');
         }
     } catch (e) {
-        cybercoreAddMessage('erro', `Erro de conexão: ${e.message}`);
+        brasilHexaAddMessage('erro', `Erro de conexão: ${e.message}`);
     }
 
     if (executeBtn) executeBtn.disabled = false;
 }
 
-async function cybercoreLoadProject(name) {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+async function brasilHexaLoadProject(name) {
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     try {
-        const resp = await fetch(`${baseUrl}/api/cybercore/memory/projects/${name}`);
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/memory/projects/${name}`);
         const data = await resp.json();
         if (data.status === 'success' && data.data) {
             const p = data.data;
             if (p.context) {
                 const preview = p.context.slice(-300).replace(/\n/g, '<br>');
-                document.getElementById('cybercore-conversation').innerHTML = `
+                document.getElementById('brasilhexa-conversation').innerHTML = `
                     <div style="padding:8px;background:rgba(0,243,255,0.03);border-radius:4px;margin-bottom:8px;">
                         <span style="color:var(--cyan);font-weight:800;font-size:10px;">📁 ${p.name}</span>
                         <span style="color:#64748b;font-size:9px;margin-left:8px;">${p.status} | Stack: ${p.tech_stack?.join(', ') || '—'}</span>
@@ -1162,12 +1173,12 @@ async function cybercoreLoadProject(name) {
     } catch {}
 }
 
-async function cybercoreRefreshProjects() {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
-    const select = document.getElementById('cybercore-project-select');
+async function brasilHexaRefreshProjects() {
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const select = document.getElementById('brasilhexa-project-select');
     if (!select) return;
     try {
-        const resp = await fetch(`${baseUrl}/api/cybercore/memory/projects`);
+        const resp = await fetch(`${baseUrl}/api/brasilhexa/memory/projects`);
         const data = await resp.json();
         if (data.status === 'success') {
             select.innerHTML = '<option value="default">📁 default</option>';
@@ -1178,23 +1189,23 @@ async function cybercoreRefreshProjects() {
     } catch {}
 }
 
-function cybercoreShowMemory() {
-    const conv = document.getElementById('cybercore-conversation');
+function brasilHexaShowMemory() {
+    const conv = document.getElementById('brasilhexa-conversation');
     if (!conv) return;
     conv.innerHTML = '';
-    cybercoreAddMessage('raciocinio', '📚 **MEMÓRIA BRASIL HEXA**<br><br>Projetos, agentes e arquitetura são persistidos em <code>cybercore-memory/</code><br><br>• <strong>projects/</strong> — contexto, tech stack, status de cada projeto<br>• <strong>agents/</strong> — instruções e estado de cada agente<br>• <strong>architecture/</strong> — documentação da arquitetura do sistema<br>• <strong>logs/</strong> — histórico de execuções');
+    brasilHexaAddMessage('raciocinio', '📚 **MEMÓRIA BRASIL HEXA**<br><br>Projetos, agentes e arquitetura são persistidos em <code>brasilhexa-memory/</code><br><br>• <strong>projects/</strong> — contexto, tech stack, status de cada projeto<br>• <strong>agents/</strong> — instruções e estado de cada agente<br>• <strong>architecture/</strong> — documentação da arquitetura do sistema<br>• <strong>logs/</strong> — histórico de execuções');
 }
 
-function cybercoreClear() {
-    const conv = document.getElementById('cybercore-conversation');
-    if (conv) conv.innerHTML = '<div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">🧠 Brasil Hexa aguardando seu comando...</div>';
-    cybercoreLastPlan = [];
-    cybercoreLastRaciocinio = '';
-    const executeBtn = document.getElementById('cybercore-execute-btn');
+function brasilHexaClear() {
+    const conv = document.getElementById('brasilhexa-conversation');
+    if (conv) conv.innerHTML = '<div style="opacity:0.4;text-align:center;padding:15px;font-size:10px;">⚽ Agente Canarinho aguardando seu comando...</div>';
+    brasilHexaLastPlan = [];
+    brasilHexaLastRaciocinio = '';
+    const executeBtn = document.getElementById('brasilhexa-execute-btn');
     if (executeBtn) executeBtn.style.display = 'none';
 }
 async function loadGptmakerWorkspaces() {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     const select = document.getElementById('gptmaker-workspace-select');
     if (!select) return;
     select.innerHTML = '<option>Carregando...</option>';
@@ -1222,7 +1233,7 @@ async function loadGptmakerWorkspaces() {
 
 async function loadGptmakerAgents(workspaceId) {
     if (!workspaceId) return;
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     const select = document.getElementById('gptmaker-agent-select');
     if (!select) return;
     select.innerHTML = '<option>Carregando...</option>';
@@ -1261,7 +1272,7 @@ function selectGptmakerAgent() {
     }
 }
 
-// ============ CYBERCORE STUDIO WORKSPACE ============
+// ============ BRASIL HEXA STUDIO WORKSPACE ============
 
 async function listStudioFiles() {
     const list = document.getElementById('studio-file-list');
@@ -1270,7 +1281,7 @@ async function listStudioFiles() {
     list.innerHTML = '<div style="opacity: 0.5; text-align: center; padding: 20px;">Lendo workspace...</div>';
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/files?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
 
@@ -1313,7 +1324,7 @@ async function openStudioFile(filename) {
     if (!editor || !nameEl) return;
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/read-file/${filename}?project=${encodeURIComponent(currentProject)}`);
         const data = await resp.json();
 
@@ -1337,7 +1348,7 @@ async function saveCurrentFile() {
     if (filename === 'nenhum arquivo aberto') return showToast("Selecione um arquivo primeiro.", "error");
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1359,11 +1370,11 @@ async function createNewFile() {
     const name = prompt("Nome do novo arquivo (ex: script.js):", "novo_modulo.py");
     if (!name) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: name, content: "// Inicializado pelo CyberCore Studio", project: currentProject })
+            body: JSON.stringify({ filename: name, content: "// Inicializado pelo Brasil Hexa Studio", project: currentProject })
         });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1379,7 +1390,7 @@ async function createNewFile() {
 async function deleteStudioFile(filename) {
     if (!confirm(`Deseja remover ${filename} permanentemente?`)) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/delete-file/${filename}?project=${encodeURIComponent(currentProject)}`, { method: 'DELETE' });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1404,7 +1415,7 @@ function togglePreview() {
 }
 
 function refreshPreview() {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     const iframe = document.getElementById('studio-preview-iframe');
     if (iframe) {
         iframe.src = `${baseUrl}/api/studio/preview?project=${encodeURIComponent(currentProject)}`;
@@ -1412,7 +1423,7 @@ function refreshPreview() {
 }
 
 function openPreviewNewTab() {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     window.open(`${baseUrl}/api/studio/preview?project=${encodeURIComponent(currentProject)}`, '_blank');
 }
 
@@ -1427,7 +1438,7 @@ async function loadStudioProjects() {
     const select = document.getElementById('studio-project-selector');
     if (!select) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/projects`);
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1453,7 +1464,7 @@ async function createStudioProject() {
     if (!name) return;
     const clean = name.replace(/\s+/g, '_').toLowerCase();
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1483,7 +1494,7 @@ async function migrateWorkspaceFiles() {
     const target = prompt("Migrar arquivos para qual projeto?", currentProject);
     if (!target) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/migrate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1521,7 +1532,7 @@ async function buildJavaProject(type) {
     }
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         let prompt = type === 'apk' ? "Build and sign APK" : "Compile project to JAR";
 
         if (currentProjectName) {
@@ -1570,7 +1581,7 @@ async function watchConnectProject() {
     btn.disabled = true;
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/project/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1703,11 +1714,13 @@ function renderGlobalStats() {
     // Filtra usuários de teste (mesmo filtro da tabela)
     const testIds = ['5onHVa3N', 'KqJU9EJg', 'REFERRED', 'SPONSOR_'];
     const testEmails = ['alegomas@gmail.com', 'usuarioteste@gmail.com'];
-    const realUsers = users.filter(u => {
+    const realUsers = Object.entries(rtState.users).filter(([uid, u]) => {
         if (u.status === 'banido') return false;
         if (testEmails.includes((u.email || '').toLowerCase())) return false;
+        if (testIds.some(id => uid.includes(id))) return false;
         return true;
     });
+    const realCount = realUsers.length;
     const totalDebt = users.reduce((acc, u) => acc + parseFloat(u.balance || 0), 0);
     const hits = rtState.config?.stats?.hits || 0;
     const cpm = rtState.config?.cpm || 0.18;
@@ -1716,7 +1729,7 @@ function renderGlobalStats() {
     const revenueBrl = (hits / 1000) * cpm * dollar;
     const netProfit = revenueBrl - totalDebt;
     updateEl('stat-profit-brl-total', `R$ ${revenueBrl.toFixed(2)}`);
-    updateEl('stat-users', realUsers.length);
+    updateEl('stat-users', realCount);
     updateEl('stat-profit-usd', `$ ${(revenueBrl / dollar).toFixed(2)}`);
     updateEl('stat-profit-brl', `R$ ${revenueBrl.toFixed(2)}`);
     updateEl('stat-balance', `R$ ${totalDebt.toFixed(2)}`);
@@ -1726,8 +1739,8 @@ function renderGlobalStats() {
 
     // Variação semanal de usuários (compara com criação de conta)
     const weekAgo = Date.now() - 7 * 86400000;
-    const weekStart = realUsers.filter(u => (u.createdAt || u.created_at || 0) < weekAgo).length;
-    const weekChange = weekStart > 0 ? ((realUsers.length - weekStart) / weekStart) * 100 : 0;
+    const weekStart = realUsers.filter(([uid, u]) => (u.createdAt || u.created_at || 0) < weekAgo).length;
+    const weekChange = weekStart > 0 ? ((realCount - weekStart) / weekStart) * 100 : 0;
     const weekEl = document.getElementById('stat-users-week');
     if (weekEl) {
         weekEl.textContent = weekChange >= 0 ? `+${weekChange.toFixed(0)}% esta semana` : `${weekChange.toFixed(0)}% esta semana`;
@@ -1792,7 +1805,7 @@ function filterUsers(val) {
 async function syncUserEmails() {
     if (!confirm("Sincronizar emails do Firebase Auth com o Database?")) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/sync-emails`, { method: 'POST' });
         const data = await resp.json();
         if (data.status === 'success') {
@@ -1813,7 +1826,7 @@ async function deleteTestUsers() {
     if (!uids.length) return;
     if (!confirm(`Remover ${uids.length} usuário(s) do Firebase (DB + Auth)?\n\n${uids.join('\n')}`)) return;
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
         const resp = await fetch(`${baseUrl}/api/studio/delete-users`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1897,7 +1910,7 @@ let terminalHistory = [];
 
 async function sendIACommand() {
     const input = document.getElementById('terminal-input');
-    const termList = document.getElementById('cybercore-terminal-output');
+    const termList = document.getElementById('brasilhexa-terminal-output');
     if (!input || !input.value.trim() || !termList) return;
 
     const rawCmd = input.value.trim();
@@ -1919,7 +1932,7 @@ async function sendIACommand() {
             userBubble.innerHTML = `<strong>OPERADOR:</strong> [COMANDO STUDIO] Salvar ${filename}<span class="msg-ts">${timeStr}</span>`;
             termList.appendChild(userBubble);
 
-            const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+            const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
             try {
                 const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
                     method: 'POST',
@@ -1969,7 +1982,7 @@ async function sendIACommand() {
     if (cmd.includes("kill agent") || cmd.includes("fail agent")) {
         const agent = cmd.split(" ").pop();
         try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+            const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/brasilhexa/simulate_failure`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agent, action: "fail" })
@@ -1986,7 +1999,7 @@ async function sendIACommand() {
     if (cmd.includes("recover agent") || cmd.includes("fix agent")) {
         const agent = cmd.split(" ").pop();
         try {
-            const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+            const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/brasilhexa/simulate_failure`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ agent, action: "recover" })
@@ -2043,9 +2056,9 @@ async function sendIACommand() {
         }
 
         // 2. Fallback: Backend Local
-        if (!answer && CYBERCORE_BACKEND_URL) {
+        if (!answer && BRASILHEXA_BACKEND_URL) {
             try {
-                const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/ai/chat`, {
+                const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/ai/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2088,7 +2101,7 @@ function renderMarkdown(text) {
 }
 
 function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
-    const termList = document.getElementById('cybercore-terminal-output');
+    const termList = document.getElementById('brasilhexa-terminal-output');
     if (!termList) return;
     const ts = new Date();
     const timeStr = String(ts.getHours()).padStart(2,'0') + ':' + String(ts.getMinutes()).padStart(2,'0');
@@ -2139,7 +2152,7 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
             if (btn) btn.onclick = async () => {
                 const filename = prompt("Nome do arquivo (ex: script.js):", `generated_${Date.now()}.${lang}`);
                 if (filename) {
-                    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+                    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
                     try {
                         const resp = await fetch(`${baseUrl}/api/studio/save-file`, {
                             method: 'POST',
@@ -2186,7 +2199,7 @@ function typeIAResponse(text, agentId = 'cmo', isLog = false, actions = null) {
 function authorizeAction(actionId, decision, bubbleId) {
     if (actionId === 'chaos') {
         const agent = decision.includes('sentinel') ? 'sentinel' : (decision.includes('latency') ? 'nexus' : 'auditor');
-        fetch(`${CYBERCORE_BACKEND_URL}/api/cybercore/simulate_failure`, {
+        fetch(`${BRASILHEXA_BACKEND_URL}/api/brasilhexa/simulate_failure`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ agent, action: decision.includes('fail') ? "fail" : "latency" })
@@ -2199,7 +2212,7 @@ function authorizeAction(actionId, decision, bubbleId) {
     const bubble = document.getElementById(bubbleId);
     if (bubble) bubble.style.opacity = '0.5';
 
-    fetch(`${CYBERCORE_BACKEND_URL}/api/security/authorize`, {
+    fetch(`${BRASILHEXA_BACKEND_URL}/api/security/authorize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action_id: actionId, decision: decision, uid: currentUser?.uid || "unknown" })
@@ -2253,7 +2266,7 @@ function updateNeuralActivity() {
 }
 
 function checkPythonCoreStatus() {
-    const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/health` : '/health';
+    const url = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/health` : '/health';
     fetch(url).then(r => {
         const dot = document.getElementById('python-core-ping');
         const text = document.getElementById('python-core-status');
@@ -2269,14 +2282,14 @@ function checkPythonCoreStatus() {
 
 function startHeartbeatLoop() {
     setInterval(() => {
-        fetch(`${CYBERCORE_BACKEND_URL}/heartbeat/site`, { method: 'POST' }).catch(() => {});
+        fetch(`${BRASILHEXA_BACKEND_URL}/heartbeat/site`, { method: 'POST' }).catch(() => {});
     }, 30000);
 }
 
 // ============ MOTOR IA STATUS ============
 
 async function checkAIEngineStatus() {
-    const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/ai/status` : '/ai/status';
+    const url = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/ai/status` : '/ai/status';
     try {
         const resp = await fetch(url);
         if (!resp.ok) return;
@@ -2429,7 +2442,7 @@ function logout() { if (auth) auth.signOut().then(() => location.reload()); }
 // ============ SEGURANÇA DE SESSÃO (RELAXADA) ============
 // Removido auto-logout por perda de foco para facilitar o desenvolvimento.
 window.addEventListener('pagehide', () => {
-    if (auth && auth.currentUser) sessionStorage.setItem('cybercore_lock', '1');
+    if (auth && auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
 });
 
 // ============ PLACEHOLDERS (IMPLEMENTADOS) ============
@@ -2438,12 +2451,14 @@ function updatePulseCoreUI() {
     // Usa o mesmo filtro de usuários reais do renderGlobalStats
     const testIds = ['5onHVa3N', 'KqJU9EJg', 'REFERRED', 'SPONSOR_'];
     const testEmails = ['alegomas@gmail.com', 'usuarioteste@gmail.com'];
-    const realUsers = Object.values(rtState.users).filter(u => {
+    const realUsers = Object.entries(rtState.users).filter(([uid, u]) => {
         if (u.status === 'banido') return false;
         if (testEmails.includes((u.email || '').toLowerCase())) return false;
+        if (testIds.some(id => uid.includes(id))) return false;
         return true;
     });
-    const active = rtState.status?.active_users || realUsers.length;
+    const realCount = realUsers.length;
+    const active = rtState.status?.active_users || realCount;
     updateEl('stat-users', active);
 
     // Atualiza cards de telemetria com dados reais se disponíveis
@@ -2597,13 +2612,13 @@ function copyToClipboard(text) {
 }
 
 function installAgent(projectId) {
-    const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
     const cmd = `wget -qO- ${baseUrl}/api/monitor/agent-script | python3 - ${baseUrl} ${projectId}`;
-    const detail = `Para monitorar CPU/RAM do servidor, instale o agente CyberCore:\n\n1️⃣ No servidor alvo (Linux com Python):\ncurl -s ${baseUrl}/api/monitor/agent-script -o agent.py\npython3 agent.py\n\n2️⃣ Ou execute direto:\n${cmd}\n\n3️⃣ Requer Python + psutil:\npip install psutil requests\n\n4️⃣ O agente reportará CPU, RAM e disco a cada 30s.`;
+    const detail = `Para monitorar CPU/RAM do servidor, instale o agente Brasil Hexa:\n\n1️⃣ No servidor alvo (Linux com Python):\ncurl -s ${baseUrl}/api/monitor/agent-script -o agent.py\npython3 agent.py\n\n2️⃣ Ou execute direto:\n${cmd}\n\n3️⃣ Requer Python + psutil:\npip install psutil requests\n\n4️⃣ O agente reportará CPU, RAM e disco a cada 30s.`;
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
     msg.innerHTML = `
-        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 CYBERCORE AGENT</h3>
+        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 BRASIL HEXA AGENT</h3>
         <pre style="background:rgba(0,0,0,0.4);padding:15px;border-radius:8px;font-size:11px;color:#94a3b8;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;">${detail}</pre>
         <div style="display:flex;gap:10px;margin-top:15px;">
             <button onclick="copyToClipboard('${cmd}')" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">📋 COPIAR COMANDO</button>
@@ -2628,12 +2643,12 @@ function loadAuditInputs(config) {
         'audit-gemini-key': merged.gemini_key || merged.geminiKey,
         'audit-groq-key': merged.groqKey,
         'audit-gptmaker-key': merged.gptmakerKey,
-        'audit-cybercore-agent': merged.cybercoreGptmakerAgent,
+        'audit-brasilhexa-agent': merged.brasilhexaGptmakerAgent,
         'audit-telegram-token': merged.telegramToken,
         'audit-telegram-chatid': merged.telegramChatId,
         'audit-whatsapp': merged.admin_whatsapp,
         'audit-asaas-key': merged.asaasKey || merged.asaas_key,
-        'audit-backend-url': localStorage.getItem('CYBERCORE_BACKEND_URL') || merged.backend_url
+        'audit-backend-url': localStorage.getItem('BRASILHEXA_BACKEND_URL') || merged.backend_url
     };
     for (const [id, val] of Object.entries(fields)) {
         const el = document.getElementById(id);
@@ -2649,7 +2664,7 @@ function saveAuditParameters() {
         'geminiKey': document.getElementById('audit-gemini-key').value,
         'groqKey': document.getElementById('audit-groq-key').value,
         'gptmakerKey': document.getElementById('audit-gptmaker-key').value,
-        'cybercoreGptmakerAgent': document.getElementById('audit-cybercore-agent').value,
+        'brasilhexaGptmakerAgent': document.getElementById('audit-brasilhexa-agent').value,
         'telegramToken': document.getElementById('audit-telegram-token').value,
         'telegramChatId': document.getElementById('audit-telegram-chatid').value,
         'admin_whatsapp': document.getElementById('audit-whatsapp').value,
@@ -2659,7 +2674,7 @@ function saveAuditParameters() {
 
     const backendUrl = document.getElementById('audit-backend-url').value;
     if (backendUrl) {
-        localStorage.setItem('CYBERCORE_BACKEND_URL', backendUrl);
+        localStorage.setItem('BRASILHEXA_BACKEND_URL', backendUrl);
         updates.backend_url = backendUrl;
     }
 
@@ -2844,7 +2859,7 @@ function updateWarRoom() {
     const strategiesEl = document.getElementById('monitor-strategies') || document.getElementById('warroom-strategies');
     const cmdsEl = document.getElementById('monitor-commands') || document.getElementById('warroom-commands');
 
-    const metricsUrl = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/api/metrics` : '/api/metrics';
+    const metricsUrl = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/api/metrics` : '/api/metrics';
     fetch(metricsUrl)
         .then(r => r.json())
         .then(data => {
@@ -3168,7 +3183,7 @@ function confirmarTransferencia() {
         return;
     }
 
-    const url = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/payments/approve/${wid}` : `/payments/approve/${wid}`;
+    const url = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/payments/approve/${wid}` : `/payments/approve/${wid}`;
 
     closePixModal();
     showToast('🚀 Iniciando VAR e liquidação...', 'info');
@@ -3201,7 +3216,7 @@ function setWithdrawalFilter(filter, btn) {
 async function generateAIReport() {
     showToast("Gerando relatório neural...", "info");
 
-    const metricsUrl = CYBERCORE_BACKEND_URL ? `${CYBERCORE_BACKEND_URL}/api/metrics` : '/api/metrics';
+    const metricsUrl = BRASILHEXA_BACKEND_URL ? `${BRASILHEXA_BACKEND_URL}/api/metrics` : '/api/metrics';
     let metrics = {};
     try {
         const r = await fetch(metricsUrl);
@@ -3307,7 +3322,7 @@ function showAddProjectModal() {
                             </div>
                         </div>
                         <p style="font-size: 11px; color: var(--text-secondary); margin-top: 15px;">
-                            ✅ Compatível com CyberCore Hub. Deseja estabelecer conexão segura?
+                            ✅ Compatível com Brasil Hexa Hub. Deseja estabelecer conexão segura?
                         </p>
                         <button class="btn-premium" onclick="confirmarConexaoProjeto()" style="width: 100%; margin-top: 20px;">ESTABELECER CONEXÃO</button>
                     </div>
@@ -3329,8 +3344,8 @@ async function analisarProjetoIA() {
     btn.innerText = "🔍 ANALISANDO...";
 
     try {
-        const baseUrl = localStorage.getItem('CYBERCORE_BACKEND_URL') || '';
-        const response = await fetch(`${baseUrl}/api/cybercore/analyze_project`, {
+        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || '';
+        const response = await fetch(`${baseUrl}/api/brasilhexa/analyze_project`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
@@ -3408,7 +3423,7 @@ function resetReservaPrompt() {
 
 function approveAllWithdrawals() {
     if (!confirm("Aprovar TODOS os saques pendentes?")) return;
-    fetch(`${CYBERCORE_BACKEND_URL}/process-all-payments`, {
+    fetch(`${BRASILHEXA_BACKEND_URL}/process-all-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
     }).then(r => r.json()).then(d => {
@@ -3451,7 +3466,7 @@ async function analisarProjetoAI() {
     btn.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> ANALISANDO...';
 
     try {
-        const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/project/analyze`, {
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/project/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: currentProjectType, identifier })
@@ -3501,7 +3516,7 @@ async function analisarProjetoAI() {
 
 async function showLocalInstallCommand() {
     try {
-        const resp = await fetch(`${CYBERCORE_BACKEND_URL}/api/local/install-command`);
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/local/install-command`);
         const data = await resp.json();
         if (data.status === 'success') {
             typeIAResponse(`Para conectar seu **Sistema Local**, execute este comando no terminal do servidor alvo:\n\n \`\`\`bash\n${data.command}\n\`\`\``, 'nexus');
@@ -3560,7 +3575,7 @@ function toggleProjectConnection(id, identifier) {
 
 function removeProject(id) {
     if (!confirm("Remover este projeto do monitoramento?")) return;
-    fetch(`${CYBERCORE_BACKEND_URL}/api/project/remove`, {
+    fetch(`${BRASILHEXA_BACKEND_URL}/api/project/remove`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -3585,7 +3600,7 @@ function addCurrentProject() {
         addedAt: new Date().toISOString()
     };
 
-    fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
+    fetch(`${BRASILHEXA_BACKEND_URL}/api/project/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: projectId, data: projectData })
@@ -3656,7 +3671,7 @@ function removeProject(id) {
     if (!confirm("Remover este projeto do painel?")) return;
     connectedProjects = connectedProjects.filter(p => p.id !== id);
     renderProjects();
-    fetch(`${CYBERCORE_BACKEND_URL}/api/project/remove`, {
+    fetch(`${BRASILHEXA_BACKEND_URL}/api/project/remove`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
@@ -3685,7 +3700,7 @@ function migrateLocalProjectsToFirebase() {
                 ambiente: p.ambiente || '—',
                 addedAt: p.addedAt || new Date().toISOString()
             };
-            fetch(`${CYBERCORE_BACKEND_URL}/api/project/save`, {
+            fetch(`${BRASILHEXA_BACKEND_URL}/api/project/save`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id, data })
