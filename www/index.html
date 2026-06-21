@@ -2207,8 +2207,9 @@
         window.openGame = (gameId) => {
             const go = document.getElementById('game-overlay');
             go.classList.remove('hidden');
-            // Sobe z-index do overlay para ficar acima de qualquer anúncio
-            go.style.zIndex = '9999999999';
+            // Move overlay para o FINAL do body (último na ordem = primeiro no empilhamento)
+            go.parentElement.appendChild(go);
+            go.style.zIndex = '999999999999999';
             document.getElementById('game-result').classList.add('hidden');
             // Remove scripts de anúncio ativos e limpa banner
             document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
@@ -2217,17 +2218,41 @@
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
             gameState.current = gameId;
             gameState.score = 0;
-            // CSS anti-anúncio forçado — bloqueia iframes, containers monetag, e overlays com position:fixed inline
+            // CSS anti-anúncio forçado
             const as = document.createElement('style');
             as.id = 'game-adblock-css';
             as.textContent = 'iframe:not(#game-container iframe){display:none!important;visibility:hidden!important}[style*="position:fixed"]{display:none!important}[style*="position: fixed"]{display:none!important}[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]{display:none!important}';
             document.head.appendChild(as);
-            // Varredura periódica: remove iframes e containers de anúncio que apareçam
-            if (gameState._adCleanup) clearInterval(gameState._adCleanup);
-            gameState._adCleanup = setInterval(() => {
-                document.querySelectorAll('iframe:not(#game-container iframe)').forEach(el => el.remove());
-                document.querySelectorAll('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(el => el.remove());
-            }, 200);
+            // Limpeza única profunda: remove QUALQUER elemento com position:fixed e z-index >= 1000
+            document.querySelectorAll('*').forEach(el => {
+                if (el.id === 'game-overlay' || el.id === 'game-result' || el.id === 'toast' || el.closest?.('#game-overlay')) return;
+                const s = window.getComputedStyle(el);
+                if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) >= 1000) el.remove();
+            });
+            // MutationObserver: aniquila qualquer novo elemento suspeito em tempo real
+            if (gameState._adObserver) gameState._adObserver.disconnect();
+            gameState._adObserver = new MutationObserver(muts => {
+                for (const m of muts) {
+                    for (const n of m.addedNodes) {
+                        if (n.nodeType !== 1) continue;
+                        const el = n;
+                        if (el.closest?.('#game-overlay')) continue;
+                        // Fast inline style check (não força layout)
+                        if (el.style?.position === 'fixed' || el.style?.position === 'absolute') {
+                            if (parseInt(el.style?.zIndex) >= 1000) { el.remove(); continue; }
+                        } else {
+                            // Fallback: computed style
+                            const s = window.getComputedStyle(el);
+                            if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex) >= 1000) { el.remove(); continue; }
+                        }
+                        // Remove iframes e containers dentro do elemento adicionado
+                        el.querySelectorAll?.('iframe,[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(c => {
+                            if (!document.getElementById('game-container')?.contains(c)) c.remove();
+                        });
+                    }
+                }
+            });
+            gameState._adObserver.observe(document.body, { childList: true, subtree: true });
             if (gameId === 'flappy') initFlappy();
             else if (gameId === 'memory') initMemory();
         };
@@ -2235,7 +2260,7 @@
         window.closeGame = () => {
             gameState.running = false;
             if (gameState._flappyCleanup) { gameState._flappyCleanup(); gameState._flappyCleanup = null; }
-            if (gameState._adCleanup) { clearInterval(gameState._adCleanup); gameState._adCleanup = null; }
+            if (gameState._adObserver) { gameState._adObserver.disconnect(); gameState._adObserver = null; }
             gameState.current = null;
             document.getElementById('game-overlay').classList.add('hidden');
             document.getElementById('game-overlay').style.zIndex = '';
