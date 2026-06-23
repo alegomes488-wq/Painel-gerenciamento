@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineCash Premium - Hub IA</title>
+    <title>Brasil Hexa - Rumo ao Hexa</title>
 
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -67,9 +67,9 @@
 <body class="premium-theme">
     <!-- Tela de Carregamento Inicial -->
     <div id="splash-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#020205; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; transition: opacity 0.4s ease; pointer-events: none;">
-        <div class="avatar" style="width:80px; height:80px; font-size:2rem; margin-bottom:20px; animation: pulse-green 1.5s infinite;">C</div>
-        <div class="glitch-text" data-text="CineCash" style="font-size:2rem; font-weight:900;">CineCash</div>
-        <div style="margin-top:10px; color:var(--primary); font-size:0.7rem; letter-spacing:2px; font-weight:800;">INICIALIZANDO IA...</div>
+        <div class="avatar" style="width:80px; height:80px; font-size:2rem; margin-bottom:20px; animation: pulse-green 1.5s infinite;">⚽</div>
+        <div class="glitch-text" data-text="Brasil Hexa" style="font-size:2rem; font-weight:900;">Brasil Hexa</div>
+        <div style="margin-top:10px; color:var(--primary); font-size:0.7rem; letter-spacing:2px; font-weight:800;">PREPARANDO O CAMPO...</div>
     </div>
 
     <script>
@@ -86,11 +86,11 @@
 
     <div id="toast">Operação realizada com sucesso!</div>
 
-    <!-- MODAL DE BANIMENTO (SENTINEL 2.0) -->
+    <!-- MODAL DE BANIMENTO (VAR) -->
     <div id="ban-overlay" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
         <i data-lucide="shield-off" style="width:64px;height:64px;color:#ef4444;margin-bottom:20px;"></i>
         <h1 style="color:#ef4444;font-size:1.5rem;font-weight:900;">ACESSO BLOQUEADO</h1>
-        <p id="ban-reason-text" style="color:rgba(255,255,255,0.7);margin-top:10px;max-width:400px;">Atividade suspeita detectada pelo Sentinel 2.0.</p>
+        <p id="ban-reason-text" style="color:rgba(255,255,255,0.7);margin-top:10px;max-width:400px;">Atividade suspeita detectada pelo VAR.</p>
     </div>
 
     <!-- MODAL DE TERMOS JURÍDICOS -->
@@ -105,11 +105,11 @@
     <div id="page-login">
         <div class="login-box glass-premium">
             <div class="login-logo">
-                <i data-lucide="clapperboard" class="login-logo-lucide"></i>
+                <i data-lucide="trophy" class="login-logo-lucide"></i>
                 <span style="font-size:2.5rem;margin-left:8px;">⚽</span>
             </div>
-            <h1 class="glitch-text" data-text="CineCash">CineCash</h1>
-            <p class="login-subtitle">Sua jornada premium no cinema digital</p>
+            <h1 class="glitch-text" data-text="Brasil Hexa">Brasil Hexa</h1>
+            <p class="login-subtitle">Sua jornada rumo ao hexa começou</p>
 
             <div class="input-group">
                 <label>E-mail de Acesso</label>
@@ -138,11 +138,11 @@
     <div id="page-register" class="hidden">
         <div class="login-box glass-premium">
             <div class="login-logo">
-                <i data-lucide="sparkles" class="login-logo-lucide" style="color: #fbbf24;"></i>
+                <i data-lucide="flag" class="login-logo-lucide" style="color: #fbbf24;"></i>
                 <span style="font-size:2.5rem;margin-left:8px;">⚽</span>
             </div>
-            <h1 class="glitch-text" data-text="Conta VIP">Conta VIP</h1>
-            <p class="login-subtitle">Comece sua jornada de ganhos agora</p>
+            <h1 class="glitch-text" data-text="Convocação VIP">Convocação VIP</h1>
+            <p class="login-subtitle">Entre para a seleção e comece a ganhar</p>
 
             <div style="display: flex; gap: 10px;">
                 <div class="input-group" style="flex: 1;">
@@ -169,7 +169,7 @@
                     </span>
                 </div>
                 <div style="display:flex;gap:6px;margin-top:6px;">
-                    <button type="button" onclick="generateStrongPassword()" style="flex:1;padding:6px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.1);color:#a855f7;cursor:pointer;transition:.2s;font-family:inherit;" onmouseover="this.style.background='rgba(168,85,247,0.2)'" onmouseout="this.style.background='rgba(168,85,247,0.1)'">⚡ Gerar Senha Forte</button>
+                    <button type="button" onclick="generateStrongPassword()" style="flex:1;padding:6px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(0,100,55,0.3);background:rgba(0,100,55,0.1);color:var(--primary);cursor:pointer;transition:.2s;font-family:inherit;" onmouseover="this.style.background='rgba(0,100,55,0.2)'" onmouseout="this.style.background='rgba(0,100,55,0.1)'">⚡ Gerar Senha Forte</button>
                     <button type="button" onclick="copyPassword()" id="btn-copy-pass" style="padding:6px 10px;font-size:10px;font-weight:700;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:#aaa;cursor:pointer;transition:.2s;font-family:inherit;display:none;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='rgba(255,255,255,0.03)'">📋 Copiar</button>
                 </div>
                 <!-- Medidor de Força Inteligente -->
@@ -210,7 +210,7 @@
                     </table>
                 </div>
 
-                <p id="password-hint" style="font-size: 0.6rem; color: #a78bfa; margin-top: 5px; font-weight: 600; display:none;">
+                <p id="password-hint" style="font-size: 0.6rem; color: #38b6ff; margin-top: 5px; font-weight: 600; display:none;">
                     🛡️ Mínimo 8 caracteres com letras, números e símbolos.
                 </p>
             </div>
@@ -225,14 +225,14 @@
                 </div>
             </div>
 
-            <div class="terms-group" style="display:flex; align-items:center; gap:10px; margin: 20px 0; background: rgba(124,58,237,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(124,58,237,0.1);">
-                <input type="checkbox" id="reg-terms" style="width:20px; height:20px; accent-color: #7c3aed; cursor:pointer;">
+            <div class="terms-group" style="display:flex; align-items:center; gap:10px; margin: 20px 0; background: rgba(0,100,55,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(0,100,55,0.1);">
+                <input type="checkbox" id="reg-terms" style="width:20px; height:20px; accent-color: #006437; cursor:pointer;">
                 <label for="reg-terms" style="font-size: 0.75rem; color: rgba(255,255,255,0.7); cursor:pointer; line-height:1.2;">
-                    Confirmo ciência dos <a href="termos.html" style="color: #7c3aed; text-decoration: underline; font-weight: 800;">termos legais e responsabilidades fiscais</a> perante a Receita Federal.
+                    Confirmo ciência dos <a href="termos.html" style="color: #006437; text-decoration: underline; font-weight: 800;">termos legais e responsabilidades fiscais</a> perante a Receita Federal.
                 </label>
             </div>
 
-            <button class="btn-primary" onclick="handleRegister()" style="background: linear-gradient(135deg, #7c3aed, #db2777);">CRIAR MINHA CONTA VIP</button>
+            <button class="btn-primary" onclick="handleRegister()" style="background: linear-gradient(135deg, #006437, #FFD700);">CRIAR MINHA CONTA VIP</button>
 
             <p class="register-text">
                 Já tem conta? <a href="javascript:void(0)" onclick="switchAuthMode('login')">Fazer Login</a>
@@ -272,8 +272,8 @@
                         <div class="stat-value" id="balance-txt">R$ 0,00</div>
                     </div>
                     <div class="stat-card glass-premium">
-                        <i data-lucide="film" class="stat-icon-lucide"></i>
-                        <span class="stat-label">Processados</span>
+                        <i data-lucide="award" class="stat-icon-lucide"></i>
+                        <span class="stat-label">Gols Marcados</span>
                         <div class="stat-value" id="ads-txt">0/15</div>
                     </div>
                     <div class="stat-card glass-premium">
@@ -285,20 +285,20 @@
 
                 <div class="ad-banner-placeholder" id="monetag-banner">
                     <i data-lucide="monitor-play" style="width:1.5rem; height:1.5rem; color:var(--muted-fg); opacity:0.3; margin:0 auto 10px; display:block;"></i>
-                    <span>ANÚNCIO PREMIUM DISPONÍVEL</span>
+                    <span>LANCE PREMIUM DISPONÍVEL</span>
                 </div>
 
                 <div class="ai-card-premium glass-premium">
-                    <div class="premium-tag-v2" style="background: #10b981;">SISTEMA ATIVO</div>
+                    <div class="premium-tag-v2" style="background: #10b981;">CAMPO ATIVO</div>
                     <div class="brain-glow-premium">
-                        <i data-lucide="brain" class="brain-icon-lucide"></i>
+                        <i data-lucide="circle-dot" class="brain-icon-lucide"></i>
                         <div class="brain-aura"></div>
                     </div>
-                    <h2>Processador de Anúncios IA</h2>
-                    <p>Utilize nossa rede neural para validar sessões de mídia e converter processamento em saldo real.</p>
-                    <button class="btn-neon-premium" onclick="startProcess()">INICIAR PROCESSAMENTO ▶</button>
+                    <h2>Analista de Jogos Brasil Hexa</h2>
+                    <p>Utilize nossa tecnologia para validar lances e converter em saldo real.</p>
+                    <button class="btn-neon-premium" onclick="startProcess()">INICIAR ANÁLISE ▶</button>
                     <div class="status-cyber">
-                        SISTEMA CYBERCORE ATIVO
+                        SISTEMA BRASIL HEXA ATIVO
                     </div>
 
                     <div class="bonus-bar glass-premium">
@@ -314,12 +314,12 @@
                 <div class="goals-section glass-premium">
                     <div class="goals-header">
                         <i data-lucide="trophy" style="width:18px;height:18px;color:var(--primary);"></i>
-                        <span>Suas Metas de Anúncios</span>
+                        <span>Suas Metas de Lances</span>
                     </div>
                     <table class="goals-table">
                         <thead>
                             <tr>
-                                <th>Anúncios</th>
+                                <th>Lances</th>
                                 <th>Recompensa</th>
                                 <th>Progresso</th>
                                 <th>Status</th>
@@ -335,11 +335,11 @@
             <div id="tab-withdraw" class="tab-content hidden">
                 <div class="withdraw-card glass-premium" style="position: relative; overflow: hidden;">
                     <!-- Efeito de brilho de fundo -->
-                    <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent); filter: blur(40px); z-index: 0;"></div>
+                    <div style="position: absolute; top: -50px; right: -50px; width: 150px; height: 150px; background: radial-gradient(circle, rgba(0, 100, 55, 0.15), transparent); filter: blur(40px); z-index: 0;"></div>
 
                     <div style="position: relative; z-index: 1;">
                         <div style="text-align: center; margin-bottom: 25px;">
-                            <i data-lucide="arrow-up-right-from-circle" style="width: 40px; height: 40px; color: var(--primary); margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(124, 58, 237, 0.4));"></i>
+                            <i data-lucide="arrow-up-right-from-circle" style="width: 40px; height: 40px; color: var(--primary); margin-bottom: 10px; filter: drop-shadow(0 0 10px rgba(0, 100, 55, 0.4));"></i>
                             <h2 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 5px;">Solicitar Resgate</h2>
                             <span class="stat-label" style="text-align: center; display: block; opacity: 0.6;">Disponível para Intercâmbio</span>
                             <div id="avail-txt" class="stat-value green" style="font-size: 2.2rem; margin-top: 5px;">R$ 0,00</div>
@@ -415,13 +415,13 @@
                         <div style="background: rgba(16, 185, 129, 0.05); border-radius: 12px; padding: 12px; margin-top: 20px; border: 1px solid rgba(16, 185, 129, 0.2); display: flex; gap: 10px; align-items: flex-start;">
                             <div class="dot-green-v2" id="auditor-status-dot" style="margin-top: 4px;"></div>
                             <p style="font-size: 0.65rem; color: #10b981; line-height: 1.4; font-weight: 700;">
-                                <strong id="auditor-status-text">AGENTE AUDITOR ONLINE:</strong> Monitorando transações em tempo real. Sua solicitação será analisada instantaneamente pela CyberCore IA.
+                                <strong id="auditor-status-text">VAR ONLINE:</strong> Monitorando transações em tempo real. Sua solicitação será analisada instantaneamente pela Brasil Hexa.
                             </p>
                         </div>
                         <div style="background: rgba(124, 58, 237, 0.05); border-radius: 12px; padding: 12px; margin-top: 10px; border: 1px solid rgba(124, 58, 237, 0.1); display: flex; gap: 10px; align-items: flex-start;">
                             <i data-lucide="shield-check" style="width: 18px; height: 18px; color: var(--primary); flex-shrink: 0;"></i>
                             <p style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.4; font-weight: 600;">
-                                <strong>PROTEÇÃO SENTINEL 2.0:</strong> Prazo de liquidação: imediato após auditoria (até 24h).
+                                <strong>VAR:</strong> Prazo de liquidação: imediato após auditoria (até 24h).
                             </p>
                         </div>
                     </div>
@@ -447,13 +447,13 @@
                     <div id="withdraw-list" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
                         <div style="text-align:center; padding:40px; color:var(--text-muted); font-size:0.8rem; display: flex; flex-direction: column; align-items: center; gap: 10px;">
                             <i data-lucide="inbox" style="width: 32px; height: 32px; opacity: 0.2;"></i>
-                            Carregando histórico neural...
+                            Consultando VAR...
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ABA CONVITES (CYBERCORE GROWTH) -->
+            <!-- ABA CONVITES (CONVOCAÇÃO) -->
             <div id="tab-referrals" class="tab-content hidden">
                 <div class="referral-mission-card glass-premium">
                     <div class="referral-mission-icon">
@@ -462,7 +462,7 @@
                         </div>
                     </div>
                     <h2 style="letter-spacing: 2px; color: #f472b6;">MISSÃO: EMBAIXADOR VIP</h2>
-                    <p style="font-weight: 600; opacity: 0.8;">Expanda a rede CineCash e seja recompensado pela Agente Nexus.</p>
+                    <p style="font-weight: 600; opacity: 0.8;">Expanda a rede Brasil Hexa e seja recompensado pelo Agente Canarinho.</p>
 
                     <div class="referral-stats-grid" style="margin-top: 20px;">
                         <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
@@ -486,9 +486,9 @@
                                 Girar Novo Link
                             </button>
                         </div>
-                        <input type="text" id="ref-link" readonly value="Carregando link..." style="width: 100%; background: rgba(0,0,0,0.4) !important; border: 1px solid rgba(124,58,237,0.3) !important; color: #fff !important; font-family: monospace;">
+                        <input type="text" id="ref-link" readonly value="Carregando link..." style="width: 100%; background: rgba(0,0,0,0.4) !important; border: 1px solid rgba(0,74,153,0.3) !important; color: #fff !important; font-family: monospace;">
                     </div>
-                    <button class="btn-primary" onclick="copyLink()" style="margin-top: 0; height: 55px; background: linear-gradient(90deg, #7c3aed, #db2777);">
+                    <button class="btn-primary" onclick="copyLink()" style="margin-top: 0; height: 55px; background: linear-gradient(90deg, #009739, #002776);">
                         <i data-lucide="copy" style="width: 18px; height: 18px; margin-right: 8px;"></i>
                         COPIAR E COMPARTILHAR
                     </button>
@@ -608,7 +608,7 @@
         <p>Estamos realizando atualizações neurais para melhorar sua experiência. Voltaremos em breve!</p>
     </div>
 
-    <!-- OVERLAY DE VALIDAÇÃO NEURAL (OFFLINE-READY) -->
+    <!-- OVERLAY DE VALIDAÇÃO DO VAR (OFFLINE-READY) -->
     <div id="video-overlay" class="hidden">
         <div class="timer-badge">
             <span class="timer-icon">⚡</span>
@@ -623,7 +623,7 @@
         </div>
 
         <div class="neural-status-wrapper">
-            <div class="neural-status-text" id="neural-status-text">Validando Sessão</div>
+            <div class="neural-status-text" id="neural-status-text">Validando Lance</div>
             <div class="neural-sub-status" id="neural-sub-status">Conectando à rede neural...</div>
         </div>
 
@@ -637,41 +637,41 @@
         <div class="particles-container" id="particles-container"></div>
     </div>
 
-    <!-- IA CYBERCORE (CHAT FLUTUANTE PREMIUM - AGENTE NEXUS) -->
-    <div id="cybercore-floating-chat" class="cybercore-chat-container">
-        <div class="cybercore-chat-header">
-            <div class="cybercore-chat-brand">
-                <div class="cybercore-chat-orb"></div>
-                <span class="cybercore-chat-icon">🤖</span>
-                <span class="cybercore-chat-title">Agente Nexus</span>
+    <!-- IA CANARINHO (CHAT FLUTUANTE PREMIUM - AGENTE CANARINHO) -->
+    <div id="brasilhexa-floating-chat" class="brasilhexa-chat-container">
+        <div class="brasilhexa-chat-header">
+            <div class="brasilhexa-chat-brand">
+                <div class="brasilhexa-chat-orb"></div>
+                <span class="brasilhexa-chat-icon">⚽</span>
+                <span class="brasilhexa-chat-title">Agente Canarinho</span>
             </div>
-            <button class="cybercore-chat-close" onclick="toggleFloatingChat()">×</button>
+            <button class="brasilhexa-chat-close" onclick="toggleFloatingChat()">×</button>
         </div>
-        <div id="cybercore-chat-messages" class="cybercore-chat-body">
+        <div id="brasilhexa-chat-messages" class="brasilhexa-chat-body">
             <!-- Injetado via JS (addWelcomeMessage / restoreChatHistory) -->
         </div>
 
-        <div class="cybercore-chat-suggestions">
+        <div class="brasilhexa-chat-suggestions">
             <button onclick="sendQuickCommand('Sim, me mostre o site')">🚀 Iniciar Tour</button>
             <button onclick="sendQuickCommand('Dúvidas Frequentes')">❓ Dúvidas</button>
             <button onclick="sendQuickCommand('Como sacar?')">💰 Como Sacar</button>
         </div>
 
-        <div class="cybercore-chat-footer">
-            <input type="text" id="cybercore-chat-input" placeholder="Comando Master..." autocomplete="off">
-            <button id="cybercore-chat-mic" onclick="startVoiceInput()" title="Comando de Voz" style="background:none; border:none; cursor:pointer; padding:8px; color:var(--primary);">
+        <div class="brasilhexa-chat-footer">
+            <input type="text" id="brasilhexa-chat-input" placeholder="Comando Master..." autocomplete="off">
+            <button id="brasilhexa-chat-mic" onclick="startVoiceInput()" title="Comando de Voz" style="background:none; border:none; cursor:pointer; padding:8px; color:var(--primary);">
                 <i data-lucide="mic" style="width:18px; height:18px;"></i>
             </button>
-            <button id="cybercore-chat-send" onclick="sendFloatingChatMessage()">
+            <button id="brasilhexa-chat-send" onclick="sendFloatingChatMessage()">
                 <i data-lucide="send" style="width:18px; height:18px;"></i>
             </button>
         </div>
     </div>
 
-    <div id="cybercore-chat-trigger" class="cybercore-chat-trigger" onclick="toggleFloatingChat()" style="display: none;">
-        <div class="cybercore-chat-pulse"></div>
-        <div class="cybercore-chat-trigger-icon">🧠</div>
-        <div class="cybercore-online-dot"></div>
+    <div id="brasilhexa-chat-trigger" class="brasilhexa-chat-trigger" onclick="toggleFloatingChat()" style="display: none;">
+        <div class="brasilhexa-chat-pulse"></div>
+        <div class="brasilhexa-chat-trigger-icon">⚽</div>
+        <div class="brasilhexa-online-dot"></div>
     </div>
 
     <script type="module">
@@ -681,86 +681,99 @@
         import { getMessaging, getToken } from "./firebase-messaging.js";
 
         const CONFIG = {
-            apiBase: 'https://desenvovimento-cinecash-ia.hf.space',
-            adminBase: 'https://desenvovimento-cybercore-ia.hf.space',
-            workerBase: 'https://cybercore-api.alegomes488.workers.dev',
+            apiBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://desenvovimento-brasilhexa-ia.hf.space',
+            adminBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://desenvovimento-brasilhexa-ia.hf.space',
+            workerBase: 'https://brasilhexa-api.alegomes488.workers.dev',
             monetagId: '7654321',
-            projectId: 'cinecash_main' // Identificador deste nó neural
+            projectId: 'brasil_hexa_main' // Identificador deste nó de campo
         };
 
         // Detecta se está em produção para rotear chat pelo Worker (Groq)
-        const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('hf.space');
+        const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('brasilhexa.com.br') || window.location.hostname.includes('hf.space');
         const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
 
-        const NEXUS_PERSONALITY = {
+        // Função auxiliar para chamadas autenticadas à API
+        async function apiFetch(path, options = {}) {
+            const token = auth && auth.currentUser ? await auth.currentUser.getIdToken() : '';
+            const headers = { ...options.headers };
+            if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+            }
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return fetch(`${CONFIG.apiBase}${path}`, { ...options, headers });
+        }
+
+        const CANARINHO_PERSONALITY = {
             greetings: [
-                'Fala aí! 😄',
-                'Opa! Tudo bem? 👋',
-                'E aí, beleza? 🔥',
-                'Fala, meu querido! 🚀',
-                'Oie! 💜',
+                'Fala, craque! ⚽',
+                'Opa! Tudo pronto pro jogo? 🇧🇷',
+                'E aí, escalado pro Hexa? 🔥',
+                'Fala, meu camisa 10! 🏆',
+                'Oie! Vamos buscar esse título? 🏟️',
             ],
             reactions: {
-                positive: ['Boa demais! 🎉', 'Aí sim em! 🔥', 'Mandou bem! 👊', 'Isso aí! 💪', 'Maravilha! 🌟'],
-                thinking: ['Deixa eu ver aqui... 🤔', 'Perai, vou pesquisar... 🧐', 'Boa pergunta! Deixa eu checar... 📋'],
-                celebrate: ['Uhul! 🎊', 'Consegui! 😎', 'Prontinho! ✨'],
-                casual: ['Cara', 'Cara,', 'Cara,', 'Rapaz,', 'Mano,', 'Mano,', 'Vish,', 'Pois é,', 'Então,', 'Olha,']
+                positive: ['Golaço! 🎉', 'Aí sim, jogou muito! 🔥', 'Mandou bem na zaga! 👊', 'Isso aí, rumo ao Hexa! 💪', 'Maravilha de lance! 🌟'],
+                thinking: ['Consultando o VAR... 🤔', 'Perai, vou checar a escalação... 🧐', 'Boa jogada! Deixa eu ver aqui... 📋'],
+                celebrate: ['É Goool! 🎊', 'Troféu na mão! 😎', 'Apito final, tudo certo! ✨'],
+                casual: ['Cara', 'Parceiro,', 'Amigo,', 'Rapaz,', 'Mano,', 'Mano,', 'Vish,', 'Pois é,', 'Então,', 'Olha,']
             }
         };
 
-        let NEXUS_USER_DATA = { name: null, balance: 0, uid: null };
+        let CANARINHO_USER_DATA = { name: null, balance: 0, uid: null };
 
-        function nexusSpeak(text) {
-            const casual = NEXUS_PERSONALITY.reactions.casual;
+        function canarinhoSpeak(text) {
+            const casual = CANARINHO_PERSONALITY.reactions.casual;
             const prefix = Math.random() < 0.35 ? casual[Math.floor(Math.random() * casual.length)] + ' ' : '';
             return prefix + text;
         }
 
-        function nexusReact(type) {
-            const arr = NEXUS_PERSONALITY.reactions[type] || NEXUS_PERSONALITY.reactions.positive;
+        function canarinhoReact(type) {
+            const arr = CANARINHO_PERSONALITY.reactions[type] || CANARINHO_PERSONALITY.reactions.positive;
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
-        function nexusGreet() {
-            const arr = NEXUS_PERSONALITY.greetings;
+        function canarinhoGreet() {
+            const arr = CANARINHO_PERSONALITY.greetings;
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
-        const NEXUS_KNOWLEDGE = {
-            "sacar": "Claro! Pra sacar é super tranquilo: vai na aba **Intercâmbio**, escolhe o valor que quer sacar (R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00), informa sua chave PIX com o tipo certinho e pronto! O pagamento cai rapidinho via Asaas. 😉",
-            "como sacar": "É facinho! Abre a aba Intercâmbio, escolhe o valor, coloca sua chave PIX (CPF, email, telefone, etc) com o tipo certo e confirma. O Asaas processa pra você! 💰",
-            "intercambio": "A aba Intercâmbio é onde você faz o saque do seu saldo! Pode escolher entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Só precisa informar sua chave PIX direitinho e confirmar. Simples, né? 😄",
-            "como funciona": "O CineCash usa inteligência artificial pra validar anúncios! Você clica no botão principal, a IA CyberCore processa os dados e você recebe parte do lucro em saldo de verdade. Quanto mais anúncios, mais você ganha! 🚀",
-            "me mostre o site": "Claro! Vou te dar um tour rapidinho: temos a aba **Início** (processar anúncios e ver metas), **Intercâmbio** (sacar via PIX), **Convites** (chamar amigos e ganhar bônus), **GameCash** (jogar e ganhar saldo) e **Histórico** (suas transações). Qual te interessa? 😊",
-            "indicacao": "Ah, o sistema de convites é sensacional! Cada amigo que você indica e se cadastra, depois que ele assiste 25 anúncios, você ganha R$ 0,20! E mais: a cada 5 amigos que atingem isso, você leva R$ 1,00 extra de bônus! É gain demais! 🎁",
-            "convites": "Bora indicar amigos! Na aba Convites tem seu link exclusivo pra compartilhar. Cada amigo que entra pelo seu link e assiste 25 anúncios rende R$ 0,20 no seu bolso. E de 5 em 5 amigos válidos, ainda ganha R$ 1,00 de bônus! 😎",
-            "gamecash": "GameCash é diversão que vira dinheiro! 🎮 Temos 2 jogos: **Flappy Bird** e **Jogo da Memória**. Cada jogo tem metas com recompensas em R$ que caem direto no seu saldo. Por exemplo: Flappy 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá uma olhada na tabela de metas de cada jogo!",
-            "jogos": "Temos 2 jogos irados no GameCash: **Flappy Bird** (pura adrenalina) e **Jogo da Memória** (teste sua memória). Todos com metas progressivas e recompensa em dinheiro de verdade! 🎯",
-            "flappy bird": "Flappy Bird é viciante! 🐦 É só tocar na tela pro pássaro voar e passar pelos obstáculos. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá pra jogar até 10 partidas por dia. Bora bater esse recorde? 🔥",
-            "jogo da memoria": "Jogo da Memória é encontrar todos os pares de cartas no menor tempo! 🧠 Metas: menos de 60 segundos = R$ 0,03, menos de 30 segundos = R$ 0,05. Máximo de 5 partidas por dia. Qual seu tempo recorde? ⏱️",
-            "dúvidas": "Pode perguntar à vontade! Posso ajudar com: saques no Intercâmbio, bônus diário, convites e indicações, jogos do GameCash, processamento de anúncios, metas de anúncios e de jogos... é só falar! 💬",
-            "tour": "Bora fazer um tour guiado! Fica de olho nos elementos que vou destacar na tela pra você conhecer tudo. 🚀",
-            "saldo": "Seu saldo atual aparece lá no topo da página! Você acumula ele de várias formas: processando anúncios, coletando bônus diário, indicando amigos e jogando no GameCash. Quanto mais você participa, mais ele cresce! 📈",
-            "anúncios": "Os anúncios são processados pelo botão principal 'Processar Anúncios'. A IA CyberCore ativa e valida cada campanha. Dá pra acompanhar seu progresso nas metas na aba Início! Cada anúncio conta! 🎬",
-            "processar": "É só clicar no botão 'Processar Anúncios' que a IA CyberCore entra em ação! Cada clique valida campanhas e acumula créditos que viram saldo real. Quanto mais clicar, mais ganhar! ⚡",
-            "bonus diario": "Final de semana tem bônus! 🎉 Sábado e domingo você pode coletar R$ 0,20 de bônus diário na aba Início, só clicar em 'COLETAR BÔNUS'. Mas atenção: só vale 1 vez por dia, hein!",
-            "bônus diário": "Final de semana é dia de bônus! 🤑 Sábado e domingo, vai na aba Início e clica em 'COLETAR BÔNUS' pra ganhar R$ 0,20. Disponível uma vez por dia!",
-            "metas": "Temos dois tipos de metas: as **Metas de Anúncios** (na aba Início) e as **Metas de Jogos** (no GameCash)! Nas de anúncios: 500 ads → R$ 0,25, 2.000 → R$ 0,50, 5.000 → R$ 1,00, 10.000 → R$ 2,00, 25.000 → R$ 3,50. Nos jogos, cada um tem suas próprias metas com recompensas em R$! 🎯",
-            "metas de anúncios": "Na aba Início você encontra a tabela de metas de anúncios: 500 ads → R$ 0,25, 2.000 ads → R$ 0,50, 5.000 ads → R$ 1,00, 10.000 ads → R$ 2,00, 25.000 ads → R$ 3,50. Cada uma tem barra de progresso e status! Completo, Em andamento ou Bloqueado. ✅",
-            "metas de jogos": "No GameCash, cada jogo tem sua própria tabela de metas: Flappy Bird (10 pts → R$ 0,01 e 30 pts → R$ 0,03) e Memória (<60s → R$ 0,03, <30s → R$ 0,05). Tudo com barra de progresso e status! 🎮",
-            "historico": "Na aba Histórico você consegue ver todas as suas transações: saques que pediu com o status (Pendente, Pago ou Recusado), bônus que recebeu... tudo organizadinho! 📋",
-            "pix": "Os tipos de chave PIX que aceitamos: **CPF** (11 números), **CNPJ** (14 números), **e-mail**, **telefone** (com DDD, 10 a 13 dígitos) ou **chave aleatória** (EVP - formato UUID). Escolhe a sua e bora sacar! 💸",
-            "chave pix": "Pra sacar, você precisa informar sua chave PIX no tipo certo: CPF (11 dígitos), CNPJ (14 dígitos), e-mail, telefone (com DDD) ou chave aleatória (EVP). Fácil, né? 😊",
-            "banido": "Poxa, se seu status está como 'banido' infelizmente você não consegue acessar o sistema. Recomendo entrar em contato com o suporte pra entender o que aconteceu. 😕",
-            "termos": "Pra usar o CineCash, você precisa aceitar os Termos de Uso e a Política de Privacidade. O modal aparece automaticamente no seu primeiro acesso! ✅",
-            "aceitar termos": "Só aceitar os Termos de Uso e Política de Privacidade que aparecem no primeiro acesso e pronto! Sem isso não dá pra usar a plataforma. 📝",
-            "renda": "Você ganha dinheiro de **4 formas** aqui: 1) Processando anúncios com a IA CyberCore, 2) Bônus diário de R$ 0,20 nos fins de semana, 3) Convidando amigos (R$ 0,20 por amigo + bônus a cada 5), 4) Jogando no GameCash (recompensas em R$ por meta). É gain demais! 🔥"
+        const CANARINHO_KNOWLEDGE = {
+            "sacar": "Claro! Pra sacar é moleza: vai na aba **Intercâmbio**, escolhe o valor do seu prêmio (R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00), informa sua chave PIX e pronto! O pagamento cai direto na conta via Asaas. 😉",
+            "como sacar": "É facinho! Abre a aba Intercâmbio, escolhe o valor do bônus, coloca sua chave PIX (CPF, email, telefone, etc) e confirma. O Asaas faz o passe pra você! 💰",
+            "intercambio": "A aba Intercâmbio é onde você faz o resgate dos seus gols (saldo)! Pode escolher entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. Só precisa informar sua chave PIX direitinho. Show de bola, né? 😄",
+            "como funciona": "O Brasil Hexa usa tecnologia de ponta pra validar lances! Você clica no botão principal, nossa análise processa os dados e você recebe parte do prêmio em saldo real. Quanto mais lances, mais você ganha! 🚀",
+            "me mostre o site": "Claro! Vou te dar um tour pelo estádio: temos a aba **Início** (validar lances e ver metas), **Intercâmbio** (sacar via PIX), **Convites** (convocar amigos e ganhar bônus), **GameCash** (jogar e ganhar saldo) e o histórico de jogadas. Qual te interessa? 😊",
+            "indicacao": "Ah, a convocação de amigos é sensacional! Cada amigo que você indica e entra pro time, depois que ele assiste 25 lances, você ganha R$ 0,20! E mais: a cada 5 amigos convocados, você leva R$ 1,00 extra! É goleada! 🎁",
+            "convites": "Bora convocar os amigos! Na aba Convites tem seu link exclusivo de embaixador. Cada amigo que entra e assiste 25 lances rende R$ 0,20 no seu bolso. E de 5 em 5 amigos válidos, ainda ganha R$ 1,00 de bônus! 😎",
+            "gamecash": "GameCash é o treino que vira dinheiro! 🎮 Temos 2 jogos: **Flappy Bird** e **Jogo da Memória**. Cada partida tem metas com recompensas em R$ que caem direto no seu saldo. Dá uma olhada na tabela de metas de cada jogo!",
+            "jogos": "Temos 2 jogos irados no GameCash: **Flappy Bird** e **Jogo da Memória**. Todos com metas progressivas e recompensa em dinheiro de verdade! 🎯",
+            "flappy bird": "Flappy Bird é viciante! 🐦 É só tocar na tela pro pássaro voar. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá pra jogar até 10 partidas por dia. Bora bater esse recorde? 🔥",
+            "jogo da memoria": "Jogo da Memória é encontrar os pares no menor tempo! 🧠 Metas: menos de 60 segundos = R$ 0,03, menos de 30 segundos = R$ 0,05. Máximo de 5 partidas por dia. Qual seu tempo recorde? ⏱️",
+            "dúvidas": "Pode perguntar! Posso ajudar com: saques no Intercâmbio, bônus diário, convocação de amigos, jogos do GameCash, validação de lances, metas... é só falar! 💬",
+            "tour": "Bora fazer um tour pelo campo! Fica de olho que vou te mostrar cada canto da nossa plataforma. 🚀",
+            "saldo": "Seu saldo atual aparece no topo do painel! Você acumula ele de várias formas: validando lances, coletando bônus, convidando amigos e treinando no GameCash. 📈",
+            "anúncios": "Os lances são processados pelo botão principal 'INICIAR ANÁLISE'. Nossa tecnologia valida cada jogada. Acompanhe seu progresso nas metas na aba Início! 🎬",
+            "processar": "É só clicar no botão 'INICIAR ANÁLISE' que a tecnologia entra em campo! Cada clique valida jogadas e acumula créditos que viram saldo real. ⚡",
+            "bonus diario": "Final de semana tem bônus de treino! 🎉 Sábado e domingo você pode coletar R$ 0,20 de bônus na aba Início, clicando em 'RESGATAR'. Mas ó: só vale 1 vez por dia, hein!",
+            "bônus diário": "Fim de semana é dia de bônus! 🤑 Sábado e domingo, vai na aba Início e clica em 'RESGATAR' pra ganhar R$ 0,20. Aproveita a folga do time!",
+            "metas": "Temos dois tipos de metas: as **Metas de Lances** (na aba Início) e as **Metas de Jogos** (no GameCash)! Nas de lances: 500 lances → R$ 0,25, até 25.000 lances → R$ 3,50. Cada uma tem sua recompensa! 🎯",
+            "metas de lances": "Na aba Início você encontra a tabela de metas de lances: 500 lances → R$ 0,25, 2.000 → R$ 0,50, 5.000 → R$ 1,00, 10.000 → R$ 2,00, 25.000 → R$ 3,50. Acompanhe sua subida na tabela! ✅",
+            "metas de jogos": "No GameCash, cada jogo tem sua própria tabela: Flappy Bird e Memória. Tudo com barra de progresso e status de medalha! 🎮",
+            "historico": "Na aba Histórico você vê todas as suas jogadas: saques que pediu (Pendente, Pago ou Recusado) e bônus recebidos. 📋",
+            "pix": "Aceitamos os principais tipos de PIX: **CPF**, **E-mail**, **Telefone** ou **Chave Aleatória**. Escolhe a sua e bora pro abraço! 💸",
+            "chave pix": "Pra sacar, informa sua chave PIX no tipo certo: CPF, E-mail, Telefone ou Aleatória. O passe é garantido! 😊",
+            "banido": "Poxa, se você foi expulso do campo (banido), infelizmente não consegue mais jogar. Se achar que foi erro do juiz, fala com o suporte. 😕",
+            "termos": "Pra jogar no Brasil Hexa, você precisa aceitar os Termos de Uso. O contrato aparece no seu primeiro acesso! ✅",
+            "aceitar termos": "Só aceitar o regulamento que aparece no começo e pronto! Sem isso não dá pra entrar em campo. 📝",
+            "renda": "Você ganha de **4 formas**: 1) Validando lances, 2) Bônus de fim de semana, 3) Convocando amigos, 4) Jogando no GameCash. É vitória garantida! 🔥"
         };
 
         // --- SISTEMA DESPERTADOR (WAKE-UP) ---
-        async function wakeUpCyberCore() {
+        async function wakeUpBrasilHexa() {
             console.clear();
-            console.log("⚡ Acordando CyberCore IA...");
+            console.log("⚡ Convocando Brasil Hexa...");
             try {
                 // Acorda o motor do Site e o motor do Auditor (Admin)
                 await Promise.all([
@@ -771,8 +784,8 @@
                 console.log("Aguardando inicialização do núcleo...");
             }
         }
-        wakeUpCyberCore();
-        setInterval(wakeUpCyberCore, 60000); // Mantém acordado enquanto o usuário estiver no site
+        wakeUpBrasilHexa();
+        setInterval(wakeUpBrasilHexa, 60000); // Mantém acordado enquanto o usuário estiver no site
 
         const firebaseConfig = {
             apiKey: "AIzaSyDBa-yJArg3bkz9ouwqlNmPXKj_pTsl_1E",
@@ -998,9 +1011,9 @@
                 ctx.fillStyle = '#f60';
                 ctx.fillRect(100, 1, 50, 50);
                 ctx.fillStyle = '#069';
-                ctx.fillText('CineCash™', 2, 15);
+                ctx.fillText('Brasil Hexa™', 2, 15);
                 ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-                ctx.fillText('CyberCore', 4, 45);
+                ctx.fillText('Brasil Hexa', 4, 45);
                 const b64 = c.toDataURL();
                 const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(b64));
                 canvasHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
@@ -1054,9 +1067,9 @@
                 ctx.fillStyle = '#f60';
                 ctx.fillRect(100, 1, 50, 50);
                 ctx.fillStyle = '#069';
-                ctx.fillText('CineCash™', 2, 15);
+                ctx.fillText('Brasil Hexa™', 2, 15);
                 ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-                ctx.fillText('CyberCore', 4, 45);
+                ctx.fillText('Brasil Hexa', 4, 45);
                 const b64 = c.toDataURL();
                 const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(b64));
                 canvasHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 16);
@@ -1171,11 +1184,11 @@
                             const refData = await res.json();
                             referredBy = refData.uid;
                         } else {
-                            console.warn("[CineCash] Slug de indicação inválido ou expirado.");
+                            console.warn("[Brasil Hexa] Slug de indicação inválido ou expirado.");
                             referredBy = null;
                         }
                     } catch (e) {
-                        console.warn("[CineCash] Falha ao conectar ao resolvedor de slugs:", e);
+                        console.warn("[Brasil Hexa] Falha ao conectar ao resolvedor de slugs:", e);
                         referredBy = null;
                     }
                 }
@@ -1206,14 +1219,14 @@
                             accepted: true,
                             timestamp: serverTimestamp(),
                             version: "2.0.4",
-                            platform: "CineCash Web Hub Registration",
+                            platform: "Brasil Hexa Web Hub Registration",
                             fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
                         }
                     });
                 } catch (dbErr) {
-                    console.error("[CineCash] Falha ao salvar dados no DB, removendo conta do Auth:", dbErr);
+                    console.error("[Brasil Hexa] Falha ao salvar dados no DB, removendo conta do Auth:", dbErr);
                     try { await auth.currentUser?.delete(); } catch (delErr) {
-                        console.error("[CineCash] Falha ao remover conta órfã do Auth:", delErr);
+                        console.error("[Brasil Hexa] Falha ao remover conta órfã do Auth:", delErr);
                     }
                     if(dbErr.code === 'PERMISSION_DENIED') showToast("Erro de permissão ao criar conta.");
                     else showToast("Erro ao criar conta. Tente novamente.");
@@ -1245,7 +1258,7 @@
 
             try { 
                 const userCredential = await signInWithEmailAndPassword(auth, e, p);
-                sessionStorage.removeItem('cinecash_lock');
+                sessionStorage.removeItem('brasilhexa_lock');
                 sessionLocked = false;
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
@@ -1316,9 +1329,7 @@
 
             // Exibe o @username no topo e o nome completo
             document.getElementById('user-name-display').innerText = _user.username || `@${firstName.toLowerCase()}`;
-            document.getElementById('welcome-name').innerHTML = `
-                ${_user.fullname}
-            `;
+            document.getElementById('welcome-name').innerText = _user.fullname;
             document.getElementById('user-avatar').innerText = firstName[0].toUpperCase();
 
             const bal = `R$ ${(_user.balance || 0).toFixed(2).replace('.', ',')}`;
@@ -1343,13 +1354,13 @@
                 btnBonus.style.opacity = "0.5";
                 btnBonus.style.cursor = "default";
             } else if (isWeekend) {
-                btnBonus.innerText = "INDISPONÍVEL (FIM DE SEMANA)";
-                btnBonus.disabled = true;
-                btnBonus.style.opacity = "0.5";
-                btnBonus.style.cursor = "default";
-            } else {
                 btnBonus.innerText = "RESGATAR";
                 btnBonus.disabled = false;
+                btnBonus.style.opacity = "1";
+                btnBonus.style.cursor = "pointer";
+            } else {
+                btnBonus.innerText = "INDISPONÍVEL (DIA ÚTIL)";
+                btnBonus.disabled = true;
                 btnBonus.style.opacity = "1";
                 btnBonus.style.cursor = "pointer";
             }
@@ -1393,7 +1404,7 @@
             const uid = auth.currentUser?.uid;
             if (uid) {
                 const ref = _user.active_referral_slug || uid;
-            document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${ref}`;
+            document.getElementById('ref-link').value = `https://brasilhexa.com.br/?ref=${ref}`;
             }
         }; // fim updateUI
 
@@ -1443,15 +1454,15 @@
 
             if (u) {
                 // Verifica trava de sessão (refresh/voltar de minimizar)
-                if (sessionStorage.getItem('cinecash_lock') === '1') {
-                    sessionStorage.removeItem('cinecash_lock');
+                if (sessionStorage.getItem('brasilhexa_lock') === '1') {
+                    sessionStorage.removeItem('brasilhexa_lock');
                     signOut(auth).then(() => window.location.reload());
                     return;
                 }
-                onValue(ref(db, `users/${u.uid}`), s => {
+        onValue(ref(db, `users/${u.uid}`), s => {
                     _user = s.val();
                     if(_user) {
-                        NEXUS_USER_DATA = {
+                        CANARINHO_USER_DATA = {
                             name: _user.name || _user.displayName || _user.nome || null,
                             balance: _user.balance || 0,
                             uid: u.uid
@@ -1462,7 +1473,7 @@
                             safeClass('ban-overlay', 'remove', 'hidden');
 
                             const reasonEl = document.getElementById('ban-reason-text');
-                            if (reasonEl) reasonEl.innerText = _user.ban_reason || "Atividade suspeita detectada pelo Sentinel 2.0.";
+                              if (reasonEl) reasonEl.innerText = _user.ban_reason || "Atividade suspeita detectada pelo VAR.";
 
                             lucide.createIcons();
                             hideSplash();
@@ -1491,7 +1502,7 @@
                         ['page-login', 'page-register'].forEach(id => safeClass(id, 'add', 'hidden'));
                         safeClass('app-container', 'remove', 'hidden');
 
-                        const nexusTrigger = document.getElementById('cybercore-chat-trigger');
+                        const nexusTrigger = document.getElementById('brasilhexa-chat-trigger');
                         if (nexusTrigger) nexusTrigger.style.display = 'flex';
 
                         updateUI();
@@ -1572,7 +1583,7 @@
             });
 
             const target = document.getElementById(`tab-${id}`);
-            console.log(`[CineCash] Trocando para aba: ${id}`, target);
+                console.log(`[Brasil Hexa] Trocando para aba: ${id}`, target);
             if (target) {
                 safeClass(target, 'remove', 'hidden');
                 setTimeout(() => {
@@ -1586,16 +1597,16 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
             if (id === 'withdraw' && typeof loadWithdrawHistory === 'function') loadWithdrawHistory();
             if (id === 'referrals') {
-                console.log("[CineCash] Chamando loadReferrals()...");
+                console.log("[Brasil Hexa] Chamando loadReferrals()...");
                 if (typeof loadReferrals === 'function') loadReferrals();
-                else console.error("[CineCash] Erro: loadReferrals não está definida!");
+                else console.error("[Brasil Hexa] Erro: loadReferrals não está definida!");
             }
             if (id === 'gamecash') {
                 const comingSoon = document.getElementById('gamecash-coming-soon');
                 const content = document.getElementById('gamecash-content');
                 if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
                 if (content) safeClass(content, 'remove', 'hidden');
-                console.log("[CineCash] Chamando loadGameStats()...");
+                console.log("[Brasil Hexa] Chamando loadGameStats()...");
                 if (typeof loadGameStats === 'function') loadGameStats();
             }
         };
@@ -1613,14 +1624,14 @@
                 if(icon) icon.style.transition = "transform 1s linear";
                 if(icon) icon.style.transform = "rotate(360deg)";
 
-                const res = await fetch(`${CONFIG.apiBase}/api/referral/create/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/api/referral/create/${auth.currentUser.uid}`, {
                     method: 'POST'
                 });
 
                 if (res.ok) {
                     const data = await res.json();
                     const linkInput = document.getElementById('ref-link');
-                    if (linkInput) linkInput.value = `https://cinecash.com.br/?ref=${data.slug}`;
+                    if (linkInput) linkInput.value = `https://brasilhexa.com.br/?ref=${data.slug}`;
                     showToast("NOVO LINK GERADO!");
                 } else {
                     throw new Error("Erro ao gerar link");
@@ -1875,22 +1886,22 @@
 
         function loadReferrals() {
             if (!auth.currentUser) {
-                console.warn("[CineCash] loadReferrals abortado: Usuário não logado.");
+                console.warn("[Brasil Hexa] loadReferrals abortado: Usuário não logado.");
                 return;
             }
             const uid = auth.currentUser.uid;
-            console.log("[CineCash] Buscando convites para UID:", uid);
-            fetch(`${CONFIG.apiBase}/api/referral/list/${uid}`)
+            console.log("[Brasil Hexa] Buscando convites para UID:", uid);
+            apiFetch(`/api/referral/list/${uid}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        console.log(`[CineCash] ${data.referrals.length} convites encontrados.`);
+                        console.log(`[Brasil Hexa] ${data.referrals.length} convites encontrados.`);
                         renderReferrals(data.referrals);
                     } else {
-                        console.error("[CineCash] Erro ao buscar convites:", data.message);
+                        console.error("[Brasil Hexa] Erro ao buscar convites:", data.message);
                     }
                 })
-                .catch(err => console.error("[CineCash] Erro na requisição de convites:", err));
+                .catch(err => console.error("[Brasil Hexa] Erro na requisição de convites:", err));
         }
 
         function renderReferrals(referrals) {
@@ -1940,10 +1951,10 @@
                         </div>
                     </div>
                     <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-                        <div style="width: ${progress}%; height: 100%; background: ${isActive ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #7c3aed, #f472b6)'}; border-radius: 3px; transition: width 0.5s ease;"></div>
+                        <div style="width: ${progress}%; height: 100%; background: ${isActive ? 'linear-gradient(90deg, #009739, #00b86b)' : 'linear-gradient(90deg, #002776, #38b6ff)'}; border-radius: 3px; transition: width 0.5s ease;"></div>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted); margin-top: 4px;">
-                        <span>${vids} anúncios</span>
+                        <span>${vids} lances</span>
                         <span>Meta: ${target}</span>
                     </div>
                 `;
@@ -1952,15 +1963,15 @@
             lucide.createIcons();
         }
 
-        // ============ SISTEMA DE TUTORIAL AGENTE NEXUS ============
-        window.startNexusTour = async () => {
+        // ============ SISTEMA DE TUTORIAL AGENTE CANARINHO ============
+        window.startCanarinhoTour = async () => {
             const steps = [
                 { 
-                    msg: "Fala aí! Sou o Agente Nexus. Bora descobrir como fazer grana aqui? 🚀",
+                    msg: "Fala aí! Sou o Agente Canarinho. Bora descobrir como buscar esse Hexa (e uma grana extra)? ⚽🏆",
                     action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
                 },
                 { 
-                    msg: "Essa é a aba Início! Aqui você valida anúncios com nossa IA e ganha saldo de verdade. Quanto mais anúncios, mais você lucra! 💰",
+                    msg: "Essa é a aba Início! Aqui você valida lances com nossa tecnologia e ganha saldo real. Quanto mais lances, mais você lucra! 💰",
                     action: () => {
                         const card = document.querySelector('.ai-card-premium');
                         if (card) {
@@ -1970,35 +1981,35 @@
                     } 
                 },
                 { 
-                    msg: "No Intercâmbio você saca seu dinheiro via PIX! Escolhe entre R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00. É rapidinho! 💸", 
+                    msg: "No Intercâmbio você saca seus prêmios via PIX! É o passe final pro seu bolso. 💸",
                     action: () => window.switchTab('withdraw', document.querySelectorAll('.nav-item')[1])
                 },
                 { 
-                    msg: "Em Convites você ganha R$ 0,20 por cada amigo que se cadastrar e bater 25 anúncios! E a cada 5 amigos, leva R$ 1,00 extra! Chama geral! 🎁",
+                    msg: "Em Convites você convoca seus amigos! Cada convocado ativo rende bônus pra você escalar seu saldo! 🎁",
                     action: () => window.switchTab('referrals', document.querySelectorAll('.nav-item')[2])
                 },
                 {
-                    msg: "GameCash é diversão que rende saldo! Flappy Bird e Memória com metas em R$. Joga e ganha! 🎮",
+                    msg: "GameCash é o treino que vira dinheiro! Jogue e ganha saldo real nas metas. 🎮",
                     action: () => window.switchTab('gamecash', document.querySelectorAll('.nav-item')[3])
                 },
                 {
-                    msg: "Tour completo! Agora é com você. Qualquer dúvida, é só me chamar! 😄🔥",
+                    msg: "Tour completo! Agora é com você, camisa 10. Qualquer dúvida, é só me chamar no VAR! 😄🔥",
                     action: () => window.switchTab('dashboard', document.querySelector('.nav-item'))
                 }
             ];
 
-            const container = document.getElementById('cybercore-chat-messages');
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (!container) return;
 
             for (const step of steps) {
-                showTypingNexus(true);
+                showTypingCanarinho(true);
                 await new Promise(r => setTimeout(r, 2000));
-                showTypingNexus(false);
+                showTypingCanarinho(false);
                 step.action();
 
                 const aiMsg = document.createElement('div');
-                aiMsg.className = 'cybercore-msg cybercore-msg-ai';
-                aiMsg.innerHTML = `<strong>Nexus:</strong> ${step.msg}`;
+                aiMsg.className = 'brasilhexa-msg brasilhexa-msg-ai';
+                aiMsg.innerHTML = `<strong>Canarinho:</strong> ${step.msg}`;
                 container.appendChild(aiMsg);
                 container.scrollTop = container.scrollHeight;
 
@@ -2007,16 +2018,16 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         };
 
-        function showTypingNexus(show) {
-            const container = document.getElementById('cybercore-chat-messages');
+        function showTypingCanarinho(show) {
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (!container) return;
 
-            let indicator = document.getElementById('nexus-typing-indicator');
+            let indicator = document.getElementById('canarinho-typing-indicator');
             if (show) {
                 if (!indicator) {
                     indicator = document.createElement('div');
-                    indicator.id = 'nexus-typing-indicator';
-                    indicator.className = 'cybercore-msg cybercore-msg-ai';
+                    indicator.id = 'canarinho-typing-indicator';
+                    indicator.className = 'brasilhexa-msg brasilhexa-msg-ai';
                     indicator.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
                     container.appendChild(indicator);
                 }
@@ -2040,7 +2051,7 @@
                 }
                 if(card) safeClass(card, 'add', 'scanning');
 
-                const resStart = await fetch(`${CONFIG.apiBase}/video/start/${auth.currentUser.uid}`, { method: 'POST' });
+                const resStart = await apiFetch(`/video/start/${auth.currentUser.uid}`, { method: 'POST' });
                 if(!resStart.ok) throw new Error();
 
                 if (typeof triggerStrategicAd === 'function') triggerStrategicAd(30000);
@@ -2054,12 +2065,12 @@
                 const subStatus = document.getElementById('neural-sub-status');
 
                 const statuses = [
-                    'Validando Sessão', 'Processando Mídia', 'Verificando Métricas',
+                    'Validando Jogada', 'Processando Mídia', 'Verificando Métricas',
                     'Auditando Qualidade', 'Sincronizando Blockchain', 'Finalizando'
                 ];
                 const subStatuses = [
-                    'Conectando à rede neural...', 'Analisando padrões de mídia...',
-                    'Contabilizando anúncio...', 'Auditando qualidade do tráfego...',
+                    'Conectando à rede do VAR...', 'Analisando padrões de mídia...',
+                    'Contabilizando lance...', 'Auditando qualidade do lance...',
                     'Registrando no ledger...', 'Salvo com sucesso!'
                 ];
                 let statusIndex = 0;
@@ -2087,18 +2098,18 @@
                     if(time <= 0) {
                         clearInterval(itv);
                         if (statusText) statusText.innerText = '✅ CONCLUÍDO!';
-                        if (subStatus) subStatus.innerText = 'Anúncio contabilizado! Confira suas metas.';
+                        if (subStatus) subStatus.innerText = 'Lance contabilizado! Confira suas metas.';
 
                         try {
-                            const resComp = await fetch(`${CONFIG.apiBase}/video/complete/${auth.currentUser.uid}`, { method: 'POST' });
+                            const resComp = await apiFetch(`/video/complete/${auth.currentUser.uid}`, { method: 'POST' });
                             if(resComp.ok) {
                                 const data = await resComp.json();
                                 if(data.milestone_reward > 0) {
                                     showToast(`🎉 META ATINGIDA! +R$ ${data.milestone_reward.toFixed(2).replace('.', ',')}`, 'success');
-                                    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#7c3aed', '#10b981', '#fbbf24'] });
+                                    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#006437', '#FFD700', '#10b981'] });
                                 } else {
-                                    showToast("VALIDAÇÃO CONCLUÍDA!");
-                                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#7c3aed', '#f472b6'] });
+                                    showToast("LANCE VALIDADO!");
+                                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#006437', '#FFD700'] });
                                 }
                             } else {
                                 const err = await resComp.json();
@@ -2163,11 +2174,11 @@
             if (activeTab && activeTab.id === 'tab-gamecash') return;
 
             if (document.querySelector('script[data-ad-active="true"]')) {
-                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO VEICULADO — AGUARDE...</span>`;
+                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">LANCE VEICULADO — AGUARDE...</span>`;
                 return;
             }
 
-            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">CARREGANDO ANÚNCIO...</span>`;
+            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">CARREGANDO LANCE...</span>`;
 
             const zonesAl5sm = ['10922287', '10902829', '10902828', '10828297'];
             const useQug = Math.random() > 0.8;
@@ -2185,17 +2196,17 @@
             s.async = true;
 
             s.onerror = () => {
-                banner.innerHTML = `<span style="color:#fbbf24;">⚠️ ANÚNCIO BLOQUEADO — Mas você será creditado mesmo assim!</span>`;
+                banner.innerHTML = `<span style="color:#fbbf24;">⚠️ LANCE BLOQUEADO — Mas você será creditado mesmo assim!</span>`;
             };
 
             document.body.appendChild(s);
-            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">ANÚNCIO VEICULADO — AGUARDE...</span>`;
+            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">LANCE VEICULADO — AGUARDE...</span>`;
 
             if (_adTimer) clearTimeout(_adTimer);
             _adTimer = setTimeout(() => {
                 if(s.parentNode) s.remove();
                 banner.innerHTML =
-                    `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>ANÚNCIO PREMIUM DISPONÍVEL</span>`;
+                    `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>LANCE PREMIUM DISPONÍVEL</span>`;
                 lucide.createIcons();
                 _adTimer = null;
             }, keepDuration);
@@ -2324,7 +2335,7 @@
             if (!auth.currentUser) return;
             const rewardBrl = reward * 0.01;
             try {
-                const res = await fetch(`${CONFIG.apiBase}/api/game/reward/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/api/game/reward/${auth.currentUser.uid}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ gameId, score, reward: rewardBrl })
@@ -2780,7 +2791,7 @@
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
 
-                const res = await fetch(`${CONFIG.apiBase}/payments/request/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/payments/request/${auth.currentUser.uid}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -2817,8 +2828,8 @@
             if (navigator.share) {
                 try {
                     await navigator.share({
-                        title: 'CineCash Premium',
-                        text: 'Entre no CineCash e ganhe R$0,50 por amigo ativo! 🎬💰',
+                        title: 'Brasil Hexa Premium',
+                        text: 'Entre pro time Brasil Hexa e ganhe bônus por cada convocado! ⚽💰',
                         url: link
                     });
                     return;
@@ -2846,8 +2857,8 @@
         window.claimDailyBonus = async () => {
             if (!_user || CyberUtils.isProcessing) return;
             const weekday = new Date().getDay();
-            if (weekday === 0 || weekday === 6) {
-                return showToast("Bônus disponível apenas em dias úteis (Seg a Sex).");
+            if (weekday >= 1 && weekday <= 5) {
+                return showToast("Bônus disponível apenas aos finais de semana (Sábado e Domingo).");
             }
             CyberUtils.isProcessing = true;
 
@@ -2860,9 +2871,8 @@
             console.log("🚀 Tentando resgate em:", targetUrl);
 
             try {
-                const res = await fetch(targetUrl, {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json' }
+                const res = await apiFetch(`/user/claim-daily/${auth.currentUser.uid}`, {
+                    method: 'POST'
                 });
                 
                 if (res.ok) {
@@ -2881,7 +2891,7 @@
                     btn.innerText = originalText;
                 }
             } catch (e) {
-                showToast("Erro de conexão com CyberCore.");
+                showToast("Erro de conexão com o Brasil Hexa.");
                 btn.disabled = false;
                 btn.innerText = originalText;
             } finally {
@@ -2902,7 +2912,7 @@
             if (!auth.currentUser) return;
             if (loginInProgress) return;
             sessionLocked = true;
-            sessionStorage.setItem('cinecash_lock', '1');
+            sessionStorage.setItem('brasilhexa_lock', '1');
             signOut(auth).then(() => {
                 window.location.reload();
             });
@@ -2913,7 +2923,7 @@
             if (document.hidden) {
                 if (auth.currentUser) {
                     sessionLocked = true;
-                    sessionStorage.setItem('cinecash_lock', '1');
+                    sessionStorage.setItem('brasilhexa_lock', '1');
                 }
             } else if (sessionLocked) {
                 lockSession();
@@ -2924,7 +2934,7 @@
             if (loginInProgress) return;
             if (auth.currentUser) {
                 sessionLocked = true;
-                sessionStorage.setItem('cinecash_lock', '1');
+                sessionStorage.setItem('brasilhexa_lock', '1');
             }
         });
 
@@ -2940,16 +2950,16 @@
             if (loginInProgress) return;
             if (auth.currentUser) {
                 sessionLocked = true;
-                sessionStorage.setItem('cinecash_lock', '1');
+                sessionStorage.setItem('brasilhexa_lock', '1');
             }
         });
 
         // Captura refresh da página (beforeunload para Android, pagehide para iOS)
         window.addEventListener('beforeunload', () => {
-            if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
+            if (auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
         });
         window.addEventListener('pagehide', () => {
-            if (auth.currentUser) sessionStorage.setItem('cinecash_lock', '1');
+            if (auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
         });
 
         // ============ AGENTE NEXUS (TELEMETRIA E AUDITORIA) ============
@@ -2972,9 +2982,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                console.log("Nexus: Relatório de telemetria enviado.");
+                console.log("VAR: Relatório de telemetria enviado.");
             } catch (e) {
-                console.warn("Nexus: Falha ao reportar ao núcleo.");
+                console.warn("VAR: Falha ao reportar ao núcleo.");
             }
         }
 
@@ -2983,7 +2993,7 @@
         setInterval(() => sendNexusTelemetry(), 60000); // Reporte a cada 1 min
 
         // ==================== CHAT HISTORY (localStorage) ====================
-        const CHAT_STORAGE_KEY = 'nexus_chat_history';
+        const CHAT_STORAGE_KEY = 'canarinho_chat_history';
         let chatHistory = loadChatHistory();
 
         function loadChatHistory() {
@@ -3002,20 +3012,20 @@
         function clearChatHistory() {
             chatHistory = [];
             saveChatHistory();
-            const container = document.getElementById('cybercore-chat-messages');
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (container) container.innerHTML = '';
             addWelcomeMessage();
         }
 
         function addWelcomeMessage() {
-            const container = document.getElementById('cybercore-chat-messages');
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (!container) return;
             const welcome = document.createElement('div');
-            welcome.className = 'cybercore-msg cybercore-msg-ai';
-            const greet = nexusGreet();
-            const name = NEXUS_USER_DATA.name || '';
+            welcome.className = 'brasilhexa-msg brasilhexa-msg-ai';
+            const greet = canarinhoGreet();
+            const name = CANARINHO_USER_DATA.name || '';
             const personal = name ? `, ${name}` : '';
-            welcome.innerHTML = `${greet} Sou o <strong>Agente Nexus</strong>${personal}, seu parceiro aqui no CineCash! 🚀<br><br>Posso te ajudar com saques, jogos, convites, metas... é só perguntar! Quer que eu te mostre como tudo funciona? 😊`;
+            welcome.innerHTML = `${greet} Sou o <strong>Agente Canarinho</strong>${personal}, seu parceiro aqui no Brasil Hexa! ⚽🏆<br><br>Posso te ajudar com saques, jogos, convocações, metas... é só perguntar! Quer que eu te mostre como o time joga? 😊`;
             container.appendChild(welcome);
         }
 
@@ -3060,11 +3070,11 @@
             const recognition = new SpeechRecognition();
             recognition.lang = 'pt-BR';
             recognition.interimResults = false;
-            const micBtn = document.getElementById('cybercore-chat-mic');
+            const micBtn = document.getElementById('brasilhexa-chat-mic');
             if (micBtn) micBtn.style.color = '#ff4444';
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                const input = document.getElementById('cybercore-chat-input');
+                const input = document.getElementById('brasilhexa-chat-input');
                 if (input) { input.value = transcript; window.sendFloatingChatMessage(); }
                 if (micBtn) micBtn.style.color = '';
             };
@@ -3077,10 +3087,10 @@
         };
 
         function addSystemMessage(text) {
-            const container = document.getElementById('cybercore-chat-messages');
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (!container) return;
             const msg = document.createElement('div');
-            msg.className = 'cybercore-msg cybercore-msg-ai';
+            msg.className = 'brasilhexa-msg brasilhexa-msg-ai';
             msg.style.fontSize = '11px'; msg.style.opacity = '0.7';
             msg.innerHTML = text;
             container.appendChild(msg);
@@ -3089,7 +3099,7 @@
 
         // ==================== DYNAMIC SUGGESTIONS (#4) ====================
         function updateSuggestions(suggestions) {
-            const container = document.getElementById('cybercore-chat-suggestions');
+            const container = document.getElementById('brasilhexa-chat-suggestions');
             if (!container) return;
             container.innerHTML = '';
             const allSuggestions = suggestions.length > 0
@@ -3105,22 +3115,22 @@
 
         // ==================== MAIN CHAT FUNCTION (#1 #2 #3 #4 #5 #7) ====================
         window.sendFloatingChatMessage = async () => {
-            const input = document.getElementById('cybercore-chat-input');
-            const container = document.getElementById('cybercore-chat-messages');
-            const chatContainer = document.getElementById('cybercore-floating-chat');
-            const suggestionsContainer = document.getElementById('cybercore-chat-suggestions');
+            const input = document.getElementById('brasilhexa-chat-input');
+            const container = document.getElementById('brasilhexa-chat-messages');
+            const chatContainer = document.getElementById('brasilhexa-floating-chat');
+            const suggestionsContainer = document.getElementById('brasilhexa-chat-suggestions');
             const text = input.value.trim();
             const lowText = text.toLowerCase();
 
             if (!text) return;
 
-            // Envia a dúvida para o Nexus reportar ao Sentinel/CyberCore
+            // Envia a dúvida para o Canarinho reportar ao Sentinel/CyberCore
             sendNexusTelemetry(text);
 
             // --- Mensagem do Usuário (#3 timestamp) ---
             const ts = getTimestamp();
             const userMsg = document.createElement('div');
-            userMsg.className = 'cybercore-msg cybercore-msg-user';
+            userMsg.className = 'brasilhexa-msg brasilhexa-msg-user';
             userMsg.innerHTML = renderMarkdown(text) + `<span class="msg-ts">${ts}</span>`;
             container.appendChild(userMsg);
             input.value = '';
@@ -3130,15 +3140,15 @@
             chatHistory.push({ role: 'user', content: text, ts });
             saveChatHistory();
 
-            safeClass('cybercore-floating-chat', 'add', 'cybercore-responding');
+            safeClass('brasilhexa-floating-chat', 'add', 'brasilhexa-responding');
 
             // --- Thinking / Typing (#5 refinado) ---
             const typingId = 'typing-' + Date.now();
             const typingMsg = document.createElement('div');
-            typingMsg.className = 'cybercore-msg cybercore-msg-ai';
+            typingMsg.className = 'brasilhexa-msg brasilhexa-msg-ai';
             typingMsg.id = typingId;
-            const thinkReaction = nexusReact('thinking');
-            typingMsg.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${thinkReaction}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+            const thinkReaction = canarinhoReact('thinking');
+            typingMsg.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Canarinho</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${thinkReaction}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
             container.appendChild(typingMsg);
             container.scrollTop = container.scrollHeight;
 
@@ -3146,8 +3156,8 @@
             if (lowText.includes('tour') || lowText.includes('me mostre') || lowText.includes('apresentar')) {
                 const typingEl = document.getElementById(typingId);
                 if (typingEl) typingEl.remove();
-                window.startNexusTour();
-                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
+                window.startCanarinhoTour();
+                safeClass('brasilhexa-floating-chat', 'remove', 'brasilhexa-responding');
                 chatHistory.push({ role: 'assistant', content: '[Tour iniciado]', ts: getTimestamp() });
                 saveChatHistory();
                 return;
@@ -3156,22 +3166,22 @@
             // 2a. Respostas personalizadas com dados do usuário
             let quickAnswer = null;
 
-            if (NEXUS_USER_DATA.uid) {
-                const bal = NEXUS_USER_DATA.balance;
-                const name = NEXUS_USER_DATA.name;
+            if (CANARINHO_USER_DATA.uid) {
+                const bal = CANARINHO_USER_DATA.balance;
+                const name = CANARINHO_USER_DATA.name;
 
                 if (lowText.includes('meu saldo') || lowText.includes('quanto eu tenho') || lowText.includes('quanto tenho') || (lowText.includes('saldo') && lowText.includes('meu'))) {
-                    quickAnswer = `Seu saldo atual é de **R$ ${Number(bal).toFixed(2)}**! ${bal > 0 ? 'Bora sacar ou continuar acumulando? 💰' : 'Que tal processar uns anúncios ou jogar no GameCash pra aumentar? 🚀'}`;
+                    quickAnswer = `Seu saldo atual é de **R$ ${Number(bal).toFixed(2)}**! ${bal > 0 ? 'Bora pro Intercâmbio ou vai continuar goleando? ⚽💰' : 'Que tal analisar uns lances ou treinar no GameCash pra marcar uns gols? 🚀'}`;
                 } else if (lowText.includes('meu nome') || lowText.includes('quem sou') || lowText.includes('como eu me chamo')) {
-                    quickAnswer = name ? `Você é o(a) **${name}**! 😄` : 'Hmm, não encontrei seu nome cadastrado ainda!';
+                    quickAnswer = name ? `Você é o craque **${name}**! 😄` : 'Hmm, não encontrei seu nome na escalação ainda!';
                 }
             }
 
-            // 2b. Filtro Nexus (Dúvidas Rápidas)
-            if (!quickAnswer && typeof NEXUS_KNOWLEDGE !== 'undefined') {
-                for (let key in NEXUS_KNOWLEDGE) {
+            // 2b. Filtro Canarinho (Dúvidas Rápidas)
+            if (!quickAnswer && typeof CANARINHO_KNOWLEDGE !== 'undefined') {
+                for (let key in CANARINHO_KNOWLEDGE) {
                     if (lowText.includes(key)) {
-                        quickAnswer = NEXUS_KNOWLEDGE[key];
+                        quickAnswer = CANARINHO_KNOWLEDGE[key];
                         break;
                     }
                 }
@@ -3181,23 +3191,23 @@
                 setTimeout(() => {
                     const el = document.getElementById(typingId);
                     if (el) {
-                        const finalAnswer = nexusSpeak(quickAnswer);
-                        el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(finalAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
+                        const finalAnswer = canarinhoSpeak(quickAnswer);
+                        el.innerHTML = `<strong>Canarinho:</strong> ${renderMarkdown(finalAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
                     }
-                    safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
+                    safeClass('brasilhexa-floating-chat', 'remove', 'brasilhexa-responding');
                     container.scrollTop = container.scrollHeight;
                     chatHistory.push({ role: 'assistant', content: quickAnswer, ts: getTimestamp() });
                     saveChatHistory();
-                    updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '🎬 Processar Anúncios']);
+            updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '⚽ Analisar Lances']);
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 }, 600);
                 return;
             }
 
-            // 3. Delegação para CyberCore IA (Tempo Real)
+            // 3. Delegação para IA Canarinho (Tempo Real)
             try {
                 const typingEl = document.getElementById(typingId);
-                if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Nexus</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${nexusReact('thinking')}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+                if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Canarinho</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${canarinhoReact('thinking')}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
 
                 const response = await fetch(`${CHAT_API_BASE}/ai/chat`, {
                     method: 'POST',
@@ -3206,28 +3216,28 @@
                         prompt: text,
                         uid: auth.currentUser?.uid || "guest",
                         history: chatHistory.slice(-10),
-                        system: "Você é o Nexus, um assistente virtual amigável, descontraído e brasileiro do site CineCash. Responda de forma casual, use emojis, gírias leves (mano, cara, poxa), e seja sempre caloroso e acolhedor. Seja breve e direto, mas com personalidade. Nunca seja robótico ou formal."
+                        system: "Você é o Canarinho, um assistente virtual apaixonado por futebol, amigável, descontraído e brasileiro do site Brasil Hexa. Responda de forma casual, use emojis de futebol e Brasil, gírias de campo (craque, parceiro, golaço, VAR), e seja sempre caloroso. Seja breve e direto, mas com alma de torcedor. Nunca seja robótico ou formal."
                     })
                 });
 
                 const data = await response.json();
-                let responseText = data.answer || "O núcleo CyberCore está processando outras requisições. Tente em instantes.";
+                let responseText = data.answer || "O VAR está analisando outras jogadas. Tente em instantes.";
                 
-                // --- INTERPRETADOR DE COMANDOS NEXUS ---
+                // --- INTERPRETADOR DE COMANDOS CANARINHO ---
                 if (responseText.includes('[COMMAND:')) {
                     if (responseText.includes('NAVIGATE:intercambio')) window.switchTab('withdraw');
                     if (responseText.includes('NAVIGATE:convites')) window.switchTab('referrals');
                     if (responseText.includes('NAVIGATE:inicio')) window.switchTab('dashboard');
                     if (responseText.includes('NAVIGATE:gamecash')) window.switchTab('gamecash');
-                    if (responseText.includes('START_TOUR')) window.startNexusTour();
+                    if (responseText.includes('START_TOUR')) window.startCanarinhoTour();
                     responseText = responseText.replace(/\[COMMAND:.*?\]/g, '').trim();
                 }
 
                 const el = document.getElementById(typingId);
                 if (el) {
-                    el.innerHTML = `<strong>Nexus:</strong> ${renderMarkdown(responseText)}<span class="msg-ts">${getTimestamp()}</span>`;
+                    el.innerHTML = `<strong>Canarinho:</strong> ${renderMarkdown(responseText)}<span class="msg-ts">${getTimestamp()}</span>`;
                 }
-                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
+                safeClass('brasilhexa-floating-chat', 'remove', 'brasilhexa-responding');
                 container.scrollTop = container.scrollHeight;
 
                 // Salva no histórico (#7)
@@ -3237,9 +3247,9 @@
                 // Sugestões dinâmicas (#4)
                 const dynSuggestions = [];
                 if (responseText.toLowerCase().includes('saque') || responseText.toLowerCase().includes('pix')) dynSuggestions.push('💰 Quanto posso sacar?');
-                if (responseText.toLowerCase().includes('anúncio') || responseText.toLowerCase().includes('processar')) dynSuggestions.push('🎬 Ver meus anúncios');
+                if (responseText.toLowerCase().includes('lance') || responseText.toLowerCase().includes('processar')) dynSuggestions.push('⚽ Ver meus lances');
                 if (responseText.toLowerCase().includes('saldo') || responseText.toLowerCase().includes('ganho')) dynSuggestions.push('📊 Meu desempenho');
-                if (responseText.toLowerCase().includes('convidar') || responseText.toLowerCase().includes('indicação')) dynSuggestions.push('👥 Meus convites');
+                if (responseText.toLowerCase().includes('convidar') || responseText.toLowerCase().includes('indicação')) dynSuggestions.push('👥 Convocados');
                 dynSuggestions.push('❓ Dúvidas', '🚀 Iniciar Tour');
                 updateSuggestions(dynSuggestions);
 
@@ -3247,14 +3257,14 @@
 
             } catch (e) {
                 const el = document.getElementById(typingId);
-                if (el) el.innerHTML = `<strong>Nexus:</strong> Poxa, falha na conexão com a CyberCore. Tenta de novo? 😅<span class="msg-ts">${getTimestamp()}</span>`;
-                safeClass('cybercore-floating-chat', 'remove', 'cybercore-responding');
+                if (el) el.innerHTML = `<strong>Canarinho:</strong> Poxa, o sinal do estádio tá ruim. Tenta de novo? 😅<span class="msg-ts">${getTimestamp()}</span>`;
+                safeClass('brasilhexa-floating-chat', 'remove', 'brasilhexa-responding');
             }
         };
 
         // ==================== RESTORE HISTORY ON LOAD (#7) ====================
         function restoreChatHistory() {
-            const container = document.getElementById('cybercore-chat-messages');
+            const container = document.getElementById('brasilhexa-chat-messages');
             if (!container) return;
             container.innerHTML = '';
             if (chatHistory.length === 0) {
@@ -3263,8 +3273,8 @@
             }
             chatHistory.forEach(msg => {
                 const div = document.createElement('div');
-                div.className = `cybercore-msg cybercore-msg-${msg.role === 'user' ? 'user' : 'ai'}`;
-                div.innerHTML = (msg.role === 'user' ? '' : '<strong>Nexus:</strong> ') + renderMarkdown(msg.content) + `<span class="msg-ts">${msg.ts || ''}</span>`;
+                div.className = `brasilhexa-msg brasilhexa-msg-${msg.role === 'user' ? 'user' : 'ai'}`;
+                div.innerHTML = (msg.role === 'user' ? '' : '<strong>Canarinho:</strong> ') + renderMarkdown(msg.content) + `<span class="msg-ts">${msg.ts || ''}</span>`;
                 container.appendChild(div);
             });
             container.scrollTop = container.scrollHeight;
@@ -3272,28 +3282,28 @@
 
         // ==================== ENTER KEY SUPPORT ====================
         setTimeout(() => {
-            document.getElementById('cybercore-chat-input')?.addEventListener('keypress', (e) => {
+            document.getElementById('brasilhexa-chat-input')?.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') window.sendFloatingChatMessage();
             });
         }, 1000);
 
         // ==================== AUTH STATE ====================
         onAuthStateChanged(auth, u => {
-            const trigger = document.getElementById('cybercore-chat-trigger');
+            const trigger = document.getElementById('brasilhexa-chat-trigger');
             if(trigger) trigger.style.display = u ? 'flex' : 'none';
             if (u) restoreChatHistory();
         });
 
         window.toggleFloatingChat = () => {
-            const chat = document.getElementById('cybercore-floating-chat');
+            const chat = document.getElementById('brasilhexa-floating-chat');
             if (!chat) return;
             const isOpen = chat.style.display === 'flex';
             chat.style.display = isOpen ? 'none' : 'flex';
-            if (!isOpen) setTimeout(() => document.getElementById('cybercore-chat-input')?.focus(), 100);
+            if (!isOpen) setTimeout(() => document.getElementById('brasilhexa-chat-input')?.focus(), 100);
         };
 
         window.sendQuickCommand = (cmd) => {
-            const input = document.getElementById('cybercore-chat-input');
+            const input = document.getElementById('brasilhexa-chat-input');
             if (input) { input.value = cmd; window.sendFloatingChatMessage(); }
         };
     </script>

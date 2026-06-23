@@ -1,4 +1,4 @@
-// Service Worker CineCash IA (Versão Compat)
+// Service Worker Brasil Hexa (Versão Compat)
 importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compat.js');
 
@@ -17,22 +17,22 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
     console.log('[sw.js] Mensagem em background:', payload);
-    const title = payload.notification?.title || "CineCash IA";
+    const title = payload.notification?.title || "Brasil Hexa";
     const options = {
-        body: payload.notification?.body || "Você tem uma nova atualização.",
+        body: payload.notification?.body || "Você tem uma nova convocação.",
         icon: '/bg.png',
         data: payload.data
     };
     self.registration.showNotification(title, options);
 });
 
-const CACHE_NAME = 'cinecash-v12';
+const CACHE_NAME = 'brasilhexa-v1';
 
 self.addEventListener('install', e => {
     self.skipWaiting();
     e.waitUntil(
         caches.open(CACHE_NAME).then(cache =>
-            cache.addAll(['./', './index.html', './style.css']).catch(() => {})
+            cache.addAll(['./', './index.html', './style.css', './termos.html']).catch(() => {})
         )
     );
 });
@@ -65,4 +65,3 @@ self.addEventListener('fetch', e => {
             .catch(() => caches.match(e.request).then(cached => cached || new Response('', { status: 503 })))
     );
 });
-

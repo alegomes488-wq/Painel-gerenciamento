@@ -36,3 +36,7 @@ cybercore_workspace/*
 !cybercore_workspace/.gitkeep
 .firebase/
 
+
+# Firebase private keys (security)
+backend/firebase-adminsdk*.json
+backend/firebase-adminsdk -*

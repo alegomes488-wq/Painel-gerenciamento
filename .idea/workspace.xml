@@ -5,11 +5,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d76b0c9c-e39b-42aa-a793-38acf16283b9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cybercore_workspace/estoque_bebidas/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/firebase-messaging-sw.js" beforeDir="false" afterPath="$PROJECT_DIR$/firebase-messaging-sw.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/rules.json" beforeDir="false" afterPath="$PROJECT_DIR$/rules.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sw.js" beforeDir="false" afterPath="$PROJECT_DIR$/sw.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/firebase-messaging-sw.js" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/firebase-messaging-sw.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/admin/sw.js" beforeDir="false" afterPath="$PROJECT_DIR$/www/admin/sw.js" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/www/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/www/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/www/manifest.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/www/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/www/style.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/sw.js" beforeDir="false" afterPath="$PROJECT_DIR$/www/sw.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/www/termos.html" beforeDir="false" afterPath="$PROJECT_DIR$/www/termos.html" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

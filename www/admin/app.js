@@ -37,6 +37,13 @@ window.safeClass = (idOrEl, method, className) => {
     }
 };
 
+// Sanitização HTML para prevenir XSS
+function escapeHtml(text) {
+    var d = document.createElement('div');
+    d.appendChild(document.createTextNode(String(text)));
+    return d.innerHTML;
+}
+
 // --- CONFIGURAÇÃO BRASIL HEXA (LOCAL ONLY) ---
 const LOCAL_BACKEND = 'http://localhost:7860';
 
@@ -84,26 +91,7 @@ async function checkBackendHealth() {
     } catch (e) {
         backendOnline = false;
     }
-    updateAgentStatus();
-}
-
-function updateAgentStatus() {
-    const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
-    const tagClass = backendOnline ? 'online' : 'offline';
-    const tagText = backendOnline ? '● ATIVO' : '● OFFLINE';
-    agents.forEach(a => {
-        const el = document.getElementById(`studio-status-${a}`);
-        if (el) {
-            el.className = `status-tag ${tagClass}`;
-            el.textContent = tagText;
-        }
-        // Also update overview cards
-        const ov = document.getElementById(`ov-status-${a}`);
-        if (ov) {
-            ov.className = `status-tag ${tagClass}`;
-            ov.textContent = tagText;
-        }
-    });
+    // updateAgentStatus was here (agent cards removed)
 }
 
 checkBackendHealth();
@@ -208,31 +196,7 @@ async function loadCredits() {
         const data = await resp.json();
         if (data.status !== 'success') return;
         backendOnline = true;
-        // Update agent status directly
-        const agents = ['BUILDER','DESIGNER','FULLSTACK','PYTHON','JAVA','SOFTWARE'];
-        agents.forEach(a => {
-            const el = document.getElementById(`studio-status-${a}`);
-            if (el) {
-                el.className = 'status-tag online';
-                el.textContent = '● ATIVO';
-            }
-        });
-        agents.forEach(a => {
-            const c = credits[a] || { limit: 50, used: 0 };
-            const el = document.getElementById(`credit-${a}`);
-            if (el) {
-                const remaining = c.limit - c.used;
-                const color = remaining <= 5 ? '#ef4444' : remaining <= 15 ? '#fbbf24' : '#10b981';
-                el.innerHTML = `<span style="color:${color};">●</span> ${remaining}/${c.limit}`;
-            }
-        });
-        // Update header credits display
-        const display = document.getElementById('studio-credits-display');
-        if (display) {
-            const total = agents.reduce((s, a) => s + (credits[a]?.limit || 50), 0);
-            const used = agents.reduce((s, a) => s + (credits[a]?.used || 0), 0);
-            display.innerHTML = `<span style="font-size:10px;color:var(--text-secondary);font-weight:700;">💳 ${used}/${total}</span>`;
-        }
+        // Agent credits display removed with agent cards
     } catch (e) {
         console.warn("Credits offline");
     }
@@ -389,8 +353,8 @@ if (hubDb) {
             line.className = 'log-line';
             const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--:--';
             const uid = log.uid ? log.uid.substring(0, 6) : '????';
-            const msg = log.details?.user_doubt ? `Dúvida: ${log.details.user_doubt}` : `Sync: ${uid} (R$${log.details?.balance || 0})`;
-            line.innerHTML = `<span>[${time}]</span> ${msg}`;
+            const msg = log.details?.user_doubt ? `Dúvida: ${escapeHtml(log.details.user_doubt)}` : `Sync: ${uid} (R$${log.details?.balance || 0})`;
+            line.innerHTML = `<span>[${time}]</span> ${escapeHtml(msg)}`;
             nexusLogs.appendChild(line);
         });
         nexusLogs.scrollTop = nexusLogs.scrollHeight;
@@ -408,7 +372,7 @@ if (hubDb) {
             line.className = 'log-line';
             const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '--:--';
             const msg = log.message || log.type || log.reason || 'Evento VAR';
-            line.innerHTML = `<span>[${time}]</span> ${msg}`;
+            line.innerHTML = `<span>[${time}]</span> ${escapeHtml(msg)}`;
             sentinelLogs.appendChild(line);
         });
         sentinelLogs.scrollTop = sentinelLogs.scrollHeight;
@@ -465,7 +429,7 @@ if (hubDb) {
         Object.values(vals).forEach(insight => {
             const line = document.createElement('div');
             line.className = 'agent-line';
-            line.innerHTML = `<small>[${new Date().toLocaleTimeString()}]</small> <strong>${insight.email?.split('@')[0]}:</strong> R$${insight.balance} | risk:${insight.risk}%`;
+            line.innerHTML = `<small>[${new Date().toLocaleTimeString()}]</small> <strong>${escapeHtml(insight.email?.split('@')[0] || '?')}:</strong> R$${insight.balance} | risk:${insight.risk}%`;
             nexusBody.appendChild(line);
         });
         nexusBody.scrollTop = nexusBody.scrollHeight;
@@ -583,19 +547,6 @@ function showPanel(id, filterType = null) {
         if (id === 'overview') renderCmdProjectsTable();
                                 
     }
-}
-
-function selectAgentFromNav(agent) {
-    showPanel('studio');
-    selectAgent(agent);
-    
-    // Set active sub-link
-    document.querySelectorAll('.sub-nav span').forEach(link => {
-        if (link.textContent.toUpperCase().includes(agent)) {
-            safeClass(link, 'add', 'active');
-            safeClass(link, 'add', 'active-studio');
-        }
-    });
 }
 
 function filterCmdProjects(type, el) {
@@ -723,7 +674,7 @@ async function sendOrchestratorCommand() {
                 planMsg.className = 'ai-msg';
                 planMsg.style.cssText = 'display:flex;gap:12px;';
                 let planHtml = '<strong>📋 Plano de Execução:</strong><br><div style="margin-top:8px;display:grid;gap:6px;">';
-                const colors = {BUILDER:'#a855f7',DESIGNER:'#ec4899',FULLSTACK:'#06b6d4',PYTHON:'#22c55e',JAVA:'#f97316',SOFTWARE:'#eab308',SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
+                const colors = {SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
                 data.plano.forEach((t, i) => {
                     const agente = t.agente || t.agent || '?';
                     const color = colors[agente.toUpperCase()] || '#64748b';
@@ -824,27 +775,6 @@ async function executeOrchestratorPlan() {
         chat.appendChild(errMsg);
     }
     chat.scrollTop = chat.scrollHeight;
-}
-
-let selectedAgent = 'BUILDER'; // Default agent
-
-function selectAgent(agent) {
-    selectedAgent = agent;
-    showToast(`Agente ${agent} selecionado no Studio.`, "info");
-
-    // Mostra/Esconde ações específicas de Java
-    const javaActions = document.getElementById('java-build-actions');
-    if (javaActions) {
-        javaActions.style.display = agent === 'JAVA' ? 'flex' : 'none';
-    }
-
-    const terminal = document.getElementById('studio-output');
-    const body = document.getElementById('studio-terminal-body');
-    if (terminal) terminal.style.display = 'block';
-    if (body) {
-        body.innerHTML += `<div style="color: var(--gold); margin-bottom: 15px; font-family: 'JetBrains Mono'; font-size: 12px; border-bottom: 1px solid rgba(232,184,48,0.1); padding-bottom: 5px;">> Agente ${agent} inicializado e aguardando diretrizes...</div>`;
-        body.scrollTop = body.scrollHeight;
-    }
 }
 
 async function generateTeam() {
@@ -1062,7 +992,7 @@ async function brasilHexaChat() {
                 let planHtml = `<div style="display:grid;gap:4px;">`;
                 data.plano.forEach((t, i) => {
                     const agente = t.agente || t.agent || '?';
-                    const colors = {BUILDER:'#a855f7',DESIGNER:'#ec4899',FULLSTACK:'#06b6d4',PYTHON:'#22c55e',JAVA:'#f97316',SOFTWARE:'#eab308',SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
+                const colors = {SECURITY:'#ef4444',AUDITOR:'#8b5cf6'};
                     const color = colors[agente.toUpperCase()] || '#64748b';
                     planHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:rgba(255,255,255,0.02);border-radius:4px;">
                         <span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block;"></span>
@@ -1874,11 +1804,11 @@ function renderWithdrawalsTable() {
             <tr class="fade-in">
                 <td>
                     <div style="display:flex; flex-direction:column">
-                        <span style="font-weight:800; color:var(--text-primary)">${userName}</span>
+                        <span style="font-weight:800; color:var(--text-primary)">${escapeHtml(userName)}</span>
                         <small style="font-size:9px; opacity:0.5; color:var(--primary)">ID: ${w.uid.substring(0,8)}...</small>
                     </div>
                 </td>
-                <td class="font-mono" style="font-size:12px; color:var(--text-secondary)">${w.pixKey || '-'}</td>
+                <td class="font-mono" style="font-size:12px; color:var(--text-secondary)">${escapeHtml(w.pixKey || '-')}</td>
                 <td style="font-weight:800; color:var(--primary)">R$ ${amount.toFixed(2)}</td>
                 <td><span class="badge status-${w.status}" style="font-size:9px;">${w.status.toUpperCase()}</span></td>
                 <td>
@@ -2044,7 +1974,7 @@ async function sendIACommand() {
                     prompt: rawCmd,
                     agent: backendAgent,
                     history: terminalHistory.slice(-15),
-                    uid: currentUser?.uid || 'admin'
+                    uid: auth?.currentUser?.uid || 'admin'
                 })
             });
             if (resp.ok) {
@@ -2058,14 +1988,14 @@ async function sendIACommand() {
         // 2. Fallback: Backend Local
         if (!answer && BRASILHEXA_BACKEND_URL) {
             try {
-                const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/ai/chat`, {
+                const localResp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/studio/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: rawCmd,
                         agent: backendAgent,
                         history: terminalHistory.slice(-15),
-                        uid: currentUser?.uid || 'admin'
+                        uid: auth?.currentUser?.uid || 'admin'
                     })
                 });
                 const data = await resp.json();
@@ -2215,7 +2145,7 @@ function authorizeAction(actionId, decision, bubbleId) {
     fetch(`${BRASILHEXA_BACKEND_URL}/api/security/authorize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action_id: actionId, decision: decision, uid: currentUser?.uid || "unknown" })
+        body: JSON.stringify({ action_id: actionId, decision: decision, uid: auth?.currentUser?.uid || "unknown" })
     })
     .then(r => r.json())
     .then(data => {
@@ -2368,16 +2298,6 @@ function initCanarinhoAgent() {
 
 // ============ AUTH ============
 
-// No localhost: mostra UI imediatamente sem esperar Firebase auth
-const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-if (isLocal) {
-    document.getElementById('login-screen').style.display = 'none';
-    const app = document.getElementById('hub-app');
-    if (app) app.style.display = 'grid';
-    const loader = document.getElementById('loader');
-    if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 300); }
-}
-
 if (auth) {
 auth.onAuthStateChanged(async user => {
     console.log("[AUTH] Estado alterado:", user ? "Logado" : "Deslogado");
@@ -2390,12 +2310,19 @@ auth.onAuthStateChanged(async user => {
     }
 
     if (user) {
-        // Se estiver logado, garante que a tela de login suma e o app apareça
+        // Restringe acesso apenas ao administrador
+        if (user.email !== 'alegomes488@gmail.com') {
+            await auth.signOut();
+            showToast('Acesso restrito ao administrador.', 'error');
+            document.getElementById('login-screen').style.display = 'flex';
+            const app = document.getElementById('hub-app');
+            if (app) app.style.display = 'none';
+            return;
+        }
         document.getElementById('login-screen').style.display = 'none';
         const app = document.getElementById('hub-app');
         if (app) app.style.display = 'grid';
 
-        // Inicializa sistemas apenas se ainda não foram iniciados
         if (Object.keys(rtState.users).length === 0) {
             initRealTimeSystem();
         }
@@ -2409,12 +2336,24 @@ auth.onAuthStateChanged(async user => {
 }
 
 let loginInProgress = false;
+const _loginAttempts = {};
 
 async function login() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value;
     if (!email || !pass) return showToast('Preencha e-mail e senha.', 'error');
 
+    // Rate limiting client-side: max 5 tentativas por minuto
+    const now = Date.now();
+    const ipKey = email;
+    if (!_loginAttempts[ipKey]) _loginAttempts[ipKey] = [];
+    _loginAttempts[ipKey] = _loginAttempts[ipKey].filter(t => now - t < 60000);
+    if (_loginAttempts[ipKey].length >= 5) {
+        return showToast('Muitas tentativas. Aguarde 1 minuto.', 'error');
+    }
+    _loginAttempts[ipKey].push(now);
+
+    if (loginInProgress) return;
     loginInProgress = true;
     try {
         await auth.signInWithEmailAndPassword(email, pass);
@@ -2423,18 +2362,11 @@ async function login() {
     } catch (e) {
         loginInProgress = false;
         console.error('[Admin Login]', e.code, e.message);
-        showToast('Erro: Verifique suas credenciais.', 'error');
+        const msg = e.code === 'auth/invalid-credential' ? 'Credenciais inválidas.' :
+                    e.code === 'auth/too-many-requests' ? 'Conta temporariamente bloqueada por muitas tentativas.' :
+                    'Erro: Verifique suas credenciais.';
+        showToast(msg, 'error');
     }
-}
-
-// MODO DE EMERGÊNCIA: Pular Login no Localhost
-function bypassLogin() {
-    console.log("[DEV] Ativando Bypass de Segurança...");
-    document.getElementById('login-screen').style.display = 'none';
-    const app = document.getElementById('hub-app');
-    if (app) app.style.display = 'grid';
-    initRealTimeSystem();
-    showToast('MODO DESENVOLVEDOR: Acesso Liberado ⚡', 'info');
 }
 
 function logout() { if (auth) auth.signOut().then(() => location.reload()); }

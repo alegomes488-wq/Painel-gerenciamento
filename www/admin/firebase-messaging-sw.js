@@ -19,11 +19,11 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('[sw.js] Background Message:', payload);
 
-    const title = payload.notification?.title || "CyberCore IA";
+    const title = payload.notification?.title || "Brasil Hexa";
     const options = {
-        body: payload.notification?.body || "Nova notificação do sistema.",
-        icon: 'https://cdn-icons-png.flaticon.com/512/2592/2592186.png', // Ícone genérico de IA
-        badge: 'https://cdn-icons-png.flaticon.com/512/2592/2592186.png',
+        body: payload.notification?.body || "Nova convocação do CT Canarinho.",
+        icon: '/admin/favicon.svg',
+        badge: '/admin/favicon.svg',
         data: payload.data
     };
 

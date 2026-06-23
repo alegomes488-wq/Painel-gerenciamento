@@ -10,11 +10,12 @@ import time
 
 import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials, db, messaging
-from fastapi import FastAPI, Body, HTTPException, Query
+from fastapi import FastAPI, Body, HTTPException, Query, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from collections import deque
+from typing import Optional
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
@@ -25,6 +26,81 @@ if PROJECT_ROOT not in sys.path:
 
 WWW_DIR = os.path.join(PROJECT_ROOT, "www")
 ADMIN_DIR = os.path.join(WWW_DIR, "admin")
+
+# ─── SEGURANÇA: Autenticação Firebase + Rate Limiting ───
+
+# Cache de tokens verificados (evita chamadas repetidas ao Firebase)
+_token_cache = {}
+
+async def verify_firebase_token(request: Request) -> str:
+    """Verifica token Firebase do header Authorization: Bearer <token>.
+    Retorna o UID do usuário autenticado ou levanta 401."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token de autenticação não fornecido")
+    token = auth_header.split(" ", 1)[1]
+    # Cache rápido (5s) para evitar verificar o mesmo token múltiplas vezes
+    cached = _token_cache.get(token)
+    if cached and (datetime.now() - cached["at"]).total_seconds() < 5:
+        return cached["uid"]
+    try:
+        decoded = firebase_auth.verify_id_token(token, check_revoked=True)
+        uid = decoded.get("uid", "")
+        _token_cache[token] = {"uid": uid, "at": datetime.now()}
+        return uid
+    except firebase_auth.ExpiredIdTokenError:
+        raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
+    except firebase_auth.RevokedIdTokenError:
+        raise HTTPException(status_code=401, detail="Token revogado. Faça login novamente.")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
+
+async def verify_uid_match(uid: str, token_uid: str = Depends(verify_firebase_token)) -> str:
+    """Verifica se o UID da rota corresponde ao UID do token (impede IDOR)."""
+    if uid != token_uid:
+        raise HTTPException(status_code=403, detail="Acesso negado: você não pode acessar dados de outro usuário")
+    return uid
+
+ADMIN_EMAIL = "alegomes488@gmail.com"
+
+async def verify_admin(token_uid: str = Depends(verify_firebase_token)) -> str:
+    """Verifica se o usuário autenticado é o admin."""
+    try:
+        user = db.reference(f'users/{token_uid}').get()
+        user_email = (user or {}).get('email', '')
+        if user_email != ADMIN_EMAIL:
+            raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
+        return token_uid
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=403, detail=f"Falha na verificação de admin: {str(e)}")
+
+# Rate Limiting simples (em memória)
+_rate_limit_store = {}
+
+def check_rate_limit(key: str, max_calls: int = 10, window_seconds: int = 60):
+    """Permite no máximo max_calls chamadas por window_seconds para uma chave."""
+    now = datetime.now()
+    entry = _rate_limit_store.get(key)
+    if not entry or (now - entry["window_start"]).total_seconds() > window_seconds:
+        _rate_limit_store[key] = {"count": 1, "window_start": now}
+        return
+    entry["count"] += 1
+    if entry["count"] > max_calls:
+        raise HTTPException(status_code=429, detail=f"Muitas requisições. Limite de {max_calls} por {window_seconds}s.")
+
+# Lista de rotas públicas (não exigem autenticação)
+PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico"}
+
+def is_public_route(path: str) -> bool:
+    if path in PUBLIC_ROUTES:
+        return True
+    if path.startswith("/api/referral/resolve/"):
+        return True
+    if path.startswith("/api/monitor/heartbeat/"):
+        return True
+    return False
 
 # --- CONFIGURAÇÃO DE AMBIENTE ---
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -58,15 +134,15 @@ else:
     else:
         print("ERRO: Credenciais Firebase não encontradas!")
 
-# --- CONSTANTES CYBERCORE ---
+# --- CONSTANTES BRASIL HEXA ---
 HUB_MODE = os.environ.get("HUB_MODE", "USER")
-MEMORY_BASE = "cybercore/memory"
-COMMAND_BUS = "cybercore/commands"
-AGENT_STATUS = "cybercore/agents"
-ALERT_LEVEL = "cybercore/alert_level"
+MEMORY_BASE = "brasilhexa/memory"
+COMMAND_BUS = "brasilhexa/commands"
+AGENT_STATUS = "brasilhexa/agents"
+ALERT_LEVEL = "brasilhexa/alert_level"
 
 # --- MEMÓRIA INTELIGENTE (FIREBASE) ---
-MEMORY_CONTEXT = "cybercore_memory"
+MEMORY_CONTEXT = "brasilhexa_memory"
 CONTEXT_MAX = 50
 
 def memory_load(uid: str):
@@ -108,7 +184,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
-# Mapeamento de Especialistas CyberCore
+# Mapeamento de Especialistas Brasil Hexa
 AGENT_MODELS = {
     "ORCHESTRATOR": {"provider": "google", "model": "gemini-2.0-pro-exp"},
     "BUILDER":      {"provider": "groq",   "model": "deepseek-v3"},
@@ -125,7 +201,7 @@ async def ask_ai_specialized(agent: str, prompt: str, uid="admin_master"):
     # --- ORCHESTRATOR 2.5: PIPELINE & DELEGATION ---
     if agent == "ORCHESTRATOR":
         pipeline_prompt = f"""Analise a solicitação: "{prompt}"
-Determine a sequência de especialistas CyberCore necessários para resolver isso 100%.
+Determine a sequência de especialistas Brasil Hexa necessários para resolver isso 100%.
 Responda APENAS uma lista separada por vírgula em ordem de execução.
 Opções: BUILDER, PYTHON, JAVA, FULLSTACK, DESIGNER, SECURITY, AUDITOR, SOFTWARE.
 
@@ -136,7 +212,7 @@ Exemplo de resposta: DESIGNER, BUILDER, SECURITY"""
             agents_sequence = [a.strip().upper() for a in plan_raw.split(",") if a.strip().upper() in AGENT_MODELS]
             if agents_sequence:
                 print(f"[ORCHESTRATOR] Plano de Ação: {' -> '.join(agents_sequence)}")
-                final_output = f"🔮 **Plano CyberCore Ativado:** {' → '.join(agents_sequence)}\n\n"
+                final_output = f"🔮 **Plano Brasil Hexa Ativado:** {' → '.join(agents_sequence)}\n\n"
 
                 current_context = prompt
                 for i, step_agent in enumerate(agents_sequence):
@@ -163,11 +239,11 @@ async def execute_single_agent(agent: str, prompt: str, uid: str):
 
     try:
         if provider == "groq" and GROQ_AVAILABLE:
-            system_msg = f"Você é o especialista {agent} do CyberCore IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
+            system_msg = f"Você é o especialista {agent} do Brasil Hexa IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
             return groq_generate(f"{system_msg}\n\nUsuário: {prompt}") or "Falha no Groq"
 
         elif provider == "google":
-            system_msg = f"Você é o especialista {agent} do CyberCore IA. Responda de forma técnica e precisa."
+            system_msg = f"Você é o especialista {agent} do Brasil Hexa IA. Responda de forma técnica e precisa."
             gemini_result = gemini_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name)
             if not gemini_result.startswith("Erro Gemini"):
                 return gemini_result
@@ -227,11 +303,11 @@ def tool_sync_monetag():
 def tool_send_push(target, message):
     try:
         if target == 'global':
-            msg = messaging.Message(notification=messaging.Notification(title='CyberCore IA', body=message), topic='all_users')
+            msg = messaging.Message(notification=messaging.Notification(title='Brasil Hexa IA', body=message), topic='all_users')
         else:
             user = db.reference(f'users/{target}').get()
             if not user or 'fcmToken' not in user: return "Sem token"
-            msg = messaging.Message(notification=messaging.Notification(title='CyberCore IA', body=message), token=user['fcmToken'])
+            msg = messaging.Message(notification=messaging.Notification(title='Brasil Hexa IA', body=message), token=user['fcmToken'])
         messaging.send(msg)
         return "Push enviado"
     except Exception as e: return str(e)
@@ -326,7 +402,7 @@ async def auto_approve_withdrawals(force=False):
                         "value": amount,
                         "pixAddressKey": final_pix_key,
                         "pixAddressKeyType": type_detected,
-                        "description": f"CineCash Resgate Auto #{wid}"
+                        "description": f"Brasil Hexa Resgate Auto #{wid}"
                     }
 
                     try:
@@ -442,7 +518,7 @@ def tool_sentinel_enforcement():
         return f"Sentinel: {banned} banidos | VPN:{block_vpn} Root:{block_root} DevLock:{device_lock} AutoBan:{auto_ban}"
     except Exception as e: return f"Erro Sentinel: {str(e)}"
 
-WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "cybercore_workspace")
+WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "brasilhexa_workspace")
 if not os.path.exists(WORKSPACE_DIR):
     os.makedirs(WORKSPACE_DIR)
 
@@ -452,8 +528,8 @@ def get_project_workspace(project="default"):
     os.makedirs(path, exist_ok=True)
     return path
 
-# --- CYBERCORE MEMÓRIA PERSISTENTE ---
-MEMORY_DIR = os.path.join(PROJECT_ROOT, "cybercore-memory")
+# --- BRASIL HEXA MEMÓRIA PERSISTENTE ---
+MEMORY_DIR = os.path.join(PROJECT_ROOT, "brasilhexa-memory")
 for sub in ["projects", "agents", "architecture", "logs"]:
     os.makedirs(os.path.join(MEMORY_DIR, sub), exist_ok=True)
 
@@ -651,14 +727,14 @@ def groq_generate(prompt, system_extra="", uid="admin_master"):
                 if u:
                     user_context = f"""CONTEXTO DO USUÁRIO:
 - Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
-- Saldo: R$ {float(u.get('balance', 0)):.2f}
-- Anúncios processados: {u.get('videosWatched', 0)}
+- Saldo: {float(u.get('balance', 0)):.2f} Gols
+- Lances processados: {u.get('videosWatched', 0)}
 - Status: {u.get('status', 'ativo')}
 """
             except:
                 pass
 
-        system_prompt = f"""Você é o Agente Nexus, um assistente virtual especializado no CineCash, uma plataforma que paga usuários para processar anúncios via IA.
+        system_prompt = f"""Você é o Agente Canarinho, um assistente virtual especializado no Brasil Hexa, uma plataforma que paga usuários para processar lances via IA.
 
 REGRAS GERAIS:
 1. Responda SEMPRE em português brasileiro, de forma amigável, didática e motivacional.
@@ -667,28 +743,28 @@ REGRAS GERAIS:
 4. Pode usar [COMMAND:NAVIGATE:nome_da_aba] para sugerir navegação: inicio, intercambio, convites, historico.
 5. Pode usar [COMMAND:START_TOUR] para iniciar o tour guiado.
 
-PLATAFORMA CINECASH:
+PLATAFORMA BRASIL HEXA:
 - 4 abas principais: Início (dashboard), Intercâmbio (saques), Convites (indicações), Histórico (transações)
-- Anúncios: o usuário clica em "Processar Anúncios" no dashboard para validar campanhas via IA
-- Saldo: exibido no topo, acumulado por anúncios, bônus diário e indicações
-- Saque mínimo: R$ 0,50 via PIX
-- Valores de saque: R$ 0,50 | R$ 3,00 | R$ 5,00 | R$ 10,00 | R$ 50,00
+- Lances: o usuário clica em "Processar Lances" no dashboard para validar campanhas via IA
+- Saldo: exibido no topo, acumulado por lances, bônus diário e indicações
+- Saque mínimo: 0,50 Gols via PIX
+- Valores de saque: 0,50 | 3,00 | 5,00 | 10,00 | 50,00 Gols
 
 BÔNUS DIÁRIO:
-- Valor: R$ 0,20
+- Valor: 0,20 Gols
 - Disponível apenas em finais de semana (sábado e domingo)
 - 1 vez por dia, botão "COLETAR BÔNUS" na aba Início
 
-METAS (progresso de anúncios → valor de saque liberado):
-- 150 anúncios → R$ 0,50
-- 900 anúncios → R$ 3,00
-- 1500 anúncios → R$ 5,00
-- 3000 anúncios → R$ 10,00
-- 15000 anúncios → R$ 50,00
+METAS (progresso de lances → valor de saque liberado):
+- 150 lances → 0,50 Gols
+- 900 lances → 3,00 Gols
+- 1500 lances → 5,00 Gols
+- 3000 lances → 10,00 Gols
+- 15000 lances → 50,00 Gols
 
 SISTEMA DE CONVITES (INDICAÇÕES):
-- Cada amigo convidado que assistir 25 anúncios rende R$ 0,20
-- A cada 5 amigos válidos, bônus extra de R$ 1,00
+- Cada amigo convidado que assistir 25 lances rende 0,20 Gols
+- A cada 5 amigos válidos, bônus extra de 1,00 Gols
 - O link de convite fica na aba Convites
 
 TIPOS DE CHAVE PIX:
@@ -737,8 +813,8 @@ async def ask_ai(prompt: str, uid="admin_master"):
                     user_context = f"""
 DADOS DO USUÁRIO ATUAL:
 - Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
-- Saldo: R$ {float(u.get('balance', 0)):.2f}
-- Anúncios processados: {u.get('videosWatched', 0)}
+- Saldo: {float(u.get('balance', 0)):.2f} Gols
+- Lances processados: {u.get('videosWatched', 0)}
 - Status: {u.get('status', 'ativo')}
 """
             except:
@@ -766,19 +842,19 @@ DADOS DO USUÁRIO ATUAL:
             history = history_ref.get() or []
             contents = [{"role": m["role"], "parts": [{"text": m["text"]}]} for m in history[-10:]]
             contents.append({"role": "user", "parts": [{"text": prompt}]})
-            system_prompt = f"""Você é o Agente Nexus do CineCash, especialista na plataforma.
+            system_prompt = f"""Você é o Agente Canarinho do Brasil Hexa, especialista na plataforma.
 
 REGRAS:
 - Responda em PT-BR de forma amigável, didática e motivacional.
 - Use [COMMAND:NAVIGATE:inicio|intercambio|convites|historico] para sugerir navegação.
 - Use [COMMAND:START_TOUR] para iniciar o tour guiado.
 
-SOBRE O CINECASH:
-- 4 abas: Início (dashboard/processar anúncios), Intercâmbio (saques PIX), Convites (indicações), Histórico (transações)
-- Saque mínimo: R$ 0,50. Valores: R$ 0,50 | R$ 3,00 | R$ 5,00 | R$ 10,00 | R$ 50,00
-- Bônus diário: R$ 0,20 apenas em fins de semana
-- Metas: 150→R$0,50 | 900→R$3,00 | 1500→R$5,00 | 3000→R$10,00 | 15000→R$50,00
-- Convites: R$ 0,20 por amigo válido (25 ads), +R$ 1,00 a cada 5 amigos
+SOBRE O BRASIL HEXA:
+- 4 abas: Início (dashboard/processar lances), Intercâmbio (saques PIX), Convites (indicações), Histórico (transações)
+- Saque mínimo: 0,50 Gols. Valores: 0,50 | 3,00 | 5,00 | 10,00 | 50,00 Gols
+- Bônus diário: 0,20 Gols apenas em fins de semana
+- Metas: 150→0,50 | 900→3,00 | 1500→5,00 | 3000→10,00 | 15000→50,00 Gols
+- Convites: 0,20 Gols por amigo válido (25 lances), +1,00 Gols a cada 5 amigos
 
 {user_context}"""
 
@@ -900,7 +976,7 @@ async def monitor_connected_projects():
         print(f"[MONITOR] Erro ao monitorar projetos: {e}")
 
 
-async def cybercore_audit_loop():
+async def brasilhexa_audit_loop():
     while True:
         try:
             # Registra o pulso específico do modo (USER ou ADMIN)
@@ -938,7 +1014,7 @@ async def cybercore_audit_loop():
 
                 print(f"[ADMIN] Ciclo de Auditoria Completo: {datetime.now().strftime('%H:%M:%S')}")
             else:
-                print(f"[USER] CineCash IA Ativo e Pulsando...")
+                print(f"[USER] Brasil Hexa IA Ativo e Pulsando...")
 
         except Exception as e:
             print(f"Erro Loop {HUB_MODE}: {e}")
@@ -950,8 +1026,8 @@ async def cybercore_audit_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Inicia o loop de auditoria em segundo plano
-    task = asyncio.create_task(cybercore_audit_loop())
-    print("🚀 CyberCore IA: Loop de Auditoria Iniciado")
+    task = asyncio.create_task(brasilhexa_audit_loop())
+    print("🚀 Brasil Hexa IA: Loop de Auditoria Iniciado")
 
     # Imprime rotas para diagnóstico
     print("📌 Rotas registradas:")
@@ -962,26 +1038,84 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 app = FastAPI(
-    title="CyberCore IA Hub",
-    description="Núcleo de Inteligência e Gestão CineCash",
+    title="Brasil Hexa IA Hub",
+    description="Núcleo de Inteligência e Gestão Brasil Hexa",
     version="2.0.0",
     lifespan=lifespan
 )
 
-# Middleware para logar todas as requisições (ajuda a debugar 404)
+# Middleware para logar todas as requisições e verificar autenticação
 @app.middleware("http")
 async def log_requests(request, call_next):
-    print(f"🔍 Requisição recebida: {request.method} {request.url.path}")
+    path = request.url.path
+
+    # Log da requisição
+    print(f"🔍 Requisição recebida: {request.method} {path}")
+
+    # Verifica autenticação nas rotas protegidas (exceto rotas públicas)
+    if (path.startswith("/api/") or path.startswith("/ai/") or path.startswith("/payments/") or path.startswith("/user/") or path.startswith("/video/") or path.startswith("/audit/") or path.startswith("/heartbeat/")) and not is_public_route(path):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return JSONResponse(status_code=401, content={"detail": "Token de autenticação não fornecido"})
+        token = auth_header.split(" ", 1)[1]
+        try:
+            decoded = firebase_auth.verify_id_token(token, check_revoked=True)
+            request.state.user_uid = decoded.get("uid", "")
+            request.state.user_email = decoded.get("email", "")
+        except firebase_auth.ExpiredIdTokenError:
+            return JSONResponse(status_code=401, content={"detail": "Token expirado. Faça login novamente."})
+        except Exception as e:
+            return JSONResponse(status_code=401, content={"detail": f"Token inválido: {str(e)}"})
+
+        # Verificação de admin para rotas do painel administrativo
+        if path.startswith("/api/studio/") or path.startswith("/payments/approve") or path.startswith("/api/sentinel/") or path.startswith("/audit/"):
+            if request.state.user_email != ADMIN_EMAIL:
+                return JSONResponse(status_code=403, content={"detail": "Acesso restrito ao administrador"})
+
+        # Rate limiting por UID (10 req/min para rotas financeiras)
+        if path.startswith("/payments/") or path.startswith("/video/") or path.startswith("/api/game/") or path.startswith("/audit/"):
+            uid = request.state.user_uid
+            now = datetime.now()
+            key = f"rl:{uid}:{path.split('/')[1]}"
+            entry = _rate_limit_store.get(key)
+            if not entry or (now - entry["window_start"]).total_seconds() > 60:
+                _rate_limit_store[key] = {"count": 1, "window_start": now}
+            else:
+                entry["count"] += 1
+                if entry["count"] > 10:
+                    return JSONResponse(status_code=429, content={"detail": "Muitas requisições. Limite de 10 por minuto."})
+
+        # Rate limiting para rotas de admin (30 req/min)
+        if path.startswith("/api/studio/") or path.startswith("/payments/approve") or path.startswith("/api/sentinel/") or path.startswith("/audit/"):
+            uid = request.state.user_uid
+            now = datetime.now()
+            key = f"rl_admin:{uid}:studio"
+            entry = _rate_limit_store.get(key)
+            if not entry or (now - entry["window_start"]).total_seconds() > 60:
+                _rate_limit_store[key] = {"count": 1, "window_start": now}
+            else:
+                entry["count"] += 1
+                if entry["count"] > 30:
+                    return JSONResponse(status_code=429, content={"detail": "Muitas requisições no painel admin. Limite de 30 por minuto."})
+
     response = await call_next(request)
     print(f"📤 Resposta: {response.status_code}")
     return response
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:7860",
+        "http://127.0.0.1:7860",
+        "https://desenvovimento-brasilhexa-ia.hf.space",
+        "https://desenvovimento-cinecash-ia.hf.space",
+        "https://desenvovimento-cybercore-ia.hf.space",
+        "https://brasilhexa.com.br",
+        "https://www.brasilhexa.com.br",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # --- ROTAS API (OBRIGATORIAMENTE ANTES DOS STATIC MOUNTS) ---
@@ -1028,18 +1162,18 @@ while True:
     time.sleep(30)
 '''
     return Response(content=script, media_type="text/plain", headers={
-        "Content-Disposition": "attachment; filename=cybercore_agent.py"
+        "Content-Disposition": "attachment; filename=brasilhexa_agent.py"
     })
 
 
-# --- CYBERCORE BRIDGE: ENDPOINTS ---
-@app.post("/api/cybercore/chat")
-async def cybercore_chat(data: dict = Body(...)):
-    """Portal único: prompt -> CyberCore (GPT Maker) raciocina -> plano -> execução"""
+# --- BRASIL HEXA BRIDGE: ENDPOINTS ---
+@app.post("/api/brasilhexa/chat")
+async def brasilhexa_chat(data: dict = Body(...)):
+    """Portal único: prompt -> Brasil Hexa (GPT Maker) raciocina -> plano -> execução"""
     prompt = data.get("prompt", "")
     project = data.get("project", "default")
-    uid = data.get("uid", "admin_cybercore")
-    context_id = f"cybercore_{project}"
+    uid = data.get("uid", "admin_brasilhexa")
+    context_id = f"brasilhexa_{project}"
 
     if not prompt:
         return {"status": "error", "msg": "Prompt obrigatório"}
@@ -1056,12 +1190,12 @@ async def cybercore_chat(data: dict = Body(...)):
     memory_context = project_memory.get("context", "")
     agents_context = "\n".join([f"- {k}: {v.get('role','')} | status: {v.get('status','')}" for k,v in agent_memories.items()])
 
-    gptmaker_agent_id = os.environ.get("CYBERCORE_GPTMAKER_AGENT")
+    gptmaker_agent_id = os.environ.get("BRASILHEXA_GPTMAKER_AGENT")
     if not gptmaker_agent_id:
         config_ref = db.reference('config').get() or {}
-        gptmaker_agent_id = config_ref.get('cybercoreGptmakerAgent', '')
+        gptmaker_agent_id = config_ref.get('brasilhexaGptmakerAgent', '')
 
-    coordinator_prompt = f"""SISTEMA: Você é o CEO Digital da CyberCore IA.
+    coordinator_prompt = f"""SISTEMA: Você é o CEO Digital da Brasil Hexa IA.
 
 MEMÓRIA DO PROJETO "{project}":
 Status: {project_memory.get('status','desenvolvimento')}
@@ -1146,15 +1280,15 @@ Responda EXATAMENTE neste formato JSON (sem markdown):
         "plano": plan,
         "projeto": project_memory,
         "raw": answer,
-        "mensagem": f"🧠 **CyberCore analisou:**\n{raciocinio}\n\n**Plano:** {len(plan)} tarefas distribuídas."
+        "mensagem": f"🧠 **Brasil Hexa analisou:**\n{raciocinio}\n\n**Plano:** {len(plan)} tarefas distribuídas."
     }
 
-@app.post("/api/cybercore/execute")
-async def cybercore_execute(data: dict = Body(...)):
-    """Executa um plano da CyberCore: distribui tarefas para os agentes"""
+@app.post("/api/brasilhexa/execute")
+async def brasilhexa_execute(data: dict = Body(...)):
+    """Executa um plano da Brasil Hexa: distribui tarefas para os agentes"""
     plan = data.get("plano", [])
     project = data.get("project", "default")
-    uid = data.get("uid", "admin_cybercore")
+    uid = data.get("uid", "admin_brasilhexa")
     context_extra = data.get("contexto_extra", "")
 
     if not plan:
@@ -1218,8 +1352,8 @@ INSTRUÇÕES PARA {agent}:
         "mensagem": f"**Execução concluída:** {sum(1 for r in results if r['status'] == 'concluido')}/{len(results)} tarefas."
     }
 
-@app.get("/api/cybercore/memory/{category:path}")
-async def cybercore_memory_list(category: str = ""):
+@app.get("/api/brasilhexa/memory/{category:path}")
+async def brasilhexa_memory_list(category: str = ""):
     if not category or category.strip() == "":
         return {"status": "success", "categories": ["projects","agents","architecture","logs"]}
     category = category.strip("/")
@@ -1228,8 +1362,8 @@ async def cybercore_memory_list(category: str = ""):
     items = memory_file_list(category)
     return {"status": "success", "category": category, "items": items}
 
-@app.get("/api/cybercore/memory/{category}/{name}")
-async def cybercore_memory_read(category: str, name: str):
+@app.get("/api/brasilhexa/memory/{category}/{name}")
+async def brasilhexa_memory_read(category: str, name: str):
     if category not in ["projects","agents","architecture","logs"]:
         return {"status": "error", "msg": "Categoria inválida"}
     data = memory_file_read(category, name)
@@ -1237,8 +1371,8 @@ async def cybercore_memory_read(category: str, name: str):
         return {"status": "error", "msg": "Item não encontrado"}
     return {"status": "success", "category": category, "name": name, "data": data}
 
-@app.post("/api/cybercore/memory/{category}/{name}")
-async def cybercore_memory_save(category: str, name: str, data: dict = Body(...)):
+@app.post("/api/brasilhexa/memory/{category}/{name}")
+async def brasilhexa_memory_save(category: str, name: str, data: dict = Body(...)):
     if category not in ["projects","agents","architecture"]:
         return {"status": "error", "msg": "Categoria inválida para escrita"}
     ok = memory_file_save(category, name, data.get("data", data))
@@ -1247,8 +1381,8 @@ async def cybercore_memory_save(category: str, name: str, data: dict = Body(...)
         return {"status": "success", "msg": f"{category}/{name} salvo"}
     return {"status": "error", "msg": "Falha ao salvar"}
 
-@app.get("/api/cybercore/logs/{category}")
-async def cybercore_logs(category: str):
+@app.get("/api/brasilhexa/logs/{category}")
+async def brasilhexa_logs(category: str):
     try:
         path = os.path.join(MEMORY_DIR, "logs", f"{category}.jsonl")
         if not os.path.exists(path):
@@ -1267,7 +1401,7 @@ async def cybercore_logs(category: str):
 @app.get("/health/")
 async def health_check():
     return {
-        "status": "CyberCore IA Elite Online",
+        "status": "Brasil Hexa IA Elite Online",
         "mode": HUB_MODE,
         "timestamp": datetime.now().isoformat()
     }
@@ -1283,10 +1417,12 @@ async def manual_sentinel_scan():
         return {"status": "error", "msg": str(e)}
 
 @app.post("/api/test/push")
-async def test_push(data: dict = Body(...)):
-    """Dispara um push de teste (Individual ou Global)"""
+async def test_push(data: dict = Body(...), request: Request = None):
+    """Dispara um push de teste (Individual ou Global) — apenas admin."""
+    if request.state.user_email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
     target = data.get("target") or data.get("uid")
-    message = data.get("message") or "🔔 Teste de Notificação CyberCore IA: Sua conexão está ativa!"
+    message = data.get("message") or "🔔 Teste de Notificação Brasil Hexa IA: Sua conexão está ativa!"
 
     if not target:
         return {"status": "error", "msg": "Target (uid ou 'global') não fornecido"}
@@ -1296,14 +1432,14 @@ async def test_push(data: dict = Body(...)):
         return {"status": "success", "msg": res}
     return {"status": "error", "msg": res}
 
-@app.post("/api/nexus/report")
-async def nexus_report(data: dict = Body(...)):
-    """Recebe dados do Agente Nexus ou Local e encaminha ao Painel via Firebase."""
+@app.post("/api/var/report")
+async def var_report(data: dict = Body(...)):
+    """Recebe dados do Agente VAR ou Local e encaminha ao Painel via Firebase."""
     try:
         uid = data.get("uid")
         if not uid: return {"status": "ignored"}
 
-        source = data.get("source", "nexus")
+        source = data.get("source", "var")
         telemetry = data.get("telemetry", data) # Fallback para compatibilidade
 
         # 1. Se for Telemetria de Nó Local
@@ -1319,9 +1455,9 @@ async def nexus_report(data: dict = Body(...)):
             })
             return {"status": "processed", "node_sync": "active"}
 
-        # 2. Lógica Original Nexus (Monitoramento de Usuário)
-        db.reference(f'logs/nexus/{uid}').push({"report": data, "received_at": datetime.now().isoformat()})
-        db.reference('agent_data/incoming').push({"agent_id": "nexus_cinecash", "type": "telemetry", "payload": data, "received_at": datetime.now().isoformat()})
+        # 2. Lógica Original VAR (Monitoramento de Usuário)
+        db.reference(f'logs/var/{uid}').push({"report": data, "received_at": datetime.now().isoformat()})
+        db.reference('agent_data/incoming').push({"agent_id": "var_brasilhexa", "type": "telemetry", "payload": data, "received_at": datetime.now().isoformat()})
 
         user_ref = db.reference(f'users/{uid}')
         user_data = user_ref.get()
@@ -1330,13 +1466,13 @@ async def nexus_report(data: dict = Body(...)):
             balance = float(user_data.get('balance', 0))
             if balance > 50 and real_ads < 2:
                 risk = user_data.get('risk_score', 0) + 30
-                user_ref.update({"risk_score": risk, "last_fraud_attempt": "Manipulação detectada pelo Nexus"})
+                user_ref.update({"risk_score": risk, "last_fraud_attempt": "Manipulação detectada pelo VAR"})
                 db.reference('logs/sentinel_alerts').push({
-                    "uid": uid, "type": "NEXUS_FRAUD",
-                    "msg": f"Inconsistência: R$ {balance} com {real_ads} ads.",
+                    "uid": uid, "type": "VAR_FRAUD",
+                    "msg": f"Inconsistência: {balance} Gols com {real_ads} lances.",
                     "timestamp": {".sv": "timestamp"}
                 })
-        return {"status": "processed", "nexus_action": "monitoring"}
+        return {"status": "processed", "var_action": "monitoring"}
     except Exception as e:
         return {"status": "error", "msg": str(e)}
 
@@ -1478,10 +1614,10 @@ async def add_sentinel_log(data: dict = Body(...)):
     })
     return {"status": "success"}
 
-# --- CYBERCORE ORCHESTRATION & BRIDGE ---
+# --- BRASIL HEXA ORCHESTRATION & BRIDGE ---
 
-@app.post("/api/cybercore/orchestrate")
-async def cybercore_orchestrate(data: dict = Body(...)):
+@app.post("/api/brasilhexa/orchestrate")
+async def brasilhexa_orchestrate(data: dict = Body(...)):
     """Orquestrador Central: Recebe comandos estratégicos e delega para agentes especializados."""
     prompt = data.get("prompt", "")
     uid = data.get("uid", "admin_master")
@@ -1501,7 +1637,7 @@ async def cybercore_orchestrate(data: dict = Body(...)):
 
     # 2. Chamada para a "Mente" (GPT Maker ou Pipeline Local)
     # Aqui simulamos a inteligência que quebra o problema em tarefas para os agentes.
-    plan_prompt = f"""Atue como CEO Digital da CyberCore IA.
+    plan_prompt = f"""Atue como CEO Digital da Brasil Hexa IA.
 Analise o pedido estratégico: "{prompt}"
 Crie um plano de execução técnico detalhado.
 Responda em formato JSON:
@@ -1558,7 +1694,7 @@ Retorne APENAS o JSON."""
             "raw": plan_raw
         }
 
-@app.get("/api/cybercore/memory/stats")
+@app.get("/api/brasilhexa/memory/stats")
 async def get_memory_stats():
     """Retorna estatísticas da estrutura de memória."""
     try:
@@ -1572,7 +1708,7 @@ async def get_memory_stats():
     except:
         return {"projects_count": 0, "memory_status": "error"}
 
-@app.get("/api/cybercore/memory/list/{category}")
+@app.get("/api/brasilhexa/memory/list/{category}")
 async def list_memory_items(category: str):
     """Lista itens de uma categoria específica da memória."""
     valid_categories = ["projects", "agents", "architecture", "logs"]
@@ -1586,7 +1722,7 @@ async def list_memory_items(category: str):
     items = os.listdir(path)
     return {"items": [i.replace('.json', '') for i in items if i.endswith('.json') or i.endswith('.log')]}
 
-@app.get("/api/cybercore/memory/read/{category}/{name}")
+@app.get("/api/brasilhexa/memory/read/{category}/{name}")
 async def read_memory_item(category: str, name: str):
     """Lê o conteúdo de um item da memória."""
     path = os.path.join(PROJECT_ROOT, "memory", category, f"{name}.json")
@@ -1599,7 +1735,10 @@ async def read_memory_item(category: str, name: str):
         return {"content": f.read()}
 
 @app.post("/api/node/register")
-async def register_node(data: dict = Body(...)):
+async def register_node(data: dict = Body(...), request: Request = None):
+    """Registra um novo nó — apenas admin."""
+    if request.state.user_email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
     try:
         name = data.get("name", "Novo Nó")
         ptype = data.get("type", "local")
@@ -1935,7 +2074,7 @@ async def studio_delete_file(filename: str, project: str = Query("default")):
 async def studio_preview_file(filename: str, project: str = Query("default")):
     """Serve workspace files for live preview."""
     try:
-        safe = os.path.basename(filename) if '/' not in filename else filename
+        safe = os.path.basename(filename)
         pdir = get_project_workspace(project)
         path = os.path.join(pdir, safe)
         if not os.path.exists(path):
@@ -1967,7 +2106,7 @@ async def studio_preview_site(project: str = Query("default")):
         files = os.listdir(pdir)
         html = """<!DOCTYPE html><html lang="pt-br"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>CyberCore Studio - Preview</title>
+<title>Brasil Hexa Studio - Preview</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
 body{background:#0a0a0f;color:#fff;display:flex;flex-direction:column;height:100vh}
@@ -1980,7 +2119,7 @@ iframe{flex:1;border:none;background:#fff;width:100%}
 .empty{flex:1;display:flex;align-items:center;justify-content:center;color:#333;font-size:14px}
 </style></head><body>
 <div class="toolbar">
-<h3>🖥️ CYBERCORE PREVIEW</h3>
+<h3>🖥️ BRASIL HEXA PREVIEW</h3>
 """
         has_html = False
         for f in sorted(files):
@@ -2236,7 +2375,7 @@ async def studio_check_path(path: str = ""):
 # --- API DE TELEMETRIA E SESSÃO ---
 @app.post("/api/session/pulse")
 async def session_pulse():
-    return {"status": "online", "timestamp": time.time(), "core": "CyberCore-Nexus"}
+    return {"status": "online", "timestamp": time.time(), "core": "BrasilHexa-VAR"}
 
 # --- API: MÉTRICAS EM TEMPO REAL ---
 @app.get("/api/metrics")
@@ -2273,9 +2412,14 @@ async def api_metrics():
         "status": "online", "timestamp": datetime.now().isoformat()
     }
 
-# --- API: APROVAR TODOS OS SAQUES ---
+# --- API: APROVAR TODOS OS SAQUES (Admin Only) ---
 @app.post("/payments/approve-all")
-async def approve_all_payments_route():
+async def approve_all_payments_route(request: Request):
+    # Verifica admin
+    uid = request.state.user_uid
+    user = db.reference(f'users/{uid}').get() or {}
+    if user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Apenas administrador pode aprovar saques")
     try:
         result = await auto_approve_withdrawals(force=True)
         return {"status": "success", "msg": result}
@@ -2289,35 +2433,43 @@ def get_audit(): return tool_analyze_health()
 @app.get("/user/claim-daily/{uid}")
 @app.post("/user/claim-daily/{uid}/")
 @app.get("/user/claim-daily/{uid}/")
-async def claim_daily(uid: str):
+async def claim_daily(uid: str, request: Request = None):
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     try:
         user_ref = db.reference(f'users/{uid}')
-        user_data = user_ref.get()
-        if not user_data:
+
+        def trans(current):
+            if current is None:
+                return {"_error": "Usuário não encontrado"}
+            cd = current if isinstance(current, dict) else {}
+
+            today = datetime.now().strftime('%Y-%m-%d')
+            last_bonus = cd.get('last_daily_bonus_date')
+
+            if last_bonus == today:
+                cd['_error'] = "Bônus já resgatado hoje."
+                return cd
+
+            # Bônus disponível apenas Sábado (5) e Domingo (6) — conforme AGENTS.md
+            weekday = datetime.now().weekday()
+            if weekday < 5:
+                cd['_error'] = "Bônus disponível apenas aos finais de semana (Sábado e Domingo)."
+                return cd
+
+            cd['balance'] = float(cd.get('balance', 0)) + 0.20
+            cd['last_daily_bonus_date'] = today
+            cd['last_claim'] = datetime.now().isoformat()
+            return cd
+
+        result = user_ref.transaction(trans)
+
+        if result is None:
             return {"status": "error", "message": "Usuário não encontrado"}
+        if result.get('_error'):
+            raise HTTPException(status_code=400, detail=result['_error'])
 
-        # Trava de Segurança: Verificação de Data
-        today = datetime.now().strftime('%Y-%m-%d')
-        last_bonus = user_data.get('last_daily_bonus_date')
-
-        if last_bonus == today:
-            raise HTTPException(status_code=400, detail="Bônus já resgatado hoje.")
-
-        # Bloqueio de Fim de Semana (Sábado/Domingo)
-        weekday = datetime.now().weekday()  # 0=Seg, 6=Dom
-        if weekday >= 5:
-            raise HTTPException(status_code=400, detail="Bônus disponível apenas em dias úteis (Seg a Sex).")
-
-        current_balance = float(user_data.get('balance', 0))
-        new_balance = current_balance + 0.20
-
-        user_ref.update({
-            "balance": new_balance,
-            "last_daily_bonus_date": today,
-            "last_claim": datetime.now().isoformat()
-        })
-
-        return {"status": "success", "new_balance": new_balance, "message": "Bônus diário resgatado!"}
+        return {"status": "success", "new_balance": result.get('balance', 0), "message": "Bônus diário resgatado!"}
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -2325,12 +2477,17 @@ async def claim_daily(uid: str):
 
 @app.post("/video/start/{uid}")
 @app.get("/video/start/{uid}")
-async def video_start(uid: str):
+async def video_start(uid: str, request: Request):
+    # Verifica se o UID da rota corresponde ao UID do token
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     return {"status": "success", "session": "active", "timestamp": datetime.now().isoformat()}
 
 @app.post("/api/referral/create/{uid}")
-async def create_referral_slug(uid: str):
+async def create_referral_slug(uid: str, request: Request):
     """Gera um novo slug de indicação (alias) válido por 30 dias."""
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     try:
         user_ref = db.reference(f'users/{uid}')
         if not user_ref.get():
@@ -2354,12 +2511,14 @@ async def create_referral_slug(uid: str):
         })
 
         return {"status": "success", "slug": slug, "expires_at": expires_at}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/referral/resolve/{slug}")
 async def resolve_referral_slug(slug: str):
-    """Resolve um slug de indicação de volta para o UID original."""
+    """Resolve um slug de indicação de volta para o UID original. (Pública)"""
     try:
         ref_data = db.reference(f'referrals/{slug}').get()
         if not ref_data:
@@ -2377,8 +2536,10 @@ async def resolve_referral_slug(slug: str):
         return {"status": "error", "message": f"Erro ao resolver link: {str(e)}"}
 
 @app.get("/api/referral/list/{uid}")
-async def list_referrals(uid: str):
+async def list_referrals(uid: str, request: Request):
     """Retorna usuários que se cadastraram usando o link de indicação do usuário."""
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     try:
         users_ref = db.reference('users')
         all_users = users_ref.order_by_child('referredBy').equal_to(uid).get() or {}
@@ -2397,162 +2558,183 @@ async def list_referrals(uid: str):
         return {"status": "error", "message": str(e)}
 
 @app.post("/video/complete/{uid}")
-async def video_complete(uid: str):
+async def video_complete(uid: str, request: Request):
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     try:
         user_ref = db.reference(f'users/{uid}')
-        user_data = user_ref.get()
-        if not user_data:
+
+        # Usa transação Firebase para evitar race conditions
+        def trans(current):
+            if current is None:
+                return current  # usuário não existe
+            current_data = current if isinstance(current, dict) else {}
+
+            # Cooldown de vídeo (30 segundos)
+            last_video_at = current_data.get('last_video_at')
+            if last_video_at:
+                last_ts = datetime.fromisoformat(last_video_at)
+                diff = (datetime.now() - last_ts).total_seconds()
+                if diff < 28:
+                    risk = int(current_data.get('risk_score', 0)) + 10
+                    current_data['risk_score'] = risk
+                    current_data['_error'] = 'Processamento muito rápido. Aguarde o tempo da IA.'
+                    return current_data
+
+            current_videos = int(current_data.get('videosWatched', 0))
+            new_videos = current_videos + 1
+            current_balance = float(current_data.get('balance', 0))
+
+            # Verifica milestones
+            milestones_list = [500, 2000, 5000, 10000, 25000]
+            rewards_list = [0.25, 0.50, 1.00, 2.00, 3.50]
+            claimed = dict(current_data.get('milestones', {}))
+            reward_total = 0
+
+            for i, milestone in enumerate(milestones_list):
+                m_key = str(milestone)
+                if new_videos >= milestone and not claimed.get(m_key):
+                    reward_total += rewards_list[i]
+                    claimed[m_key] = True
+
+            current_data['balance'] = current_balance + reward_total
+            current_data['videosWatched'] = new_videos
+            current_data['last_video_at'] = datetime.now().isoformat()
+            if reward_total > 0:
+                current_data['milestones'] = claimed
+
+            current_data['_reward_total'] = reward_total
+            current_data['_new_videos'] = new_videos
+            return current_data
+
+        result = user_ref.transaction(trans)
+
+        if result is None:
             return {"status": "error", "message": "Usuário não encontrado"}
+        if result.get('_error'):
+            return {"status": "error", "message": result['_error']}
 
-        # --- SEGURANÇA: COOLDOWN DE VÍDEO (30 segundos) ---
-        last_video_at = user_data.get('last_video_at')
-        if last_video_at:
-            last_ts = datetime.fromisoformat(last_video_at)
-            diff = (datetime.now() - last_ts).total_seconds()
-            if diff < 28:  # 28s de margem para os 30s de frontend
-                risk = user_data.get('risk_score', 0) + 10
-                user_ref.update({"risk_score": risk})
-                return {"status": "error", "message": "Processamento muito rápido. Aguarde o tempo da IA."}
+        reward_total = result.pop('_reward_total', 0)
+        new_videos = result.pop('_new_videos', 0)
 
-        # Incrementa contador de vídeos (sem crédito por vídeo — recompensa é por metas)
-        current_balance = float(user_data.get('balance', 0))
-        current_videos = int(user_data.get('videosWatched', 0))
-
-        new_videos = current_videos + 1
-
-        # Verifica se atingiu uma meta e credita a recompensa
-        milestones = [500, 2000, 5000, 10000, 25000]
-        rewards = [0.25, 0.50, 1.00, 2.00, 3.50]
-        claimed = user_data.get('milestones', {})
-        reward_total = 0
-
-        for i, milestone in enumerate(milestones):
-            m_key = str(milestone)
-            if new_videos >= milestone and not claimed.get(m_key):
-                reward_total += rewards[i]
-                claimed[m_key] = True
-
-        new_balance = current_balance + reward_total
-
-        # Sistema de Indicação: Ao atingir 25 anúncios, o padrinho ganha R$ 0,20 + bônus a cada 5 indicados
+        # Sistema de Indicação (fora da transação para evitar complexidade)
         if new_videos == 25:
-            sponsor_uid = user_data.get('referredBy')
+            sponsor_uid = result.get('referredBy')
             if sponsor_uid:
-                sponsor_ref = db.reference(f'users/{sponsor_uid}')
-                sponsor_data = sponsor_ref.get()
-                if sponsor_data:
-                    current_valid = int(sponsor_data.get('validReferrals', 0))
-                    new_valid = current_valid + 1
-                    sponsor_balance = float(sponsor_data.get('balance', 0))
-                    current_bonus = float(sponsor_data.get('referralBonus', 0))
+                try:
+                    sponsor_ref = db.reference(f'users/{sponsor_uid}')
+                    def sponsor_trans(current):
+                        if current is None:
+                            return None
+                        cd = current if isinstance(current, dict) else {}
+                        current_valid = int(cd.get('validReferrals', 0)) + 1
+                        bonus_amount = 0.20
+                        extra_bonus = 1.00 if current_valid % 5 == 0 else 0
+                        total_bonus = bonus_amount + extra_bonus
+                        cd['validReferrals'] = current_valid
+                        cd['balance'] = float(cd.get('balance', 0)) + total_bonus
+                        cd['referralBonus'] = float(cd.get('referralBonus', 0)) + total_bonus
+                        cd['_total_bonus'] = total_bonus
+                        return cd
+                    sponsor_ref.transaction(sponsor_trans)
+                except:
+                    pass  # Falha no bônus não deve quebrar o fluxo principal
 
-                    # Bônus base de R$ 0,20 por indicado
-                    bonus_amount = 0.20
-                    extra_bonus = 0
-
-                    # Bônus extra de R$ 1,00 a cada 5 indicados
-                    if new_valid % 5 == 0:
-                        extra_bonus = 1.00
-
-                    total_bonus = bonus_amount + extra_bonus
-
-                    sponsor_ref.update({
-                        "validReferrals": new_valid,
-                        "balance": sponsor_balance + total_bonus,
-                        "referralBonus": current_bonus + total_bonus
-                    })
-
-                    # Log da bonificação
-                    log_data = {
-                        "sponsor": sponsor_uid,
-                        "referral": uid,
-                        "action": "BONUS_CONVERTED",
-                        "bonus": bonus_amount,
-                        "extra_bonus": extra_bonus,
-                        "total_bonus": total_bonus,
-                        "timestamp": {".sv": "timestamp"}
-                    }
-                    db.reference('logs/referrals').push(log_data)
-
-        update_data = {
-            "balance": new_balance,
-            "videosWatched": new_videos,
-            "last_video_at": datetime.now().isoformat()
-        }
-        if reward_total > 0:
-            update_data["milestones"] = claimed
-
-        user_ref.update(update_data)
-
-        return {"status": "success", "new_balance": new_balance, "videos_count": new_videos, "milestone_reward": reward_total}
+        return {"status": "success", "new_balance": result.get('balance', 0), "videos_count": new_videos, "milestone_reward": reward_total}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/payments/request/{uid}")
-async def request_withdrawal(uid: str, data: dict = Body(...)):
+async def request_withdrawal(uid: str, data: dict = Body(...), request: Request = None):
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
     try:
         amount = float(data.get("amount", 0))
         pix_key = data.get("pixKey", "").strip()
+        pix_type = data.get("pixType", "EVP").upper()
         project_id = data.get("projectId") or data.get("nodeId")
 
-        # --- SEGURANÇA: VALIDAÇÃO DE SALDO REAL ---
-        user_ref = db.reference(f'users/{uid}')
-        user_data = user_ref.get()
-
-        if not user_data:
-            return {"status": "error", "message": "Usuário não localizado."}
-
-        current_balance = float(user_data.get('balance', 0))
-
-        if current_balance < amount:
-            return {"status": "error", "message": f"Saldo insuficiente. Você tem R$ {current_balance:.2f}"}
-
-        # Ajustado para R$ 0.50 para permitir seus testes iniciais
+        # --- VALIDAÇÕES INICIAIS ---
         if amount < 0.50:
             return {"status": "error", "message": "Valor mínimo para saque é R$ 0,50"}
         if amount > 50.0:
             return {"status": "error", "message": "Valor máximo por saque é R$ 50,00"}
-
         if not pix_key:
             return {"status": "error", "message": "Chave PIX é obrigatória"}
 
-        # --- SEGURANÇA: COOLDOWN DE SAQUE (1 por hora) ---
-        last_withdraw = user_data.get('last_withdraw_at')
-        if last_withdraw:
-            lw_ts = datetime.fromisoformat(last_withdraw)
-            if (datetime.now() - lw_ts).total_seconds() < 3600:
-                 return {"status": "error", "message": "Limite de 1 resgate por hora. Proteção CyberCore."}
+        # --- VALIDAÇÃO DE CHAVE PIX SERVER-SIDE ---
+        valid_pix_types = {"CPF", "CNPJ", "EMAIL", "PHONE", "EVP"}
+        if pix_type not in valid_pix_types:
+            return {"status": "error", "message": "Tipo de chave PIX inválido"}
+        if pix_type == "CPF" and len("".join(filter(str.isdigit, pix_key))) != 11:
+            return {"status": "error", "message": "CPF deve ter 11 dígitos"}
+        if pix_type == "CNPJ" and len("".join(filter(str.isdigit, pix_key))) != 14:
+            return {"status": "error", "message": "CNPJ deve ter 14 dígitos"}
+        if pix_type == "PHONE" and len("".join(filter(str.isdigit, pix_key))) < 10:
+            return {"status": "error", "message": "Telefone deve ter pelo menos 10 dígitos"}
+        if pix_type == "EMAIL" and "@" not in pix_key:
+            return {"status": "error", "message": "E-mail inválido para chave PIX"}
 
-        # Gera ID de saque e timestamp numérico para o Frontend
+        # --- TRANSAÇÃO ATÔMICA ---
+        user_ref = db.reference(f'users/{uid}')
+
+        def trans(current):
+            if current is None:
+                return {"_error": "Usuário não localizado."}
+            cd = current if isinstance(current, dict) else {}
+
+            if float(cd.get('balance', 0)) < amount:
+                cd['_error'] = f"Saldo insuficiente. Você tem R$ {float(cd.get('balance', 0)):.2f}"
+                return cd
+
+            # Cooldown de saque (1h)
+            last_withdraw = cd.get('last_withdraw_at')
+            if last_withdraw:
+                lw_ts = datetime.fromisoformat(last_withdraw)
+                if (datetime.now() - lw_ts).total_seconds() < 3600:
+                    cd['_error'] = "Limite de 1 resgate por hora. Proteção Brasil Hexa."
+                    return cd
+
+            # Deduz saldo
+            cd['balance'] = float(cd.get('balance', 0)) - amount
+            cd['last_withdraw_at'] = datetime.now().isoformat()
+            cd['_success'] = True
+            return cd
+
+        result = user_ref.transaction(trans)
+
+        if result is None:
+            return {"status": "error", "message": "Usuário não localizado."}
+        if result.get('_error'):
+            return {"status": "error", "message": result['_error']}
+
+        # Gera ID de saque
         ts = int(datetime.now().timestamp() * 1000)
         wid = f"WID{ts}"
+
+        user_data = user_ref.get() or {}
 
         withdraw_obj = {
             "amount": amount,
             "pixKey": pix_key,
-            "pixType": data.get("pixType", "EVP"),
+            "pixType": pix_type,
             "status": "pending",
             "timestamp": ts,
             "created_at": datetime.now().isoformat(),
             "uid": uid,
-            "fullname": user_data.get('fullname', 'Usuário Cyber'),
+            "fullname": user_data.get('fullname', 'Usuário Brasil Hexa'),
             "projectId": project_id,
             "fingerprint": data.get("fingerprint", "unknown"),
-            "fp_detail": data.get("fp_detail", {})
         }
 
-        # 1. Registra o saque
         db.reference(f'withdrawals/{uid}/{wid}').set(withdraw_obj)
-        # 2. Adiciona à fila do admin
         db.reference(f'admin/pending_withdrawals/{wid}').set(withdraw_obj)
-        # 3. Deduz o saldo e atualiza last_withdraw
-        new_balance = current_balance - amount
-        user_ref.update({
-            "balance": new_balance,
-            "last_withdraw_at": datetime.now().isoformat()
-        })
 
         return {"status": "success", "message": "Solicitação de saque enviada!", "wid": wid}
+    except HTTPException:
+        raise
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -2566,55 +2748,91 @@ async def heartbeat(data: dict = Body(default={"source": "direct_access"})):
         return {"ok": False, "error": "Firebase logic failed"}
 
 @app.post("/api/game/reward/{uid}")
-async def game_reward(uid: str, data: dict = Body(...)):
-    """Credita recompensa de jogo ao saldo do usuário"""
-    game_id = data.get("gameId", "")
-    score = data.get("score", 0)
-    reward = float(data.get("reward", 0))
+async def game_reward(uid: str, data: dict = Body(...), request: Request = None):
+    """Credita recompensa de jogo ao saldo do usuário — recompensa calculada server-side"""
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
 
-    if reward <= 0 or not game_id:
-        return {"status": "error", "message": "Recompensa inválida"}
+    game_id = data.get("gameId", "")
+    score = int(data.get("score", 0))
+
+    valid_games = {"flappy", "memory"}
+    if game_id not in valid_games:
+        return {"status": "error", "message": "Jogo inválido"}
+
+    # Recompensa calculada server-side (NUNCA confie no cliente)
+    if game_id == "flappy":
+        if score >= 30:
+            reward = 0.03
+        elif score >= 10:
+            reward = 0.01
+        else:
+            reward = 0
+    elif game_id == "memory":
+        time_taken = float(data.get("time", 999))
+        if time_taken < 30:
+            reward = 0.05
+        elif time_taken < 60:
+            reward = 0.03
+        else:
+            reward = 0
+    else:
+        reward = 0
+
+    if reward <= 0:
+        return {"status": "error", "message": "Pontuação insuficiente para recompensa"}
 
     user_ref = db.reference(f'users/{uid}')
-    user = user_ref.get()
-    if not user:
+
+    # Transação atômica
+    def trans(current):
+        if current is None:
+            return {"_error": "Usuário não encontrado"}
+        cd = current if isinstance(current, dict) else {}
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        game_data = dict(cd.get('games', {}).get(game_id, {}))
+        last_date = game_data.get('lastDate', '')
+        plays_today = game_data.get('playsToday', 0) if last_date == today else 0
+
+        max_plays = {"flappy": 10, "memory": 5}
+        max_play = max_plays.get(game_id, 10)
+
+        if plays_today >= max_play:
+            cd['_error'] = f"Limite diário de {max_play} partidas atingido"
+            return cd
+
+        if 'games' not in cd or not isinstance(cd['games'], dict):
+            cd['games'] = {}
+        if game_id not in cd['games'] or not isinstance(cd['games'][game_id], dict):
+            cd['games'][game_id] = {}
+
+        if last_date != today:
+            cd['games'][game_id]['totalEarned'] = 0
+            plays_today = 0
+
+        cd['balance'] = float(cd.get('balance', 0)) + reward
+        cd['games'][game_id]['playsToday'] = plays_today + 1
+        cd['games'][game_id]['lastDate'] = today
+        cd['games'][game_id]['totalEarned'] = float(cd['games'][game_id].get('totalEarned', 0)) + reward
+        cd['games'][game_id]['lastScore'] = score
+
+        return cd
+
+    result = user_ref.transaction(trans)
+    if result is None:
         return {"status": "error", "message": "Usuário não encontrado"}
+    if result.get('_error'):
+        return {"status": "error", "message": result['_error']}
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    games_data = user.get('games', {})
-    game_data = games_data.get(game_id, {})
-    last_date = game_data.get('lastDate', '')
-    plays_today = game_data.get('playsToday', 0) if last_date == today else 0
-
-    max_plays = {"flappy": 10, "2048": 5, "memory": 5}
-    max_play = max_plays.get(game_id, 10)
-
-    if plays_today >= max_play:
-        return {"status": "error", "message": f"Limite diário de {max_play} partidas atingido"}
-
-    total_earned = game_data.get('totalEarned', 0)
-    if last_date != today:
-        total_earned = 0
-        plays_today = 0
-
-    new_balance = float(user.get('balance', 0)) + reward
-
-    user_ref.update({
-        'balance': new_balance,
-        f'games/{game_id}/playsToday': plays_today + 1,
-        f'games/{game_id}/lastDate': today,
-        f'games/{game_id}/lastScore': score,
-        f'games/{game_id}/totalEarned': total_earned + reward,
-    })
-
-    return {"status": "success", "balance": new_balance, "reward": reward}
+    return {"status": "success", "reward": reward, "new_balance": result.get('balance', 0)}
 
 # --- PAINEL GERENCIAMENTO INTEGRATION ---
-@app.post("/api/cybercore/heartbeat")
+@app.post("/api/brasilhexa/heartbeat")
 async def painel_heartbeat():
-    """Endpoint para verificar status do Hub CyberCore."""
-    db.reference('status/cybercore_last_pulse').set({".sv": "timestamp"})
-    return {"status": "cybercore_online", "service": "CyberCore-Hub"}
+    """Endpoint para verificar status do Hub Brasil Hexa."""
+    db.reference('status/brasilhexa_last_pulse').set({".sv": "timestamp"})
+    return {"status": "brasilhexa_online", "service": "BrasilHexa-Hub"}
 
 @app.post("/api/cybercore/analyze_project")
 async def analyze_project(data: dict = Body(...)):
@@ -2627,9 +2845,24 @@ async def analyze_project(data: dict = Body(...)):
         if not url.startswith("http"):
             url = "https://" + url
 
+        # Proteção SSRF: bloqueia IPs privados
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        import socket
+        try:
+            ip = socket.gethostbyname(hostname)
+            private_prefixes = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
+                                "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+                                "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
+                                "172.31.", "192.168.", "127.", "0.", "169.254.")
+            if ip.startswith(private_prefixes) or ip == "::1" or ip == "localhost":
+                return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
+        except:
+            return {"status": "error", "msg": "Hostname inválido"}
+
         # Simulação de Scraping/Análise de Tecnologias
-        # Em um cenário real, usaríamos BeautifulSoup ou Selenium
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, allow_redirects=True)
         html = response.text.lower()
 
         techs = []
@@ -2672,7 +2905,24 @@ async def project_analyze(data: dict = Body(...)):
     try:
         if ptype == "website":
             url = identifier if identifier.startswith("http") else "https://" + identifier
-            resp = requests.get(url, timeout=10)
+
+            # Proteção SSRF: bloqueia IPs privados
+            from urllib.parse import urlparse
+            import socket
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ""
+            try:
+                ip = socket.gethostbyname(hostname)
+                private_prefixes = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
+                                    "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+                                    "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
+                                    "172.31.", "192.168.", "127.", "0.", "169.254.")
+                if ip.startswith(private_prefixes) or ip == "::1" or ip == "localhost":
+                    return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
+            except:
+                return {"status": "error", "msg": "Hostname inválido"}
+
+            resp = requests.get(url, timeout=10, allow_redirects=False)
             html = resp.text.lower()
             techs = []
             if "react" in html or "_next" in html: techs.append("React/Next.js")
@@ -2689,7 +2939,19 @@ async def project_analyze(data: dict = Body(...)):
             result["status"] = "Pronto para análise de dependências"
 
         elif ptype == "api":
-            resp = requests.get(identifier, timeout=10)
+            api_url = identifier if identifier.startswith("http") else "https://" + identifier
+
+            # Proteção SSRF: bloqueia IPs privados
+            parsed_api = urlparse(api_url)
+            hostname_api = parsed_api.hostname or ""
+            try:
+                ip_api = socket.gethostbyname(hostname_api)
+                if ip_api.startswith(private_prefixes) or ip_api == "::1" or ip_api == "localhost":
+                    return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
+            except:
+                return {"status": "error", "msg": "Hostname inválido"}
+
+            resp = requests.get(api_url, timeout=10, allow_redirects=False)
             ct = resp.headers.get("content-type", "").lower()
             if "graphql" in ct: result["framework"] = "GraphQL"
             elif "json" in ct: result["framework"] = "REST API (JSON)"
@@ -2710,8 +2972,10 @@ async def project_analyze(data: dict = Body(...)):
 
 
 @app.post("/api/project/save")
-async def project_save(data: dict = Body(...)):
-    """Salva um projeto conectado no Firebase via admin SDK (burlas regras do client)."""
+async def project_save(data: dict = Body(...), request: Request = None):
+    """Salva um projeto conectado no Firebase via admin SDK — apenas admin."""
+    if request.state.user_email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
     project_id = data.get("id")
     project_data = data.get("data", {})
     if not project_id or not project_data:
@@ -2724,8 +2988,10 @@ async def project_save(data: dict = Body(...)):
 
 
 @app.post("/api/project/remove")
-async def project_remove(data: dict = Body(...)):
-    """Remove um projeto conectado do Firebase via admin SDK."""
+async def project_remove(data: dict = Body(...), request: Request = None):
+    """Remove um projeto conectado do Firebase — apenas admin."""
+    if request.state.user_email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
     project_id = data.get("id")
     if not project_id:
         return {"status": "error", "msg": "id é obrigatório"}
@@ -2809,7 +3075,12 @@ async def get_install_command():
 
 
 @app.post("/payments/approve/{wid}")
-async def approve_payment(wid: str):
+async def approve_payment(wid: str, request: Request = None):
+    # Verifica admin
+    uid = request.state.user_uid
+    user = db.reference(f'users/{uid}').get() or {}
+    if user.get('email') != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Apenas administrador pode aprovar saques")
     try:
         nodes = db.reference('neural/nodes').get() or {}
         global_config = db.reference('config').get() or {}
@@ -2866,7 +3137,7 @@ async def approve_payment(wid: str):
             "value": amount,
             "pixAddressKey": final_pix_key,
             "pixAddressKeyType": type_detected,
-            "description": f"CyberCore Resgate #{wid}"
+            "description": f"Brasil Hexa Resgate #{wid}"
         }
 
         resp = requests.post(asaas_url, json=payload, headers=headers, timeout=25)
@@ -2904,17 +3175,17 @@ print(f"[PATH] CWD={os.getcwd()}")
 print(f"[PATH] HUB_MODE={HUB_MODE}")
 
 if HUB_MODE == "ADMIN":
-    # No Space CyberCore, o Admin é a raiz
+    # No Space Brasil Hexa, o Admin é a raiz
     try:
         app.mount("/", StaticFiles(directory=ADMIN_DIR, html=True), name="admin")
-        print(f"[MODO] CyberCore IA - Painel Admin na raiz => {ADMIN_DIR}")
+        print(f"[MODO] Brasil Hexa IA - Painel Admin na raiz => {ADMIN_DIR}")
     except Exception as e:
         print(f"[ERRO] Falha ao montar Admin: {e}")
 else:
-    # No Space CineCash, o Site é a raiz e o Admin é um caminho secreto (opcional)
+    # No Space Brasil Hexa, o Site é a raiz e o Admin é um caminho secreto (opcional)
     try:
         app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")
-        print(f"[MODO] CineCash IA - Site na raiz => {WWW_DIR}")
+        print(f"[MODO] Brasil Hexa IA - Site na raiz => {WWW_DIR}")
     except Exception as e:
         print(f"[ERRO] Falha ao montar Site: {e}")
     try:
@@ -2933,7 +3204,7 @@ if __name__ == "__main__":
 
     preferred_port = int(os.environ.get("PORT", 7860))
 
-    print(f"🚀 Iniciando CyberCore Elite em http://localhost:{preferred_port}")
+    print(f"🚀 Iniciando Brasil Hexa Elite em http://localhost:{preferred_port}")
     print(f"🔄 Modo Auto-Reload Ativado")
 
     uvicorn.run(
