@@ -91,6 +91,9 @@
 <button class="nav-link" id="btn-nav-analytics" onclick="showPanel('analytics')" title="Analytics & Métricas">
                         <span>📊</span> Analytics
                     </button>
+                    <button class="nav-link" id="btn-nav-n8n" onclick="window.open('/n8n/', '_blank')" title="Automação N8N">
+                        <span>⚡</span> Automação
+                    </button>
                     <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
                         <span>⚙️</span> Configurações
                     </button>
@@ -104,7 +107,7 @@
             </nav>
 
             <div class="sidebar-bottom" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v3.1.6</span>
+                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v4.0.0 (EXECUTIVE)</span>
                 <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
                     <span>📤</span>
                 </button>
@@ -118,16 +121,26 @@
                     <div style="margin-left: 15px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span class="data-dot gold" style="margin-right: 0;"></span>
-                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[CYBERCORE] // PAINEL ADMIN</h1>
+                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[BRASIL HEXA] // EXECUTIVE AI</h1>
                             <span id="system-health-badge" class="badge-ia" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); font-family: 'Fira Code', monospace;">SISTEMA ATIVO</span>
                             <div class="data-flow cyan" style="width:40px;height:1.5px;margin:0;"></div>
                         </div>
                         <p class="sub-header"><span class="status-ring" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;"></span>Monitoramento de infraestrutura em tempo real</p>
                     </div>
                 </div>
+                <div class="header-center" style="display: flex; gap: 30px; margin-left: 40px;">
+                    <div class="exec-metric">
+                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">RECEITA TOTAL</small>
+                        <span id="header-rev" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #fff; font-size: 16px;">R$ 0,00</span>
+                    </div>
+                    <div class="exec-metric">
+                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">ROI LÍQUIDO</small>
+                        <span id="header-roi" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #10b981; font-size: 16px;">+0.00%</span>
+                    </div>
+                </div>
                 <div class="header-right">
                     <div class="admin-badge tech-corner">
-                        <div class="badge-avatar">CC</div>
+                        <div class="badge-avatar">BH</div>
                         <div class="badge-info">
                             <span id="user-display-name" class="glow-text">Alegomes488</span>
                             <small>Acesso Master</small>
@@ -931,6 +944,24 @@
                                         <label>Backend URL (Hugging Face/FastAPI)</label>
                                         <input type="text" id="audit-backend-url" placeholder="https://user-space.hf.space" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;" onfocus="this.style.borderColor='var(--gold)';this.style.boxShadow='0 0 12px rgba(232,184,48,0.12)'" onblur="this.style.borderColor='rgba(255,255,255,0.06)';this.style.boxShadow='none'">
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- N8N Automação -->
+                        <div class="system-card premium-glass tech-border" style="padding:20px;grid-column:1/-1;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border-glass);">
+                                <span style="font-size:16px;">⚡</span>
+                                <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);">N8N AUTOMAÇÃO</span>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                                <div class="p-input-group">
+                                    <label>N8N Base URL</label>
+                                    <input type="text" id="audit-n8n-url" value="http://localhost:5678" placeholder="http://localhost:5678" style="background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px 15px;color:#fff;font-family:var(--font-mono);font-size:12px;outline:none;">
+                                </div>
+                                <div style="display:flex;align-items:flex-end;gap:10px;">
+                                    <button onclick="window.open('/n8n/', '_blank')" style="flex:1;padding:12px;background:linear-gradient(135deg,rgba(139,92,246,0.2),rgba(139,92,246,0.05));border:1px solid rgba(139,92,246,0.3);border-radius:10px;color:#fff;font-weight:700;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.background='linear-gradient(135deg,rgba(139,92,246,0.3),rgba(139,92,246,0.1))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(139,92,246,0.2),rgba(139,92,246,0.05))'">🔗 Abrir N8N</button>
+                                    <button onclick="testN8N()" style="padding:12px 18px;background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05));border:1px solid rgba(16,185,129,0.3);border-radius:10px;color:#fff;font-weight:700;cursor:pointer;" onmouseover="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.3),rgba(16,185,129,0.1))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(16,185,129,0.2),rgba(16,185,129,0.05))'">🔍</button>
                                 </div>
                             </div>
                         </div>

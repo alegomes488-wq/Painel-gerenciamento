@@ -1501,6 +1501,20 @@ function loadAuditInputs(config) {
     }
 }
 
+async function testN8N() {
+    try {
+        const resp = await fetch('/api/n8n/url');
+        const data = await resp.json();
+        if (data.status === 'online') {
+            showToast('N8N online em ' + data.url, 'success');
+        } else {
+            showToast('N8N offline', 'error');
+        }
+    } catch (e) {
+        showToast('N8N indisponivel: ' + e.message, 'error');
+    }
+}
+
 function saveAuditParameters() {
     const updates = {
         'audit/base_profit': parseFloat(document.getElementById('audit-base-profit').value) || 0,

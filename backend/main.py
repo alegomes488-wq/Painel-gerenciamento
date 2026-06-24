@@ -91,7 +91,7 @@ def check_rate_limit(key: str, max_calls: int = 10, window_seconds: int = 60):
         raise HTTPException(status_code=429, detail=f"Muitas requisições. Limite de {max_calls} por {window_seconds}s.")
 
 # Lista de rotas públicas (não exigem autenticação)
-PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api/nexus/report", "/api/metrics"}
+PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api/nexus/report", "/api/metrics", "/api/n8n/url", "/n8n/"}
 
 def is_public_route(path: str) -> bool:
     if path in PUBLIC_ROUTES:
@@ -99,6 +99,8 @@ def is_public_route(path: str) -> bool:
     if path.startswith("/api/referral/resolve/"):
         return True
     if path.startswith("/api/monitor/heartbeat/"):
+        return True
+    if path.startswith("/n8n/"):
         return True
     return False
 
@@ -1120,7 +1122,59 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-# --- ROTAS API (OBRIGATORIAMENTE ANTES DOS STATIC MOUNTS) ---
+# --- PROXY N8N ---
+import httpx
+
+N8N_BASE = os.environ.get("N8N_BASE_URL", "http://localhost:5678")
+n8n_client = httpx.AsyncClient(base_url=N8N_BASE, timeout=30)
+
+@app.api_route("/n8n/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+async def n8n_proxy(request: Request, path: str):
+    try:
+        target_path = f"/{path}"
+        query = request.url.query
+        if query:
+            target_path += f"?{query}"
+        body = await request.body()
+        headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
+        resp = await n8n_client.request(
+            method=request.method,
+            url=target_path,
+            content=body,
+            headers=headers
+        )
+        return Response(content=resp.content, status_code=resp.status_code, headers=dict(resp.headers))
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"detail": f"N8N indisponivel: {str(e)}"})
+
+@app.get("/api/n8n/url")
+async def n8n_url():
+    return {"url": f"{N8N_BASE}/", "status": "online"}
+
+# --- N8N WEBHOOK TRIGGERS ---
+@app.post("/api/n8n/trigger/risk-alert")
+async def n8n_trigger_risk(data: dict = Body({})):
+    try:
+        resp = await n8n_client.post("/webhook/risk-alert", json=data)
+        return {"status": "triggered", "n8n_status": resp.status_code}
+    except:
+        return {"status": "n8n_offline"}
+
+@app.post("/api/n8n/trigger/new-user")
+async def n8n_trigger_new_user(data: dict = Body({})):
+    try:
+        resp = await n8n_client.post("/webhook/new-user", json=data)
+        return {"status": "triggered", "n8n_status": resp.status_code}
+    except:
+        return {"status": "n8n_offline"}
+
+@app.post("/api/n8n/trigger/weekly-report")
+async def n8n_trigger_weekly():
+    try:
+        resp = await n8n_client.post("/webhook/weekly-report", json={})
+        return {"status": "triggered", "n8n_status": resp.status_code}
+    except:
+        return {"status": "n8n_offline"}
 
 @app.post("/api/monitor/heartbeat/{project_id}")
 async def monitor_heartbeat(project_id: str, data: dict = Body(...)):

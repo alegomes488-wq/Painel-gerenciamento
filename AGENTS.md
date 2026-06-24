@@ -84,3 +84,24 @@
 - `POST /api/referral/create/{uid}`
 - `GET /api/referral/resolve/{slug}`
 - `POST /api/game/reward/{uid}`
+- `GET /api/n8n/url`
+- `POST /api/n8n/trigger/risk-alert`
+- `POST /api/n8n/trigger/new-user`
+- `POST /api/n8n/trigger/weekly-report`
+
+## N8N Automação
+- N8N roda no mesmo container HF Space (porta 5678), acessível via `/n8n/` proxy
+- FastAPI faz proxy com httpx.AsyncClient em `/n8n/{path}`
+- Rotas `/n8n/*` são públicas (sem auth)
+- start.sh gerencia n8n + uvicorn em paralelo
+- Templates de workflow em `n8n-workflows/README.md`
+- Webhooks N8N escutam em `/webhook/risk-alert`, `/webhook/new-user`, `/webhook/weekly-report`
+
+## Modificações Recentes (CyberCore)
+- Admin rebranded: "Brasil Hexa" → "[CYBERCORE] // PAINEL ADMIN"
+- Tema: navy escuro (#0b0e14), azul/cyan/roxo — sem verde/ouro
+- CT Canarinho extraído para `C:\Users\Alegomes\Desktop\Agentes\`
+- GameCash oculto em produção (cinecash.com.br, HF Space)
+- apiBase dinâmico: `window.location.origin`
+- `/api/nexus/report` e `/api/metrics` públicos
+- app.js reduzido de ~3652 → ~2565 linhas

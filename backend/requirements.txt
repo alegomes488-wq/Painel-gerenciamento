@@ -13,3 +13,4 @@ groq
 chromadb
 redis
 langgraph
+httpx
