@@ -1,0 +1,2 @@
+backend/chroma_db/chroma[[:space:]]-[[:space:]]Copia.sqlite3 filter=lfs diff=lfs merge=lfs -text
+backend/chroma_db/chroma.sqlite3 filter=lfs diff=lfs merge=lfs -text

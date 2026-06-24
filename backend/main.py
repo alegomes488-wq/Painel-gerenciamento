@@ -91,7 +91,7 @@ def check_rate_limit(key: str, max_calls: int = 10, window_seconds: int = 60):
         raise HTTPException(status_code=429, detail=f"Muitas requisições. Limite de {max_calls} por {window_seconds}s.")
 
 # Lista de rotas públicas (não exigem autenticação)
-PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico"}
+PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api/nexus/report", "/api/metrics"}
 
 def is_public_route(path: str) -> bool:
     if path in PUBLIC_ROUTES:
@@ -1112,6 +1112,8 @@ app.add_middleware(
         "https://desenvovimento-cybercore-ia.hf.space",
         "https://brasilhexa.com.br",
         "https://www.brasilhexa.com.br",
+        "https://cinecash.com.br",
+        "https://www.cinecash.com.br",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -2412,7 +2414,68 @@ async def api_metrics():
         "status": "online", "timestamp": datetime.now().isoformat()
     }
 
-# --- API: APROVAR TODOS OS SAQUES (Admin Only) ---
+# --- API: NEXUS TELEMETRIA ---
+@app.post("/api/nexus/report")
+async def nexus_report(data: dict = Body({})):
+    uid = data.get("uid", "unknown")
+    ads = int(data.get("ads_watched", 0))
+    balance = float(data.get("balance", 0))
+    page = data.get("page_context", "unknown")
+    duration = int(data.get("session_duration", 0))
+    platform = data.get("platform", "unknown")
+    doubt = data.get("user_doubt")
+
+    try:
+        db.reference(f'logs/nexus/{uid}').push({
+            "report": data, "received_at": datetime.now().isoformat()
+        })
+        user_ref = db.reference(f'users/{uid}')
+        user_data = user_ref.get() or {}
+        risk = user_data.get('risk_score', 0) if isinstance(user_data, dict) else 0
+        email = user_data.get('email', uid) if isinstance(user_data, dict) else uid
+        now = datetime.now().isoformat()
+
+        alerts = []
+        nexus_actions = []
+
+        if balance > 10 and ads < 3:
+            alerts.append(f"Possivel fraude: {email} - R${balance} com {ads} ads")
+            nexus_actions.append({"to": "sentinel", "level": "alerta", "msg": f"NEXUS: {email} saldo R${balance} com apenas {ads} anuncios"})
+
+        financial_status = "saudavel"
+        if balance >= 5:
+            financial_status = "otimo"
+            nexus_actions.append({"to": "auditor", "level": "info", "msg": f"NEXUS: {email} saldo R${balance} - apto para saque"})
+        elif balance >= 1:
+            financial_status = "bom"
+        elif balance > 0:
+            financial_status = "regular"
+
+        engaged = "alto" if duration > 300 else "medio" if duration > 60 else "baixo"
+
+        insight = {
+            "uid": uid, "email": email, "balance": balance, "ads": ads,
+            "page": page, "duration": duration, "platform": platform,
+            "risk": risk, "financial_status": financial_status,
+            "engagement": engaged, "last_seen": now, "doubt": doubt
+        }
+        db.reference(f'nexus/insights/{uid}').update(insight)
+
+        if nexus_actions:
+            for action in nexus_actions:
+                action["uid"] = uid
+                action["timestamp"] = now
+                db.reference('nexus/actions').push(action)
+
+        if doubt:
+            db.reference('neural/insights/nexus_last_doubt').set({
+                "uid": uid, "doubt": doubt, "timestamp": now
+            })
+    except Exception as e:
+        print(f"[NEXUS] Erro ao processar relatorio: {e}")
+
+    return {"status": "received", "uid": uid}
+
 @app.post("/payments/approve-all")
 async def approve_all_payments_route(request: Request):
     # Verifica admin
@@ -2481,6 +2544,13 @@ async def video_start(uid: str, request: Request):
     # Verifica se o UID da rota corresponde ao UID do token
     if request.state.user_uid != uid:
         raise HTTPException(status_code=403, detail="Acesso negado")
+
+    # Registra o início da sessão para evitar bypass direto do endpoint complete
+    db.reference(f'users/{uid}/video_session').set({
+        "start_at": datetime.now().isoformat(),
+        "valid": True
+    })
+
     return {"status": "success", "session": "active", "timestamp": datetime.now().isoformat()}
 
 @app.post("/api/referral/create/{uid}")
@@ -2570,16 +2640,49 @@ async def video_complete(uid: str, request: Request):
                 return current  # usuário não existe
             current_data = current if isinstance(current, dict) else {}
 
-            # Cooldown de vídeo (30 segundos)
+            # 1. VERIFICAÇÃO DE SOFT BAN (Risk Score > 50)
+            risk = int(current_data.get('risk_score', 0))
+            ban_until = current_data.get('soft_ban_until')
+            if ban_until:
+                if datetime.now() < datetime.fromisoformat(ban_until):
+                    current_data['_error'] = 'VAR: Conta suspensa por 2h devido a atividade suspeita.'
+                    return current_data
+                else:
+                    # Ban expirou, reseta o risco
+                    current_data['risk_score'] = 0
+                    risk = 0
+
+            # 2. VERIFICAÇÃO DE SESSÃO (Anti-Bypass)
+            session = current_data.get('video_session')
+            if not session or not session.get('valid'):
+                current_data['_error'] = 'Sessão inválida. Use o botão oficial de análise.'
+                return current_data
+
+            start_ts = datetime.fromisoformat(session.get('start_at'))
+            elapsed = (datetime.now() - start_ts).total_seconds()
+
+            if elapsed < 29:
+                new_risk = risk + 15
+                current_data['risk_score'] = new_risk
+                if new_risk > 50:
+                    current_data['soft_ban_until'] = (datetime.now() + timedelta(hours=2)).isoformat()
+                    current_data['_error'] = 'VAR: Fraude detectada. Suspensão de 2 horas aplicada.'
+                else:
+                    current_data['_error'] = f'Análise muito rápida ({int(elapsed)}s). O VAR está de olho.'
+                return current_data
+
+            # 3. VALIDAÇÃO DE COOLDOWN GERAL (Anti-Spam)
             last_video_at = current_data.get('last_video_at')
             if last_video_at:
                 last_ts = datetime.fromisoformat(last_video_at)
                 diff = (datetime.now() - last_ts).total_seconds()
                 if diff < 28:
-                    risk = int(current_data.get('risk_score', 0)) + 10
-                    current_data['risk_score'] = risk
-                    current_data['_error'] = 'Processamento muito rápido. Aguarde o tempo da IA.'
+                    current_data['risk_score'] = risk + 5
+                    current_data['_error'] = 'Aguarde o processamento da rede.'
                     return current_data
+
+            # Limpa sessão após uso bem-sucedido
+            current_data['video_session'] = {"valid": False}
 
             current_videos = int(current_data.get('videosWatched', 0))
             new_videos = current_videos + 1

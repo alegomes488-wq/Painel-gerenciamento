@@ -62,6 +62,53 @@
             0%, 100% { transform: translateY(0); opacity: 0.3; }
             50% { transform: translateY(-4px); opacity: 1; }
         }
+
+        /* Social Proof Toast */
+        .social-proof-toast {
+            position: fixed;
+            bottom: 85px;
+            left: 20px;
+            background: rgba(15, 15, 25, 0.9);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-left: 4px solid #10b981;
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 9999;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transform: translateX(-120%);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 280px;
+        }
+        .social-proof-toast.show { transform: translateX(0); }
+        .social-proof-avatar {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+        .social-proof-content {
+            font-size: 0.85rem;
+            color: white;
+            line-height: 1.3;
+        }
+        .social-proof-content b { color: #10b981; }
+        .social-proof-time {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.5);
+            display: block;
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body class="premium-theme">
@@ -142,6 +189,17 @@
                 <span style="font-size:2.5rem;margin-left:8px;">⚽</span>
             </div>
             <h1 class="glitch-text" data-text="Convocação VIP">Convocação VIP</h1>
+
+            <!-- Banner de Indicação Dinâmico -->
+            <div id="referral-welcome-banner" class="hidden" style="background: rgba(16, 185, 129, 0.1); border: 1px dashed #10b981; border-radius: 12px; padding: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; background: #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px;">🎁</div>
+                <div style="flex: 1;">
+                    <p style="font-size: 0.75rem; color: #10b981; margin: 0; font-weight: bold;">CONVITE ACEITO!</p>
+                    <p id="referral-welcome-text" style="font-size: 0.85rem; color: white; margin: 0;">Você foi convidado por <b>...</b></p>
+                    <p style="font-size: 0.75rem; color: #fbbf24; margin: 0; font-weight: bold;">🎁 GANHE R$ 0,25 AO ENTRAR!</p>
+                </div>
+            </div>
+
             <p class="login-subtitle">Entre para a seleção e comece a ganhar</p>
 
             <div style="display: flex; gap: 10px;">
@@ -251,7 +309,7 @@
                 <button class="nav-item active" onclick="switchTab('dashboard', this)">Início</button>
                 <button class="nav-item" onclick="switchTab('withdraw', this)">Intercâmbio</button>
                 <button class="nav-item" onclick="switchTab('referrals', this)">Convites</button>
-                <button class="nav-item" id="nav-gamecash" onclick="switchTab('gamecash', this)">GameCash</button>
+                <button class="nav-item" id="nav-gamecash" onclick="switchTab('gamecash', this)" style="display:none;">GameCash</button>
             </div>
             <div class="logout" onclick="logout()">
                 <i data-lucide="log-out" style="width:18px; height:18px;"></i>
@@ -462,7 +520,7 @@
                         </div>
                     </div>
                     <h2 style="letter-spacing: 2px; color: #f472b6;">MISSÃO: EMBAIXADOR VIP</h2>
-                    <p style="font-weight: 600; opacity: 0.8;">Expanda a rede Brasil Hexa e seja recompensado pelo Agente Canarinho.</p>
+                    <p style="font-weight: 600; opacity: 0.8;">Ganhe <b>R$ 0,20</b> por indicado ativo + seu amigo já começa com <b>R$ 0,25</b> de bônus!</p>
 
                     <div class="referral-stats-grid" style="margin-top: 20px;">
                         <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
@@ -511,10 +569,10 @@
         <div id="tab-gamecash" class="tab-content hidden">
             <div id="gamecash-coming-soon" class="gamecash-coming-soon hidden">
                 <div style="text-align:center;padding:60px 20px;">
-                    <div style="font-size:4rem;margin-bottom:20px;">🚧</div>
-                    <h2 style="font-size:1.4rem;margin-bottom:12px;">GameCash em breve!</h2>
+                    <div style="font-size:4rem;margin-bottom:20px;">🔒</div>
+                    <h2 style="font-size:1.4rem;margin-bottom:12px;">GameCash indisponível</h2>
                     <p style="color:var(--muted-fg);font-size:0.9rem;max-width:400px;margin:0 auto;">
-                        Estamos trabalhando pra levar novas experiências para você.
+                        Esta funcionalidade está em desenvolvimento e será liberada em breve.
                     </p>
                 </div>
             </div>
@@ -681,16 +739,24 @@
         import { getMessaging, getToken } from "./firebase-messaging.js";
 
         const CONFIG = {
-            apiBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://desenvovimento-brasilhexa-ia.hf.space',
-            adminBase: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? window.location.origin : 'https://desenvovimento-brasilhexa-ia.hf.space',
+            apiBase: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? window.location.origin : window.location.origin,
+            adminBase: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? window.location.origin : window.location.origin,
             workerBase: 'https://brasilhexa-api.alegomes488.workers.dev',
             monetagId: '7654321',
             projectId: 'brasil_hexa_main' // Identificador deste nó de campo
         };
 
         // Detecta se está em produção para rotear chat pelo Worker (Groq)
-        const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('brasilhexa.com.br') || window.location.hostname.includes('hf.space');
+        const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('brasilhexa.com.br') || window.location.hostname.includes('hf.space');
         const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
+
+        // Controle de visibilidade da aba GameCash (apenas localhost para desenvolvimento)
+        document.addEventListener('DOMContentLoaded', () => {
+            const navGameCash = document.getElementById('nav-gamecash');
+            if (navGameCash) {
+                navGameCash.style.display = window.location.href.includes('localhost:7860') ? '' : 'none';
+            }
+        });
 
         // Função auxiliar para chamadas autenticadas à API
         async function apiFetch(path, options = {}) {
@@ -1174,24 +1240,10 @@
                 const username = `@${fname.toLowerCase()}_${lname.toLowerCase()}${Math.floor(100 + Math.random() * 900)}`;
 
                 const urlParams = new URLSearchParams(window.location.search);
-                let referredBy = urlParams.get('ref') || null;
+                let referredBy = window._currentReferrerUid || null;
 
-                // Resolução de Slug (se o parâmetro ref tiver 8 caracteres, tentamos resolver)
-                if (referredBy && referredBy.length === 8) {
-                    try {
-                        const res = await fetch(`${CONFIG.apiBase}/api/referral/resolve/${referredBy}`);
-                        if (res.ok) {
-                            const refData = await res.json();
-                            referredBy = refData.uid;
-                        } else {
-                            console.warn("[Brasil Hexa] Slug de indicação inválido ou expirado.");
-                            referredBy = null;
-                        }
-                    } catch (e) {
-                        console.warn("[Brasil Hexa] Falha ao conectar ao resolvedor de slugs:", e);
-                        referredBy = null;
-                    }
-                }
+                // Conforme solicitado: Novo usuário ganha R$ 0,25 ao entrar pelo link
+                const initialBalance = referredBy ? 0.25 : 0.00;
 
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
@@ -1203,7 +1255,7 @@
                         lastname: lname,
                         username: username,
                         email: email,
-                        balance: 0,
+                        balance: initialBalance,
                         videosWatched: 0,
                         referralCount: 0,
                         status: "ativo",
@@ -1404,7 +1456,7 @@
             const uid = auth.currentUser?.uid;
             if (uid) {
                 const ref = _user.active_referral_slug || uid;
-            document.getElementById('ref-link').value = `https://brasilhexa.com.br/?ref=${ref}`;
+            document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${ref}`;
             }
         }; // fim updateUI
 
@@ -1566,9 +1618,10 @@
         let loginInProgress = false;
         let menuClickCount = 0;
         window.switchTab = (id, el) => {
+            const isLocalhost = window.location.href.includes('localhost:7860');
             const banner = document.getElementById('monetag-banner');
             if (id === 'gamecash') {
-                if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+                if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
                 document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
@@ -1604,10 +1657,15 @@
             if (id === 'gamecash') {
                 const comingSoon = document.getElementById('gamecash-coming-soon');
                 const content = document.getElementById('gamecash-content');
-                if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
-                if (content) safeClass(content, 'remove', 'hidden');
-                console.log("[Brasil Hexa] Chamando loadGameStats()...");
-                if (typeof loadGameStats === 'function') loadGameStats();
+                if (!isLocalhost) {
+                    if (comingSoon) safeClass(comingSoon, 'remove', 'hidden');
+                    if (content) safeClass(content, 'add', 'hidden');
+                } else {
+                    if (comingSoon) safeClass(comingSoon, 'add', 'hidden');
+                    if (content) safeClass(content, 'remove', 'hidden');
+                    console.log("[Brasil Hexa] Chamando loadGameStats()...");
+                    if (typeof loadGameStats === 'function') loadGameStats();
+                }
             }
         };
 
@@ -1631,7 +1689,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     const linkInput = document.getElementById('ref-link');
-                    if (linkInput) linkInput.value = `https://brasilhexa.com.br/?ref=${data.slug}`;
+                    if (linkInput) linkInput.value = `https://cinecash.com.br/?ref=${data.slug}`;
                     showToast("NOVO LINK GERADO!");
                 } else {
                     throw new Error("Erro ao gerar link");
@@ -3306,6 +3364,87 @@
             const input = document.getElementById('brasilhexa-chat-input');
             if (input) { input.value = cmd; window.sendFloatingChatMessage(); }
         };
+
+        // ==================== SOCIAL PROOF SYSTEM ====================
+        const SOCIAL_PROOF_NAMES = ["Lucas", "Gabriel", "Matheus", "Rafael", "Thiago", "Bruno", "Felipe", "Rodrigo", "André", "Leonardo", "Vinícius", "Eduardo", "Gustavo", "João", "Pedro", "Ana", "Maria", "Beatriz", "Juliana", "Amanda"];
+        const SOCIAL_PROOF_AMOUNTS = ["0,50", "3,00", "5,00", "10,00", "5,00", "0,50", "3,00", "5,00"];
+
+        function showSocialProof() {
+            // Não mostrar se estiver jogando
+            if (typeof gameState !== 'undefined' && gameState.current !== 'none') return;
+
+            const name = SOCIAL_PROOF_NAMES[Math.floor(Math.random() * SOCIAL_PROOF_NAMES.length)];
+            const amount = SOCIAL_PROOF_AMOUNTS[Math.floor(Math.random() * SOCIAL_PROOF_AMOUNTS.length)];
+            const initial = name[0].toUpperCase();
+
+            // Cria o elemento se não existir
+            let toast = document.getElementById('social-proof-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'social-proof-toast';
+                toast.className = 'social-proof-toast';
+                document.body.appendChild(toast);
+            }
+
+            toast.innerHTML = `
+                <div class="social-proof-avatar">${initial}</div>
+                <div class="social-proof-content">
+                    <b>${name}</b> acabou de sacar <b>R$ ${amount}</b> via PIX!
+                    <span class="social-proof-time">há poucos segundos</span>
+                </div>
+            `;
+
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 5000);
+        }
+
+        // Inicia o ciclo de prova social (entre 45s e 90s)
+        function scheduleNextSocialProof() {
+            const delay = Math.floor(Math.random() * (90000 - 45000 + 1) + 45000);
+            setTimeout(() => {
+                showSocialProof();
+                scheduleNextSocialProof();
+            }, delay);
+        }
+
+        // Começa após 15 segundos da página carregada
+        setTimeout(scheduleNextSocialProof, 15000);
+
+        // ==================== INITIAL REFERRAL CHECK ====================
+        async function checkInitialReferral() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const refSlug = urlParams.get('ref');
+            if (refSlug) {
+                try {
+                    const res = await fetch(`${CONFIG.apiBase}/api/referral/resolve/${refSlug}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.status === 'success' && data.uid) {
+                            window._currentReferrerUid = data.uid;
+
+                            // Busca nome do convidado para o banner
+                            const { getDatabase, ref, get } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
+                            const db = getDatabase();
+                            const sponsorSnap = await get(ref(db, `users/${data.uid}/fullname`));
+                            const sponsorName = sponsorSnap.val() || "Um Amigo";
+
+                            const banner = document.getElementById('referral-welcome-banner');
+                            const text = document.getElementById('referral-welcome-text');
+                            if (banner && text) {
+                                text.innerHTML = `Você foi convidado por <b>${sponsorName}</b>`;
+                                banner.classList.remove('hidden');
+                                // Se estiver na home, talvez queira forçar ir para o registro?
+                                // Por enquanto apenas mostra se o usuário for para lá.
+                            }
+                        }
+                    }
+                } catch (e) { console.error("Erro referral init:", e); }
+            }
+        }
+        checkInitialReferral();
     </script>
 </body>
 </html>
