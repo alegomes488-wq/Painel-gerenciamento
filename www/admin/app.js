@@ -651,6 +651,9 @@ function renderGlobalStats() {
     const netEl = document.getElementById('stat-net-profit');
     if (netEl) netEl.style.color = netProfit >= 0 ? '#10b981' : '#f43f5e';
 
+    // Atualiza métricas do Header Executivo v4.0.0
+    updateHeaderMetrics(revenueBrl, totalDebt);
+
     // Variação semanal de usuários (compara com criação de conta)
     const weekAgo = Date.now() - 7 * 86400000;
     const weekStart = realUsers.filter(([uid, u]) => (u.createdAt || u.created_at || 0) < weekAgo).length;
@@ -659,6 +662,18 @@ function renderGlobalStats() {
     if (weekEl) {
         weekEl.textContent = weekChange >= 0 ? `+${weekChange.toFixed(0)}% esta semana` : `${weekChange.toFixed(0)}% esta semana`;
         weekEl.style.color = weekChange >= 0 ? '#10b981' : '#ef4444';
+    }
+}
+
+function updateHeaderMetrics(revenue, debt) {
+    const roi = debt > 0 ? ((revenue - debt) / debt) * 100 : 0;
+    const revEl = document.getElementById('header-rev');
+    const roiEl = document.getElementById('header-roi');
+
+    if (revEl) revEl.textContent = `R$ ${revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (roiEl) {
+        roiEl.textContent = `${roi >= 0 ? '+' : ''}${roi.toFixed(2)}%`;
+        roiEl.style.color = roi >= 0 ? '#10b981' : '#ef4444';
     }
 }
 
@@ -1088,7 +1103,7 @@ function updateEl(id, val, cb) {
 function showToast(msg, type = 'info') {
     const container = document.getElementById('toast-container') || document.body;
     const toast = document.createElement('div');
-    toast.className = `cyber-toast toast-${type}`;
+    toast.className = `hexa-toast toast-${type}`;
     toast.innerText = msg;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 4000);
@@ -1113,13 +1128,27 @@ function checkPythonCoreStatus() {
     fetch(url).then(r => {
         const dot = document.getElementById('python-core-ping');
         const text = document.getElementById('python-core-status');
+        const badge = document.getElementById('system-health-badge');
+
         if (dot) dot.style.background = r.ok ? '#10b981' : '#ef4444';
         if (text) text.innerText = r.ok ? 'ONLINE' : 'OFFLINE';
+
+        if (badge) {
+            badge.innerText = r.ok ? 'SISTEMA ATIVO' : 'SISTEMA OFFLINE';
+            badge.style.background = r.ok ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+            badge.style.color = r.ok ? '#10b981' : '#ef4444';
+            badge.style.borderColor = r.ok ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+        }
     }).catch(() => {
         const dot = document.getElementById('python-core-ping');
         const text = document.getElementById('python-core-status');
+        const badge = document.getElementById('system-health-badge');
         if (dot) dot.style.background = '#ef4444';
         if (text) text.innerText = 'OFFLINE';
+        if (badge) {
+            badge.innerText = 'NÚCLEO DESCONECTADO';
+            badge.style.color = '#ef4444';
+        }
     });
 }
 
@@ -1352,7 +1381,7 @@ function updateAIPanelStats() {
     updateEl('memory-rpm', `RPM: ${rpm.toFixed(4)}`);
 
     // 5. Top Fonte / País
-    updateEl('memory-top-source', neural.top_source || 'Google / Cyber Ads');
+    updateEl('memory-top-source', neural.top_source || 'Google / Brasil Ads');
     updateEl('memory-top-country', `País: ${neural.top_country || 'Brasil'}`);
 
     // 6. Hits/min (Real-time Pulse)
@@ -1396,10 +1425,10 @@ function renderSecurityData() {
 }
 
 function renderProjects() {
-    const nodeToggle = document.getElementById('toggle-cybercore-node');
+    const nodeToggle = document.getElementById('toggle-brasilhexa-node');
     if (nodeToggle) nodeToggle.checked = rtState.config?.active !== false;
 
-    const statusBadge = document.getElementById('cybercore-status-badge');
+    const statusBadge = document.getElementById('brasilhexa-node-status');
     if (statusBadge) {
         const isActive = rtState.config?.active !== false;
         statusBadge.innerText = isActive ? "NODE ATIVO" : "NODE INATIVO";

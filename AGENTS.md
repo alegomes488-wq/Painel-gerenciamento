@@ -50,17 +50,29 @@
 - R$ 0,20 por indicado que atingir 25 anúncios
 - +R$ 1,00 a cada 5 indicados válidos
 - Slug único por usuário (válido 30 dias)
-- `GET /api/referral/list/{uid}` — lista indicações via API
+- Cadastro cria entrada em `referrals/{referrerUid}/{uid}` via frontend Web SDK
+- `loadReferrals()` lê de `ref(db, 'referrals/' + uid)` (Firebase Web SDK, não API)
+- `updateUI()` sincroniza `videosWatched` para `referrals/{referredBy}/{uid}` a cada carregamento
+- `referrals` nó no Firebase: cada um lê só a própria lista, indicado/indicador podem escrever
 
 ### Bônus Diário
-- R$ 0,20 disponível apenas sábado e domingo
+- R$ 0,20 disponível apenas em dias úteis (segunda a sexta) — verificação `isWeekday` no frontend
 - 1x por dia
-- `POST /user/claim-daily/{uid}`
+- `claimDailyBonus()` escreve direto no Firebase via Web SDK (`update()` com `balance + 0.20`)
+- Regra `.validate` no Firebase permite `balance + 0.20` + `last_daily_bonus_date`
+- Backend `POST /user/claim-daily/{uid}` não é mais chamado pelo frontend
+
+### Firebase Admin SDK — BLOQUEADO
+- Service account `playearn-b001b` com `invalid_grant: Invalid JWT Signature`
+- Todos os endpoints que usam `db.reference()` (video/complete, payments/request, etc.) falham
+- Workaround: frontend Web SDK para operações críticas (daily bonus, referrals)
+- `backend/firebase-adminsdk.json.bak` precisa ser substituído por chave nova do Firebase Console
 
 ### Segurança
 - Regras Firebase restritas em `rules.json`
 - `users/` e `withdrawals/` apenas admin pode ler
 - `users/$uid/` usuário pode ler próprio registro
+- `referrals/` usuário lê própria lista; indicado/indicador escrevem entrada
 - Cooldown de 28s entre processamentos (anti-bot)
 - Risk score incrementado se processamento muito rápido
 - Sessão com trava (sessionStorage) ao perder foco/refresh
@@ -89,6 +101,8 @@
 - `POST /api/n8n/trigger/new-user`
 - `POST /api/n8n/trigger/weekly-report`
 
+> Nota: endpoints que usam `db.reference()` (video/complete, payments/request, referral/list, etc.) estão quebrados até que o service account seja substituído.
+
 ## N8N Automação
 - N8N roda no mesmo container HF Space (porta 5678), acessível via `/n8n/` proxy
 - FastAPI faz proxy com httpx.AsyncClient em `/n8n/{path}`
@@ -105,3 +119,6 @@
 - apiBase dinâmico: `window.location.origin`
 - `/api/nexus/report` e `/api/metrics` públicos
 - app.js reduzido de ~3652 → ~2565 linhas
+- N8N integrado (start.sh, proxy, webhooks, admin UI)
+- Bônus diário movido para frontend Web SDK (bypass backend)
+- Indicações lidas de `referrals/{uid}` via Web SDK em vez da API

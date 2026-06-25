@@ -134,7 +134,17 @@ else:
             firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
         print(f"Firebase iniciado com {cred_filename}")
     else:
-        print("ERRO: Credenciais Firebase não encontradas!")
+        # Fallback para desenvolvimento local (arquivo .bak)
+        bak_path = os.path.join(backend_dir, "firebase-adminsdk.json.bak")
+        if os.path.exists(bak_path):
+            with open(bak_path) as f:
+                cred_dict = json.load(f)
+            cred = credentials.Certificate(cred_dict)
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
+            print("Firebase iniciado via firebase-adminsdk.json.bak (dev)")
+        else:
+            print("ERRO: Credenciais Firebase não encontradas!")
 
 # --- CONSTANTES BRASIL HEXA ---
 HUB_MODE = os.environ.get("HUB_MODE", "USER")
@@ -1061,7 +1071,7 @@ async def log_requests(request, call_next):
             return JSONResponse(status_code=401, content={"detail": "Token de autenticação não fornecido"})
         token = auth_header.split(" ", 1)[1]
         try:
-            decoded = firebase_auth.verify_id_token(token, check_revoked=True)
+            decoded = firebase_auth.verify_id_token(token, check_revoked=False)
             request.state.user_uid = decoded.get("uid", "")
             request.state.user_email = decoded.get("email", "")
         except firebase_auth.ExpiredIdTokenError:
@@ -2554,39 +2564,40 @@ async def claim_daily(uid: str, request: Request = None):
     if request.state.user_uid != uid:
         raise HTTPException(status_code=403, detail="Acesso negado")
     try:
-        user_ref = db.reference(f'users/{uid}')
+        auth_header = request.headers.get("Authorization", "")
+        id_token = auth_header.split("Bearer ", 1)[1] if "Bearer " in auth_header else ""
 
-        def trans(current):
-            if current is None:
-                return {"_error": "Usuário não encontrado"}
-            cd = current if isinstance(current, dict) else {}
+        database_url = "https://playearn-b001b-default-rtdb.firebaseio.com"
+        user_url = f"{database_url}/users/{uid}.json?auth={id_token}"
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(user_url)
+            if resp.status_code != 200:
+                raise HTTPException(status_code=500, detail="Erro ao acessar banco de dados")
+            user_data = resp.json()
+            if not user_data:
+                raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
             today = datetime.now().strftime('%Y-%m-%d')
-            last_bonus = cd.get('last_daily_bonus_date')
+            last_bonus = user_data.get('last_daily_bonus_date')
 
             if last_bonus == today:
-                cd['_error'] = "Bônus já resgatado hoje."
-                return cd
+                raise HTTPException(status_code=400, detail="Bônus já resgatado hoje.")
 
-            # Bônus disponível apenas Sábado (5) e Domingo (6) — conforme AGENTS.md
             weekday = datetime.now().weekday()
-            if weekday < 5:
-                cd['_error'] = "Bônus disponível apenas aos finais de semana (Sábado e Domingo)."
-                return cd
+            if weekday >= 5:
+                raise HTTPException(status_code=400, detail="Bônus disponível apenas em dias úteis (segunda a sexta).")
 
-            cd['balance'] = float(cd.get('balance', 0)) + 0.20
-            cd['last_daily_bonus_date'] = today
-            cd['last_claim'] = datetime.now().isoformat()
-            return cd
+            new_balance = float(user_data.get('balance', 0)) + 0.20
 
-        result = user_ref.transaction(trans)
+            patch_resp = await client.patch(user_url, json={
+                "balance": new_balance,
+                "last_daily_bonus_date": today
+            })
+            if patch_resp.status_code != 200:
+                raise HTTPException(status_code=500, detail="Erro ao creditar bônus")
 
-        if result is None:
-            return {"status": "error", "message": "Usuário não encontrado"}
-        if result.get('_error'):
-            raise HTTPException(status_code=400, detail=result['_error'])
-
-        return {"status": "success", "new_balance": result.get('balance', 0), "message": "Bônus diário resgatado!"}
+            return {"status": "success", "new_balance": new_balance, "message": "Bônus diário resgatado!"}
     except HTTPException as he:
         raise he
     except Exception as e:

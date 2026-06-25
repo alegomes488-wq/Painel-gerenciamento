@@ -1275,6 +1275,13 @@
                             fiscal_declaration: "CIENTE_RECEITA_FEDERAL_E_JUSTICA"
                         }
                     });
+                    if (referredBy) {
+                        await set(ref(db, `referrals/${referredBy}/${uid}`), {
+                            fullname: `${fname} ${lname}`,
+                            username: username,
+                            videosWatched: 0
+                        });
+                    }
                 } catch (dbErr) {
                     console.error("[Brasil Hexa] Falha ao salvar dados no DB, removendo conta do Auth:", dbErr);
                     try { await auth.currentUser?.delete(); } catch (delErr) {
@@ -1396,7 +1403,7 @@
             const now = new Date();
             const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
             const weekday = now.getDay(); // 0=Dom, 6=Sáb
-            const isWeekend = weekday === 0 || weekday === 6;
+            const isWeekday = weekday >= 1 && weekday <= 5;
             const lastBonus = _user && _user.last_daily_bonus_date;
             const alreadyClaimed = lastBonus === todayStr || _bonusClaimedToday;
             console.log('[Daily Bonus] last_daily_bonus_date:', lastBonus, 'today:', todayStr, 'match:', alreadyClaimed, 'flag:', _bonusClaimedToday, 'user:', _user ? 'loaded' : 'null');
@@ -1405,13 +1412,13 @@
                 btnBonus.disabled = true;
                 btnBonus.style.opacity = "0.5";
                 btnBonus.style.cursor = "default";
-            } else if (isWeekend) {
+            } else if (isWeekday) {
                 btnBonus.innerText = "RESGATAR";
                 btnBonus.disabled = false;
                 btnBonus.style.opacity = "1";
                 btnBonus.style.cursor = "pointer";
             } else {
-                btnBonus.innerText = "INDISPONÍVEL (DIA ÚTIL)";
+                btnBonus.innerText = "INDISPONÍVEL (FIM DE SEMANA)";
                 btnBonus.disabled = true;
                 btnBonus.style.opacity = "1";
                 btnBonus.style.cursor = "pointer";
@@ -1457,6 +1464,16 @@
             if (uid) {
                 const ref = _user.active_referral_slug || uid;
             document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${ref}`;
+            }
+
+            // Sincroniza videosWatched com o nó referrals do meu indicador
+            const myReferrer = _user.referredBy;
+            if (myReferrer && uid) {
+                set(ref(db, `referrals/${myReferrer}/${uid}`), {
+                    fullname: _user.fullname || _user.firstname || 'Usuário',
+                    username: _user.username || '',
+                    videosWatched: _user.videosWatched || 0
+                }).catch(() => {});
             }
         }; // fim updateUI
 
@@ -1624,7 +1641,14 @@
                 if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
+                if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
+                _adLock = false;
                 document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
+                document.querySelectorAll('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(el => el.remove());
+                if (window.__adOrigOpen) {
+                    window.open = window.__adOrigOpen;
+                    window.__adOrigOpen = null;
+                }
             } else {
                 if(banner) banner.style.display = '';
                 if (typeof triggerStrategicAd === 'function') triggerStrategicAd();
@@ -1948,18 +1972,21 @@
                 return;
             }
             const uid = auth.currentUser.uid;
-            console.log("[Brasil Hexa] Buscando convites para UID:", uid);
-            apiFetch(`/api/referral/list/${uid}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        console.log(`[Brasil Hexa] ${data.referrals.length} convites encontrados.`);
-                        renderReferrals(data.referrals);
-                    } else {
-                        console.error("[Brasil Hexa] Erro ao buscar convites:", data.message);
-                    }
-                })
-                .catch(err => console.error("[Brasil Hexa] Erro na requisição de convites:", err));
+            console.log("[Brasil Hexa] Escutando referrals para UID:", uid);
+            onValue(ref(db, `referrals/${uid}`), snap => {
+                const referrals = [];
+                snap.forEach(child => {
+                    const d = child.val();
+                    referrals.push({
+                        uid: child.key,
+                        fullname: d.fullname || 'Usuário',
+                        username: d.username || '',
+                        videosWatched: d.videosWatched || 0,
+                        status: 'ativo'
+                    });
+                });
+                renderReferrals(referrals);
+            }, { onlyOnce: true });
         }
 
         function renderReferrals(referrals) {
@@ -2222,11 +2249,13 @@
 
         // ============ ADS ============
         let _adTimer = null;
+        let _adLock = false;
+        let _adLoadTimer = null;
         window.triggerStrategicAd = (keepDuration = 30000) => {
+            if (_adLock) return;
             const banner = document.getElementById('monetag-banner');
             if (!banner) return;
 
-            // Não carrega anúncio se estiver jogando ou na aba GameCash
             if (gameState?.current) return;
             const activeTab = document.querySelector('.tab-content:not(.hidden)');
             if (activeTab && activeTab.id === 'tab-gamecash') return;
@@ -2236,38 +2265,82 @@
                 return;
             }
 
-            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">CARREGANDO LANCE...</span>`;
+            _adLock = true;
 
-            const zonesAl5sm = ['10922287', '10902829', '10902828', '10828297'];
-            const useQug = Math.random() > 0.8;
-
-            let s = document.createElement('script');
-            s.setAttribute('data-ad-active', 'true');
-            if(useQug) {
-                s.src = 'https://quge5.com/88/tag.min.js';
-                s.dataset.zone = '226253';
-                s.dataset.cfasync = 'false';
-            } else {
-                s.src = 'https://al5sm.com/tag.min.js';
-                s.dataset.zone = zonesAl5sm[Math.floor(Math.random() * zonesAl5sm.length)];
+            function cleanupAd(keepBannerState) {
+                if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
+                if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
+                document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
+                document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
+                document.querySelectorAll('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(el => el.remove());
+                if (window.__adOrigOpen) {
+                    window.open = window.__adOrigOpen;
+                    window.__adOrigOpen = null;
+                }
+                if (!keepBannerState) {
+                    banner.innerHTML =
+                        `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>LANCE PREMIUM DISPONÍVEL</span>`;
+                    try { lucide.createIcons(); } catch(e) {}
+                }
+                _adLock = false;
             }
-            s.async = true;
 
-            s.onerror = () => {
-                banner.innerHTML = `<span style="color:#fbbf24;">⚠️ LANCE BLOQUEADO — Mas você será creditado mesmo assim!</span>`;
-            };
+            try {
+                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">CARREGANDO LANCE...</span>`;
 
-            document.body.appendChild(s);
-            banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">LANCE VEICULADO — AGUARDE...</span>`;
+                const zonesAl5sm = ['10922287', '10902829', '10902828', '10828297'];
+                const useQug = Math.random() > 0.8;
 
-            if (_adTimer) clearTimeout(_adTimer);
-            _adTimer = setTimeout(() => {
-                if(s.parentNode) s.remove();
-                banner.innerHTML =
-                    `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>LANCE PREMIUM DISPONÍVEL</span>`;
-                lucide.createIcons();
-                _adTimer = null;
-            }, keepDuration);
+                let s = document.createElement('script');
+                s.setAttribute('data-ad-active', 'true');
+                if(useQug) {
+                    s.src = 'https://quge5.com/88/tag.min.js';
+                    s.dataset.zone = '226253';
+                    s.dataset.cfasync = 'false';
+                } else {
+                    s.src = 'https://al5sm.com/tag.min.js';
+                    s.dataset.zone = zonesAl5sm[Math.floor(Math.random() * zonesAl5sm.length)];
+                }
+                s.async = true;
+
+                let cleanedUp = false;
+                function safeCleanup(keepBanner) {
+                    if (cleanedUp) return;
+                    cleanedUp = true;
+                    cleanupAd(keepBanner);
+                }
+
+                s.onerror = () => {
+                    safeCleanup(false);
+                    banner.innerHTML = `<span style="color:#fbbf24;">⚠️ LANCE BLOQUEADO — Mas você será creditado mesmo assim!</span>`;
+                };
+
+                _adLoadTimer = setTimeout(() => {
+                    if (!s.parentNode) return;
+                    safeCleanup(false);
+                    banner.innerHTML = `<span style="color:#fbbf24;">⚠️ LANCE INDISPONÍVEL — Mas você será creditado mesmo assim!</span>`;
+                }, 8000);
+
+                document.body.appendChild(s);
+                banner.innerHTML = `<span style="color:var(--primary);font-weight:700;">LANCE VEICULADO — AGUARDE...</span>`;
+
+                if (!window.__adOrigOpen) {
+                    window.__adOrigOpen = window.open;
+                    window.open = () => null;
+                }
+
+                if (_adTimer) clearTimeout(_adTimer);
+                _adTimer = setTimeout(() => {
+                    safeCleanup(true);
+                    banner.innerHTML =
+                        `<i data-lucide="monitor-play" style="width:1.5rem;height:1.5rem;color:var(--muted-fg);opacity:0.3;margin:0 auto 10px;display:block;"></i><span>LANCE PREMIUM DISPONÍVEL</span>`;
+                    try { lucide.createIcons(); } catch(e) {}
+                    _adTimer = null;
+                }, keepDuration);
+            } catch(e) {
+                cleanupAd(false);
+                banner.innerHTML = `<span style="color:#fbbf24;">⚠️ ERRO AO CARREGAR LANCE — Mas você será creditado mesmo assim!</span>`;
+            }
         };
 
         // ============ GAMECASH ============
@@ -2285,8 +2358,12 @@
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
             if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
-            // Bloqueia pop-ups
-            if (!window.__origOpen) window.__origOpen = window.open;
+            if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
+            _adLock = false;
+            // Bloqueia pop-ups (salva o original real, mesmo se ad tiver sobrescrito)
+            if (!window.__origOpen) {
+                window.__origOpen = window.__adOrigOpen || window.open;
+            }
             window.open = () => null;
             // Remove e bloqueia Service Workers do Monetag (push notifications)
             if (navigator.serviceWorker) {
@@ -2361,6 +2438,7 @@
             if (gameState._adObserver) { gameState._adObserver.disconnect(); gameState._adObserver = null; }
             // Restaura pop-ups
             if (window.__origOpen) { window.open = window.__origOpen; window.__origOpen = null; }
+            if (window.__adOrigOpen) { window.__adOrigOpen = null; }
             // Restaura Service Worker
             if (navigator.serviceWorker?.__origRegister) {
                 navigator.serviceWorker.register = navigator.serviceWorker.__origRegister;
@@ -2915,41 +2993,37 @@
         window.claimDailyBonus = async () => {
             if (!_user || CyberUtils.isProcessing) return;
             const weekday = new Date().getDay();
-            if (weekday >= 1 && weekday <= 5) {
-                return showToast("Bônus disponível apenas aos finais de semana (Sábado e Domingo).");
+            if (weekday === 0 || weekday === 6) {
+                return showToast("Bônus disponível apenas em dias úteis (segunda a sexta).");
             }
-            CyberUtils.isProcessing = true;
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (_user.last_daily_bonus_date === todayStr || _bonusClaimedToday) {
+                return showToast("Bônus já resgatado hoje.");
+            }
 
+            CyberUtils.isProcessing = true;
             const btn = document.getElementById('btn-bonus');
             const originalText = btn.innerText;
             btn.disabled = true;
             btn.innerText = "VALIDANDO...";
 
-            const targetUrl = `${CONFIG.apiBase}/user/claim-daily/${auth.currentUser.uid}`;
-            console.log("🚀 Tentando resgate em:", targetUrl);
-
             try {
-                const res = await apiFetch(`/user/claim-daily/${auth.currentUser.uid}`, {
-                    method: 'POST'
+                const userRef = ref(db, `users/${auth.currentUser.uid}`);
+                const newBalance = (_user.balance || 0) + 0.20;
+                await update(userRef, {
+                    balance: newBalance,
+                    last_daily_bonus_date: todayStr
                 });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    showToast("BÔNUS RESGATADO COM SUCESSO!");
-                    confetti({ particleCount: 50, spread: 30, origin: { y: 0.8 } });
-
-                    _bonusClaimedToday = true;
-                    updateUI();
-                    btn.innerText = "COLETADO";
-                    btn.style.opacity = "0.5";
-                } else {
-                    const err = await res.json();
-                    showToast(err.detail || "Falha ao resgatar bônus.");
-                    btn.disabled = false;
-                    btn.innerText = originalText;
-                }
+                showToast("BÔNUS RESGATADO COM SUCESSO!");
+                confetti({ particleCount: 50, spread: 30, origin: { y: 0.8 } });
+                _bonusClaimedToday = true;
+                _user.balance = newBalance;
+                _user.last_daily_bonus_date = todayStr;
+                updateUI();
+                btn.innerText = "COLETADO";
+                btn.style.opacity = "0.5";
             } catch (e) {
-                showToast("Erro de conexão com o Brasil Hexa.");
+                showToast("Erro ao resgatar bônus: " + e.message);
                 btn.disabled = false;
                 btn.innerText = originalText;
             } finally {
