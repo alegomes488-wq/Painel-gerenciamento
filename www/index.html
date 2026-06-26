@@ -1474,6 +1474,15 @@
                     username: _user.username || '',
                     videosWatched: _user.videosWatched || 0
                 }).catch(() => {});
+                // Se atingiu 50 lances, marca como completed e credita R$ 0,25
+                if ((_user.videosWatched || 0) >= 50 && !_user.referralCompleted) {
+                    update(ref(db, `users/${uid}`), {
+                        balance: (_user.balance || 0) + 0.25,
+                        referralCompleted: true
+                    }).then(() => {
+                        update(ref(db, `referrals/${myReferrer}/${uid}`), { completed: true });
+                    }).catch(err => console.warn('[Referral] Erro ao creditar bonus de indicado:', err));
+                }
             }
         }; // fim updateUI
 
@@ -1984,10 +1993,30 @@
                         fullname: d.fullname || 'Usuário',
                         username: d.username || '',
                         videosWatched: d.videosWatched || 0,
+                        completed: d.completed || false,
+                        credited: d.credited || false,
                         status: 'ativo'
                     });
                 });
                 renderReferrals(referrals);
+                // Credita o indicador para cada indicado que completou 50 lances
+                referrals.forEach(r => {
+                    if (r.completed && !r.credited && r.uid && _user) {
+                        const currentValid = _user.validReferrals || 0;
+                        const currentBonus = _user.referralBonus || 0;
+                        const currentBal = _user.balance || 0;
+                        const isBatch = (currentValid + 1) % 7 === 0;
+                        const extra = isBatch ? 1.50 : 0;
+                        update(ref(db, `users/${uid}`), {
+                            balance: currentBal + 0.20 + extra,
+                            validReferrals: currentValid + 1,
+                            referralBonus: currentBonus + 0.20 + extra
+                        }).then(() => {
+                            update(ref(db, `referrals/${uid}/${r.uid}`), { credited: true });
+                            if (typeof updateUI === 'function') updateUI();
+                        }).catch(err => console.warn('[Referral] Erro ao creditar indicacao:', err));
+                    }
+                });
             }, { onlyOnce: true });
         }
 
@@ -2018,7 +2047,7 @@
                 item.style.border = '1px solid rgba(255,255,255,0.05)';
 
                 const vids = r.videosWatched || 0;
-                const target = 25;
+                const target = 50;
                 const progress = Math.min(100, (vids / target) * 100);
                 const isActive = vids >= target;
 

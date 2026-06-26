@@ -47,12 +47,15 @@
 - Backend: `POST /payments/request/{uid}` em `main.py:2491`
 
 ### Indicações (Referral)
-- R$ 0,20 por indicado que atingir 25 anúncios
-- +R$ 1,00 a cada 5 indicados válidos
+- R$ 0,20 por indicado que atingir 50 anúncios
+- +R$ 1,50 a cada 7 indicados válidos
 - Slug único por usuário (válido 30 dias)
 - Cadastro cria entrada em `referrals/{referrerUid}/{uid}` via frontend Web SDK
 - `loadReferrals()` lê de `ref(db, 'referrals/' + uid)` (Firebase Web SDK, não API)
 - `updateUI()` sincroniza `videosWatched` para `referrals/{referredBy}/{uid}` a cada carregamento
+- Ao atingir 50 lances, `updateUI()` marca `completed: true` em `referrals/{referrerUid}/{uid}` e credita R$ 0,25 ao indicado
+- `loadReferrals()` detecta `completed: true` sem `credited`, credita R$ 0,20 ao indicador e marca `credited: true`
+- A cada 7 indicações válidas, credita +R$ 1,50 extra ao indicador (batch bonus)
 - `referrals` nó no Firebase: cada um lê só a própria lista, indicado/indicador podem escrever
 
 ### Bônus Diário

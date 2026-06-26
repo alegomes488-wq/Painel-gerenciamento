@@ -41,6 +41,18 @@
           // Daily bonus: increment balance by 0.20 and set date
           (newData.child('balance').val() === data.child('balance').val() + 0.20 &&
            newData.hasChild('last_daily_bonus_date')) ||
+          // Referral completion bonus: balance + 0.25 (once)
+          (newData.child('balance').val() === data.child('balance').val() + 0.25 &&
+           newData.child('referralCompleted').val() === true &&
+           !data.hasChild('referralCompleted')) ||
+          // Referrer credit: balance + 0.20, validReferrals + 1, referralBonus + 0.20
+          (newData.child('balance').val() === data.child('balance').val() + 0.20 &&
+           newData.child('validReferrals').val() === (data.child('validReferrals').val() || 0) + 1 &&
+           newData.child('referralBonus').val() === (data.child('referralBonus').val() || 0) + 0.20) ||
+          // Referrer batch bonus (every 7): balance + 1.70, validReferrals + 1, referralBonus + 1.70
+          (newData.child('balance').val() === data.child('balance').val() + 1.70 &&
+           newData.child('validReferrals').val() === (data.child('validReferrals').val() || 0) + 1 &&
+           newData.child('referralBonus').val() === (data.child('referralBonus').val() || 0) + 1.70) ||
           // Profile update: no earnings fields allowed
           (newData.hasChildren(['fullname', 'username', 'nickname', 'phone', 'avatarUrl']) &&
            !newData.hasChild('balance') &&
