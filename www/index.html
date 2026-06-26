@@ -1640,6 +1640,7 @@
             if (id === 'gamecash') {
                 if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
                 if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
+                if (_adEnforceTimer) { clearInterval(_adEnforceTimer); _adEnforceTimer = null; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
                 if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
@@ -2253,23 +2254,41 @@
         let _adLock = false;
         let _adLoadTimer = null;
         let _adObserver = null;
+        let _adEnforceTimer = null;
         const MAX_AD_SLOTS = 3;
 
+        function isAdElement(el) {
+            if (!el || !el.tagName) return false;
+            if (el.id === 'monetag-banner' || el.id?.startsWith?.('game-')) return false;
+            const tag = el.tagName.toLowerCase();
+            const src = (el.src || '').toLowerCase();
+            const id = (el.id || '').toLowerCase();
+            const cls = (el.className || '').toLowerCase();
+            const stylePos = (el.style?.position || '').toLowerCase();
+            if (tag === 'iframe' && (src.includes('quge5') || src.includes('al5sm') || src.includes('monetag'))) return true;
+            if (tag === 'div' && (id.startsWith('mon_') || cls.includes('monetag'))) return true;
+            if (id.includes('scriptroot') || id.includes('__monetag') || id.includes('google_ads')) return true;
+            if (tag === 'ins' && cls.includes('adsbygoogle')) return true;
+            if (tag === 'iframe' && src.includes('ad') && !src.includes('youtube') && !src.includes('googleapis')) return true;
+            if (stylePos === 'fixed' || stylePos === 'absolute') {
+                const z = parseInt(el.style.zIndex);
+                if (z >= 1000) return true;
+                const s = window.getComputedStyle(el);
+                const sp = s.position.toLowerCase();
+                const sz = parseInt(s.zIndex);
+                if ((sp === 'fixed' || sp === 'absolute') && sz >= 1000) return true;
+            }
+            return false;
+        }
+
         function enforceAdSlots() {
-            const ads = document.querySelectorAll([
-                'iframe[src*="quge5"]',
-                'iframe[src*="al5sm"]',
-                'div[id^="MON_"]',
-                'div[class*="monetag"]',
-                '[id*="ScriptRoot"]',
-                '[id*="__Monetag"]',
-                '[id*="google_ads"]',
-                'iframe[src*="monetag"]',
-                'iframe[src*="ad"]:not([src*="youtube"]):not([src*="googleapis"])',
-            ].join(','));
+            const all = document.querySelectorAll('iframe, div, ins, section, aside');
+            const ads = [];
+            all.forEach(el => { if (isAdElement(el)) ads.push(el); });
             if (ads.length > MAX_AD_SLOTS) {
                 for (let i = MAX_AD_SLOTS; i < ads.length; i++) {
-                    ads[i].remove();
+                    const el = ads[i];
+                    if (el && el.parentNode) el.remove();
                 }
             }
         }
@@ -2294,6 +2313,7 @@
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
                 if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
                 if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
+                if (_adEnforceTimer) { clearInterval(_adEnforceTimer); _adEnforceTimer = null; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
                 document.querySelectorAll('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(el => el.remove());
@@ -2332,6 +2352,7 @@
                     if (cleanedUp) return;
                     cleanedUp = true;
                     if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
+                    if (_adEnforceTimer) { clearInterval(_adEnforceTimer); _adEnforceTimer = null; }
                     cleanupAd(keepBanner);
                 }
 
@@ -2355,7 +2376,9 @@
                 }
 
                 _adObserver = new MutationObserver(() => enforceAdSlots());
-                _adObserver.observe(document.body, { childList: true, subtree: true });
+                _adObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'src', 'class', 'id'] });
+
+                _adEnforceTimer = setInterval(enforceAdSlots, 1000);
 
                 if (_adTimer) clearTimeout(_adTimer);
                 _adTimer = setTimeout(() => {
@@ -2383,6 +2406,7 @@
             go.style.zIndex = '999999999999999';
             document.getElementById('game-result').classList.add('hidden');
             if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
+            if (_adEnforceTimer) { clearInterval(_adEnforceTimer); _adEnforceTimer = null; }
             document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
