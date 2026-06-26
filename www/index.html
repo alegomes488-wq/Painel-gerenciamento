@@ -1639,6 +1639,7 @@
             const banner = document.getElementById('monetag-banner');
             if (id === 'gamecash') {
                 if (banner) { banner.style.display = 'none'; banner.innerHTML = ''; }
+                if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
                 if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
@@ -2251,6 +2252,28 @@
         let _adTimer = null;
         let _adLock = false;
         let _adLoadTimer = null;
+        let _adObserver = null;
+        const MAX_AD_SLOTS = 3;
+
+        function enforceAdSlots() {
+            const ads = document.querySelectorAll([
+                'iframe[src*="quge5"]',
+                'iframe[src*="al5sm"]',
+                'div[id^="MON_"]',
+                'div[class*="monetag"]',
+                '[id*="ScriptRoot"]',
+                '[id*="__Monetag"]',
+                '[id*="google_ads"]',
+                'iframe[src*="monetag"]',
+                'iframe[src*="ad"]:not([src*="youtube"]):not([src*="googleapis"])',
+            ].join(','));
+            if (ads.length > MAX_AD_SLOTS) {
+                for (let i = MAX_AD_SLOTS; i < ads.length; i++) {
+                    ads[i].remove();
+                }
+            }
+        }
+
         window.triggerStrategicAd = (keepDuration = 30000) => {
             if (_adLock) return;
             const banner = document.getElementById('monetag-banner');
@@ -2270,6 +2293,7 @@
             function cleanupAd(keepBannerState) {
                 if (_adTimer) { clearTimeout(_adTimer); _adTimer = null; }
                 if (_adLoadTimer) { clearTimeout(_adLoadTimer); _adLoadTimer = null; }
+                if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
                 document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
                 document.querySelectorAll('iframe[src*="quge5"], iframe[src*="al5sm"], div[id^="MON_"], div[class*="monetag"]').forEach(el => el.remove());
                 document.querySelectorAll('[id*="ScriptRoot"],[id*="__Monetag"],[id*="google_ads"]').forEach(el => el.remove());
@@ -2307,6 +2331,7 @@
                 function safeCleanup(keepBanner) {
                     if (cleanedUp) return;
                     cleanedUp = true;
+                    if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
                     cleanupAd(keepBanner);
                 }
 
@@ -2328,6 +2353,9 @@
                     window.__adOrigOpen = window.open;
                     window.open = () => null;
                 }
+
+                _adObserver = new MutationObserver(() => enforceAdSlots());
+                _adObserver.observe(document.body, { childList: true, subtree: true });
 
                 if (_adTimer) clearTimeout(_adTimer);
                 _adTimer = setTimeout(() => {
@@ -2354,6 +2382,7 @@
             go.parentElement.appendChild(go);
             go.style.zIndex = '999999999999999';
             document.getElementById('game-result').classList.add('hidden');
+            if (_adObserver) { _adObserver.disconnect(); _adObserver = null; }
             document.querySelectorAll('script[data-ad-active="true"]').forEach(s => s.remove());
             const banner = document.getElementById('monetag-banner');
             if(banner) { banner.style.display = 'none'; banner.innerHTML = ''; }

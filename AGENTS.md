@@ -86,6 +86,9 @@
 - `onerror` detecta adblock e mostra fallback
 - **Não carrega anúncios** durante jogos (verifica `gameState.current`)
 - Scripts e timer limpos ao abrir um jogo
+- **Ad Slot Controller**: `enforceAdSlots()` limita a no máximo 3 elementos de anúncio (`MAX_AD_SLOTS = 3`)
+- `_adObserver` (MutationObserver) monitora injeções e remove excessos em tempo real
+- Obs: as redes de anúncio podem injetar múltiplos iframes/divs — o slot controller garante que no máximo 3 fiquem visíveis
 
 ## Endpoints da API
 - `GET /video/start/{uid}`
