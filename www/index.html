@@ -1425,10 +1425,10 @@
             }
 
             const vids = _user.videosWatched || 0;
-            const goals = [500, 2000, 5000, 10000, 25000];
-            const amounts = [0.25, 0.50, 1.00, 2.00, 3.50];
+            const goals = [200, 800, 1000, 2000, 10000];
+            const amounts = [0.50, 3.00, 5.00, 10.00, 50.00];
             const claimed = _user.milestones || {};
-            let nextGoal = goals.find(g => !claimed[String(g)]) || 15000;
+            let nextGoal = goals.find(g => !claimed[String(g)]) || 20000;
             let nextAmount = amounts[goals.indexOf(nextGoal)];
             document.getElementById('goal-txt').innerText = `${vids}/${nextGoal} (R$ ${nextAmount.toFixed(2)})`;
 

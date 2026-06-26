@@ -16,14 +16,14 @@
 ### Metas de Anúncios (Milestones)
 - Nenhum crédito por vídeo individual
 - Recompensa apenas ao bater milestones:
-  - 500 ads → R$ 0,25
-  - 2.000 ads → R$ 0,50
-  - 5.000 ads → R$ 1,00
-  - 10.000 ads → R$ 2,00
-  - 25.000 ads → R$ 3,50
+  - 200 ads → R$ 0,50
+  - 800 ads → R$ 3,00
+  - 1.000 ads → R$ 5,00
+  - 2.000 ads → R$ 10,00
+  - 10.000 ads → R$ 50,00
 - Backend: `POST /video/complete/{uid}` em `main.py:2399`
 - Frontend: `updateUI()` em `index.html:1310` — tabela em `goals-table-body`
-- Campo `milestones: {"500": true, ...}` no Firebase, marcado só quando creditado
+- Campo `milestones: {"200": true, ...}` no Firebase, marcado só quando creditado
 - `triggerStrategicAd()` injeta scripts das redes quge5.com / al5sm.com
 
 ### Fluxo de Processamento

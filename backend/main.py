@@ -2754,8 +2754,8 @@ async def video_complete(uid: str, request: Request):
             current_balance = float(current_data.get('balance', 0))
 
             # Verifica milestones
-            milestones_list = [500, 2000, 5000, 10000, 25000]
-            rewards_list = [0.25, 0.50, 1.00, 2.00, 3.50]
+            milestones_list = [200, 800, 1000, 2000, 10000]
+            rewards_list = [0.50, 3.00, 5.00, 10.00, 50.00]
             claimed = dict(current_data.get('milestones', {}))
             reward_total = 0
 
