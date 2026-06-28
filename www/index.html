@@ -3487,7 +3487,32 @@
                 }
             }
 
-            // 2b. Filtro Canarinho (Dúvidas Rápidas)
+            // 2b. Aliases para pegadinhas do dia a dia
+            if (!quickAnswer) {
+                const CANARINHO_ALIASES = {
+                    'convidar': 'convites', 'convidar amigo': 'convites', 'convocar': 'convites',
+                    'convidar amigos': 'convites', 'indicar': 'indicacao', 'indicar amigo': 'indicacao',
+                    'convidar novo': 'convites', 'convidar novos': 'convites', 'divulgar': 'convites',
+                    'convid': 'convites', 'convide': 'convites', 'convida': 'convites',
+                    'link de convite': 'convites', 'link de indica': 'convites',
+                    'sacar': 'sacar', 'resgatar': 'sacar', 'saque': 'sacar', 'retirar': 'sacar',
+                    'game cash': 'gamecash', 'jogo da memoria': 'jogo da memoria',
+                    'bonus': 'bonus diario', 'bónus': 'bônus diário',
+                    'meta': 'metas', 'milestone': 'metas', 'lances': 'metas de lances',
+                    'como funciona': 'como funciona', 'tour': 'tour', 'historico': 'historico',
+                };
+                for (let phrase in CANARINHO_ALIASES) {
+                    if (lowText.includes(phrase)) {
+                        const targetKey = CANARINHO_ALIASES[phrase];
+                        if (CANARINHO_KNOWLEDGE[targetKey]) {
+                            quickAnswer = CANARINHO_KNOWLEDGE[targetKey];
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 2c. Filtro Canarinho (Dúvidas Rápidas)
             if (!quickAnswer && typeof CANARINHO_KNOWLEDGE !== 'undefined') {
                 for (let key in CANARINHO_KNOWLEDGE) {
                     if (lowText.includes(key)) {
@@ -3531,7 +3556,7 @@
                 });
 
                 const data = await response.json();
-                let responseText = data.answer || "O VAR está analisando outras jogadas. Tente em instantes.";
+                let responseText = data.answer || "Não entendi direito, parceiro! 😅 Tenta perguntar de outro jeito — posso ajudar com **saques**, **indicações**, **jogos**, **bônus** e **metas**. É só falar! 🏆";
                 
                 // --- INTERPRETADOR DE COMANDOS CANARINHO ---
                 if (responseText.includes('[COMMAND:')) {
