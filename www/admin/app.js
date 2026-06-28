@@ -165,24 +165,32 @@ if (hubDb) {
         rtState.users = snap.val() || {};
         renderGlobalStats();
         renderUsersTable();
+        // Chamamos a renderização de saques caso o histórico já exista
         renderWithdrawalsTable();
     });
 
-    // Histórico de Saques
-    hubDb.ref('withdrawals').on('value', snap => {
-        rtState.history = snap.val() || {};
+    // Saques Pendentes (Otimizado para Admin)
+    hubDb.ref('admin/pending_withdrawals').on('value', snap => {
+        rtState.pending_withdrawals = snap.val() || {};
+
+        // Também mantemos o histórico sincronizado para saques já pagos/recusados
+        // se você quiser ver o histórico completo, mas o foco aqui é a fila de aprovação
         renderWithdrawalsTable();
 
-        let pendingCount = 0;
-        Object.values(rtState.history).forEach(uW => {
-            Object.values(uW).forEach(w => { if (w.status === 'pending') pendingCount++; });
-        });
+        let pendingCount = Object.keys(rtState.pending_withdrawals).length;
 
         if (pendingCount > lastWithdrawCount) {
             startTabFlash();
             if (window.audioAlert) window.audioAlert.play().catch(() => {});
+            showToast(`🚨 ${pendingCount} saque(s) aguardando aprovação!`, 'info');
         }
         lastWithdrawCount = pendingCount;
+    });
+
+    // Histórico Geral de Saques (opcional, para visualização de logs antigos)
+    hubDb.ref('withdrawals').on('value', snap => {
+        rtState.history = snap.val() || {};
+        renderWithdrawalsTable();
     });
 
     // Configurações Globais
@@ -779,15 +787,29 @@ function renderWithdrawalsTable() {
     let html = '';
     let totalValue = 0;
 
-    // Converte para array e ordena por timestamp (mais recentes primeiro)
     const allWithdrawals = [];
-    Object.entries(rtState.history || {}).forEach(([uid, userWs]) => {
-        if (typeof userWs !== 'object') return;
-        Object.entries(userWs).forEach(([wid, w]) => {
-            allWithdrawals.push({ ...w, uid, wid });
-        });
-    });
 
+    // 1. Prioriza saques pendentes do nó de administração (Garante que apareçam na hora)
+    if (rtState.pending_withdrawals) {
+        Object.entries(rtState.pending_withdrawals).forEach(([wid, w]) => {
+            allWithdrawals.push({ ...w, wid, isPendingSource: true });
+        });
+    }
+
+    // 2. Complementa com o histórico (para ver saques pagos/recusados)
+    if (rtState.history) {
+        Object.entries(rtState.history).forEach(([uid, userWs]) => {
+            if (typeof userWs !== 'object') return;
+            Object.entries(userWs).forEach(([wid, w]) => {
+                // Evita duplicar o que já pegamos do pending_withdrawals
+                if (!allWithdrawals.find(x => x.wid === wid)) {
+                    allWithdrawals.push({ ...w, uid, wid });
+                }
+            });
+        });
+    }
+
+    // Ordena por timestamp (mais recentes primeiro)
     allWithdrawals.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     allWithdrawals.forEach(w => {
@@ -796,27 +818,27 @@ function renderWithdrawalsTable() {
         const amount = parseFloat(w.amount || 0);
         totalValue += amount;
 
-        // Tenta pegar o nome do objeto do saque ou do cache de usuários
-        const userName = w.fullname || (rtState.users[w.uid] ? rtState.users[w.uid].fullname : 'Usuário Desconhecido');
+        const userName = w.fullname || (rtState.users[w.uid] ? rtState.users[w.uid].fullname : 'Usuário');
+        const statusClass = w.status === 'pending' ? 'status-pending' : (w.status === 'paid' ? 'status-paid' : 'status-rejected');
 
         html += `
             <tr class="fade-in">
                 <td>
                     <div style="display:flex; flex-direction:column">
-                        <span style="font-weight:800; color:var(--text-primary)">${escapeHtml(userName)}</span>
-                        <small style="font-size:9px; opacity:0.5; color:var(--primary)">ID: ${w.uid.substring(0,8)}...</small>
+                        <span style="font-weight:800; color:white">${escapeHtml(userName)}</span>
+                        <small style="font-size:9px; color:var(--cyan)">${w.wid}</small>
                     </div>
                 </td>
-                <td class="font-mono" style="font-size:12px; color:var(--text-secondary)">${escapeHtml(w.pixKey || '-')}</td>
-                <td style="font-weight:800; color:var(--primary)">R$ ${amount.toFixed(2)}</td>
-                <td><span class="badge status-${w.status}" style="font-size:9px;">${w.status.toUpperCase()}</span></td>
+                <td class="font-mono" style="font-size:11px; opacity:0.8">${escapeHtml(w.pixKey || '-')}</td>
+                <td style="font-weight:800; color:var(--gold)">R$ ${amount.toFixed(2)}</td>
+                <td><span class="badge ${statusClass}" style="font-size:9px;">${w.status.toUpperCase()}</span></td>
                 <td>
                     <div style="display:flex; gap:8px;">
                         ${w.status === 'pending' ? `
-                            <button class="btn-table-action" style="background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="approveWithdrawal('${w.uid}', '${w.wid}')">PAGAR</button>
-                            <button class="btn-table-action" style="background:rgba(239, 68, 68, 0.1); color:#ef4444; border:1px solid #ef4444; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="rejectWithdrawal('${w.uid}', '${w.wid}')">RECUSAR</button>
+                            <button class="btn-table-action" style="background:#10b981; color:white; border:none;" onclick="approveWithdrawal('${w.uid}', '${w.wid}')">PAGAR</button>
+                            <button class="btn-table-action" style="border-color:#ef4444; color:#ef4444;" onclick="rejectWithdrawal('${w.uid}', '${w.wid}')">RECUSAR</button>
                         ` : `
-                            <small style="opacity:0.4; font-size:10px;">Finalizado em ${w.processed_at ? new Date(w.processed_at).toLocaleDateString() : 'N/A'}</small>
+                            <small style="opacity:0.4; font-size:10px;">CONCLUÍDO</small>
                         `}
                     </div>
                 </td>
@@ -824,12 +846,10 @@ function renderWithdrawalsTable() {
         `;
     });
 
-    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:40px; opacity:0.3;">Nenhuma solicitação encontrada nesta categoria.</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; padding:40px; opacity:0.3;">Nenhuma solicitação encontrada.</td></tr>';
 
     const displayTotal = document.getElementById('total-pendente-display');
-    if (displayTotal) {
-        displayTotal.innerHTML = `R$ ${totalValue.toFixed(2)}`;
-    }
+    if (displayTotal) displayTotal.innerText = `R$ ${totalValue.toFixed(2)}`;
 }
 
 // ============ AGENTES & TERMINAL PREMIUM ============
@@ -2076,16 +2096,23 @@ function confirmarTransferencia() {
     closePixModal();
     showToast('🚀 Iniciando VAR e liquidação...', 'info');
 
-    fetch(url, { method: 'POST' })
+    auth.currentUser.getIdToken().then(token => {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
         .then(r => r.json())
         .then(data => {
             if (data.status === 'success') {
                 showToast('✅ Liquidação confirmada via Asaas!', 'success');
             } else {
-                showToast(`❌ Falha: ${data.msg}`, 'error');
+                showToast(`❌ Falha: ${data.message || data.msg}`, 'error');
             }
         })
         .catch(() => showToast('Erro de conexão com o Núcleo.', 'error'));
+    });
 }
 
 function rejectWithdrawal(uid, wid) {
@@ -2311,12 +2338,19 @@ function resetReservaPrompt() {
 
 function approveAllWithdrawals() {
     if (!confirm("Aprovar TODOS os saques pendentes?")) return;
-    fetch(`${BRASILHEXA_BACKEND_URL}/process-all-payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-    }).then(r => r.json()).then(d => {
-        showToast(d.message || "Saques processados!", "success");
-    }).catch(() => showToast("Falha ao processar saques.", "error"));
+    const url = `${BRASILHEXA_BACKEND_URL}/process-all-payments`;
+
+    auth.currentUser.getIdToken().then(token => {
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        }).then(r => r.json()).then(d => {
+            showToast(d.message || "Saques processados!", "success");
+        }).catch(() => showToast("Falha ao processar saques.", "error"));
+    });
 }
 
 // ============ INTELIGÊNCIA DE PROJETO ============

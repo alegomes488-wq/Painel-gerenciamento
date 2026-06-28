@@ -1,2819 +1,385 @@
 import os
 import sys
 import json
-import asyncio
-import requests
 import secrets
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 import time
 
 import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials, db, messaging
-from fastapi import FastAPI, Body, HTTPException, Query, Request, Depends
+from firebase_admin import auth as firebase_auth, credentials, db
+from fastapi import FastAPI, Body, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from collections import deque
-from typing import Optional
+import uvicorn
+import httpx
 
 BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
-
-# Adiciona a raiz do projeto ao sys.path para permitir imports relativos e pacotes
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
 WWW_DIR = os.path.join(PROJECT_ROOT, "www")
-ADMIN_DIR = os.path.join(WWW_DIR, "admin")
 
-# ─── SEGURANÇA: Autenticação Firebase + Rate Limiting ───
-
-# Cache de tokens verificados (evita chamadas repetidas ao Firebase)
-_token_cache = {}
-
-async def verify_firebase_token(request: Request) -> str:
-    """Verifica token Firebase do header Authorization: Bearer <token>.
-    Retorna o UID do usuário autenticado ou levanta 401."""
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token de autenticação não fornecido")
-    token = auth_header.split(" ", 1)[1]
-    # Cache rápido (5s) para evitar verificar o mesmo token múltiplas vezes
-    cached = _token_cache.get(token)
-    if cached and (datetime.now() - cached["at"]).total_seconds() < 5:
-        return cached["uid"]
-    try:
-        decoded = firebase_auth.verify_id_token(token, check_revoked=True)
-        uid = decoded.get("uid", "")
-        _token_cache[token] = {"uid": uid, "at": datetime.now()}
-        return uid
-    except firebase_auth.ExpiredIdTokenError:
-        raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
-    except firebase_auth.RevokedIdTokenError:
-        raise HTTPException(status_code=401, detail="Token revogado. Faça login novamente.")
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Token inválido: {str(e)}")
-
-async def verify_uid_match(uid: str, token_uid: str = Depends(verify_firebase_token)) -> str:
-    """Verifica se o UID da rota corresponde ao UID do token (impede IDOR)."""
-    if uid != token_uid:
-        raise HTTPException(status_code=403, detail="Acesso negado: você não pode acessar dados de outro usuário")
-    return uid
-
-ADMIN_EMAIL = "alegomes488@gmail.com"
-
-async def verify_admin(token_uid: str = Depends(verify_firebase_token)) -> str:
-    """Verifica se o usuário autenticado é o admin."""
-    try:
-        user = db.reference(f'users/{token_uid}').get()
-        user_email = (user or {}).get('email', '')
-        if user_email != ADMIN_EMAIL:
-            raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
-        return token_uid
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=403, detail=f"Falha na verificação de admin: {str(e)}")
-
-# Rate Limiting simples (em memória)
-_rate_limit_store = {}
-
-def check_rate_limit(key: str, max_calls: int = 10, window_seconds: int = 60):
-    """Permite no máximo max_calls chamadas por window_seconds para uma chave."""
-    now = datetime.now()
-    entry = _rate_limit_store.get(key)
-    if not entry or (now - entry["window_start"]).total_seconds() > window_seconds:
-        _rate_limit_store[key] = {"count": 1, "window_start": now}
-        return
-    entry["count"] += 1
-    if entry["count"] > max_calls:
-        raise HTTPException(status_code=429, detail=f"Muitas requisições. Limite de {max_calls} por {window_seconds}s.")
-
-# Lista de rotas públicas (não exigem autenticação)
-PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api/nexus/report", "/api/metrics", "/api/n8n/url", "/n8n/"}
-
-def is_public_route(path: str) -> bool:
-    if path in PUBLIC_ROUTES:
-        return True
-    if path.startswith("/api/referral/resolve/"):
-        return True
-    if path.startswith("/api/monitor/heartbeat/"):
-        return True
-    if path.startswith("/n8n/"):
-        return True
-    return False
-
-# --- CONFIGURAÇÃO DE AMBIENTE ---
 os.environ['PYTHONIOENCODING'] = 'utf-8'
-if sys.stdout:
-    sys.stdout.reconfigure(encoding='utf-8')
-if sys.stderr:
-    sys.stderr.reconfigure(encoding='utf-8')
+if sys.stdout: sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr: sys.stderr.reconfigure(encoding='utf-8')
 
-# --- CONFIGURA O FIREBASE ---
-backend_dir = os.path.dirname(__file__)
+# ─── Firebase Admin SDK ───
 cred_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
-
 if cred_json:
     cred_dict = json.loads(cred_json)
     cred = credentials.Certificate(cred_dict)
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
-    print("Firebase iniciado via Variável de Ambiente")
+    print("Firebase iniciado via variável de ambiente")
 else:
-    cred_filename = "serviceAccountKey.json"
-    cred_path = os.path.join(backend_dir, cred_filename)
-    if not os.path.exists(cred_path):
-        cred_filename = "firebase-adminsdk.json"
-        cred_path = os.path.join(backend_dir, cred_filename)
-
-    if os.path.exists(cred_path):
-        cred = credentials.Certificate(cred_path)
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
-        print(f"Firebase iniciado com {cred_filename}")
-    else:
-        # Fallback para desenvolvimento local (arquivo .bak)
-        bak_path = os.path.join(backend_dir, "firebase-adminsdk.json.bak")
-        if os.path.exists(bak_path):
-            with open(bak_path) as f:
-                cred_dict = json.load(f)
-            cred = credentials.Certificate(cred_dict)
+    for fname in ("serviceAccountKey.json", "firebase-adminsdk.json"):
+        fpath = os.path.join(BACKEND_DIR, fname)
+        if os.path.exists(fpath):
+            cred = credentials.Certificate(fpath)
             if not firebase_admin._apps:
                 firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
-            print("Firebase iniciado via firebase-adminsdk.json.bak (dev)")
+            print(f"Firebase iniciado com {fname}")
+            break
+    else:
+        bak = os.path.join(BACKEND_DIR, "firebase-adminsdk.json.bak")
+        if os.path.exists(bak):
+            with open(bak) as f:
+                cred = credentials.Certificate(json.load(f))
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
+            print("Firebase iniciado via .bak (dev)")
         else:
-            print("ERRO: Credenciais Firebase não encontradas!")
+            print("AVISO: Nenhuma credencial Firebase encontrada. Endpoints que usam banco falharão.")
 
-# --- CONSTANTES BRASIL HEXA ---
-HUB_MODE = os.environ.get("HUB_MODE", "USER")
-MEMORY_BASE = "brasilhexa/memory"
-COMMAND_BUS = "brasilhexa/commands"
-AGENT_STATUS = "brasilhexa/agents"
-ALERT_LEVEL = "brasilhexa/alert_level"
+ADMIN_EMAIL = "alegomes488@gmail.com"
+_token_cache = {}
 
-# --- MEMÓRIA INTELIGENTE (FIREBASE) ---
-MEMORY_CONTEXT = "brasilhexa_memory"
-CONTEXT_MAX = 50
-
-def memory_load(uid: str):
-    try:
-        data = db.reference(f'{MEMORY_CONTEXT}/{uid}/context').get() or []
-        return deque(data, maxlen=CONTEXT_MAX)
-    except:
-        return deque(maxlen=CONTEXT_MAX)
-
-def memory_save(uid: str, context: deque):
-    try:
-        db.reference(f'{MEMORY_CONTEXT}/{uid}/context').set(list(context))
-        db.reference(f'{MEMORY_CONTEXT}/{uid}/last_updated').set(datetime.now().isoformat())
-    except Exception as e:
-        print(f"[MEMORIA] Erro ao salvar: {e}")
-
-def memory_summarize(uid: str, full_context: deque):
-    try:
-        texto = "\n".join([f"{m['role']}: {m['content']}" for m in full_context])
-        summary_ref = db.reference(f'{MEMORY_CONTEXT}/{uid}/summary')
-        existing = summary_ref.get() or []
-        session = {"timestamp": datetime.now().isoformat(), "messages": len(full_context), "preview": texto[:200]}
-        existing.append(session)
-        if len(existing) > 20: existing = existing[-20:]
-        summary_ref.set(existing)
-    except Exception as e:
-        print(f"[MEMORIA] Erro ao sumarizar: {e}")
-
-def memory_recall(uid: str, query: str = ""):
-    try:
-        summaries = db.reference(f'{MEMORY_CONTEXT}/{uid}/summary').get() or []
-        if not query: return summaries[-5:] if summaries else []
-        return [s for s in summaries if query.lower() in s.get("preview", "").lower()][-5:]
-    except:
-        return []
-
-# --- CONFIGURAÇÃO DE PROVEDORES IA ---
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-OLLAMA_URL = "http://localhost:11434/api/generate"
-
-# Mapeamento de Especialistas Brasil Hexa
-AGENT_MODELS = {
-    "ORCHESTRATOR": {"provider": "google", "model": "gemini-2.0-pro-exp"},
-    "BUILDER":      {"provider": "groq",   "model": "deepseek-v3"},
-    "DESIGNER":     {"provider": "google", "model": "gemini-2.0-flash"},
-    "FULLSTACK":    {"provider": "groq",   "model": "deepseek-v3"},
-    "PYTHON":       {"provider": "groq",   "model": "deepseek-v3"},
-    "JAVA":         {"provider": "google", "model": "gemini-2.0-flash"},
-    "SOFTWARE":     {"provider": "google", "model": "gemini-2.0-flash"},
-    "AUDITOR":      {"provider": "groq",   "model": "deepseek-v3"},
-    "SECURITY":     {"provider": "groq",   "model": "deepseek-v3"}
-}
-
-async def ask_ai_specialized(agent: str, prompt: str, uid="admin_master"):
-    # --- ORCHESTRATOR 2.5: PIPELINE & DELEGATION ---
-    if agent == "ORCHESTRATOR":
-        pipeline_prompt = f"""Analise a solicitação: "{prompt}"
-Determine a sequência de especialistas Brasil Hexa necessários para resolver isso 100%.
-Responda APENAS uma lista separada por vírgula em ordem de execução.
-Opções: BUILDER, PYTHON, JAVA, FULLSTACK, DESIGNER, SECURITY, AUDITOR, SOFTWARE.
-
-Exemplo de resposta: DESIGNER, BUILDER, SECURITY"""
-
-        plan_raw = await ask_ai(pipeline_prompt, uid="system_router")
-        if plan_raw:
-            agents_sequence = [a.strip().upper() for a in plan_raw.split(",") if a.strip().upper() in AGENT_MODELS]
-            if agents_sequence:
-                print(f"[ORCHESTRATOR] Plano de Ação: {' -> '.join(agents_sequence)}")
-                final_output = f"🔮 **Plano Brasil Hexa Ativado:** {' → '.join(agents_sequence)}\n\n"
-
-                current_context = prompt
-                for i, step_agent in enumerate(agents_sequence):
-                    print(f"[PIPELINE] Executando Passo {i+1}: {step_agent}")
-
-                    # Para o primeiro agente, usamos o prompt original.
-                    # Para os seguintes, passamos o resultado anterior como contexto.
-                    if i == 0:
-                        step_prompt = prompt
-                    else:
-                        step_prompt = f"Com base no progresso anterior:\n{step_result}\n\nContinue a tarefa: {prompt}"
-
-                    step_result = await execute_single_agent(step_agent, step_prompt, uid)
-                    final_output += f"### Passo {i+1}: {step_agent}\n{step_result}\n\n---\n\n"
-
-                return final_output
-
-    return await execute_single_agent(agent, prompt, uid)
-
-async def execute_single_agent(agent: str, prompt: str, uid: str):
-    config = AGENT_MODELS.get(agent, AGENT_MODELS["ORCHESTRATOR"])
-    provider = config.get("provider", "google")
-    model_name = config.get("model", "gemini-2.0-pro-exp")
-
-    try:
-        if provider == "groq" and GROQ_AVAILABLE:
-            system_msg = f"Você é o especialista {agent} do Brasil Hexa IA. Use o modelo {model_name} para fornecer soluções técnicas de elite."
-            return groq_generate(f"{system_msg}\n\nUsuário: {prompt}") or "Falha no Groq"
-
-        elif provider == "google":
-            system_msg = f"Você é o especialista {agent} do Brasil Hexa IA. Responda de forma técnica e precisa."
-            gemini_result = gemini_generate(f"{system_msg}\n\nUsuário: {prompt}", model=model_name)
-            if not gemini_result.startswith("Erro Gemini"):
-                return gemini_result
-            return await ask_ai(f"Atuando como {agent}: {prompt}", uid)
-
-        elif provider == "ollama":
-            try:
-                resp = requests.post(OLLAMA_URL, json={"model": model_name, "prompt": prompt, "stream": False}, timeout=60)
-                if resp.status_code == 200:
-                    return resp.json().get("response", "Erro na resposta Ollama")
-            except:
-                return "Ollama Local Offline. Tente iniciar o serviço."
-
-        return await ask_ai(prompt, uid)
-    except Exception as e:
-        return f"Erro no Agente {agent}: {str(e)}"
-
-# --- UTILITÁRIOS ---
-
-def get_dollar_rate():
-    try:
-        resp = requests.get("https://economia.awesomeapi.com.br/last/USD-BRL", timeout=5)
-        return float(resp.json()['USDBRL']['bid'])
-    except: return 5.25
-
-def tool_analyze_health():
-    try:
-        users = db.reference('users').get() or {}
-        config = db.reference('config').get() or {}
-        total_debt = sum([float(u.get('balance', 0)) for u in users.values() if isinstance(u, dict)])
-        hits = config.get('stats', {}).get('hits', 0)
-        cpm = config.get('cpm', 0.18)
-        dollar = get_dollar_rate()
-        revenue_brl = (hits / 1000) * cpm * dollar
-        status = "SAUDÁVEL" if revenue_brl > (total_debt * 1.5) else "CRÍTICO"
-        return {
-            "revenue_brl": round(revenue_brl, 2),
-            "total_debt": round(total_debt, 2),
-            "net_profit_brl": round(revenue_brl - total_debt, 2),
-            "roi_status": status,
-            "health_status": status,
-            "dollar_rate": dollar
-        }
-    except: return {"revenue_brl": 0, "total_debt": 0, "health_status": "ERRO"}
-
-def tool_sync_monetag():
-    health = tool_analyze_health()
-    data = {
-        "usd": health['revenue_brl'] / (health.get('dollar_rate') or 5.25),
-        "brl": health['revenue_brl'],
-        "rate": health.get('dollar_rate') or 5.25,
-        "last_update": datetime.now().strftime('%H:%M:%S')
-    }
-    db.reference('stats/financial_realtime').set(data)
-    return f"Sincronizado: R$ {health['revenue_brl']}"
-
-def tool_send_push(target, message):
-    try:
-        if target == 'global':
-            msg = messaging.Message(notification=messaging.Notification(title='Brasil Hexa IA', body=message), topic='all_users')
-        else:
-            user = db.reference(f'users/{target}').get()
-            if not user or 'fcmToken' not in user: return "Sem token"
-            msg = messaging.Message(notification=messaging.Notification(title='Brasil Hexa IA', body=message), token=user['fcmToken'])
-        messaging.send(msg)
-        return "Push enviado"
-    except Exception as e: return str(e)
-
-def tool_execute_ban(uid, reason):
-    db.reference(f'users/{uid}').update({"status": "banido", "risk_score": 100, "ban_reason": reason})
-    tool_send_push(uid, "Sua conta foi suspensa por violação de segurança.")
-    return f"Usuário {uid} banido."
-
-def tool_execute_unban(uid, reason):
-    db.reference(f'users/{uid}').update({"status": "ativo", "risk_score": 0, "unban_reason": reason})
-    tool_send_push(uid, "Sua conta foi reabilitada após análise.")
-    return f"Usuário {uid} desbanido."
-
-async def auto_approve_withdrawals(force=False):
-    try:
-        nodes = db.reference('neural/nodes').get() or {}
-        global_config = db.reference('config').get() or {}
-        global_asaas_key = global_config.get('asaasKey') or global_config.get('asaas_key') or os.environ.get('ASAAS_API_KEY', '')
-
-        users = db.reference('users').get() or {}
-        total_debt = sum([float(u.get('balance', 0)) for u in users.values() if isinstance(u, dict)])
-        hits = global_config.get('stats', {}).get('hits', 0)
-        cpm = global_config.get('cpm', 0.18)
-        dollar = get_dollar_rate()
-        revenue = (hits / 1000) * cpm * dollar
-        roi = ((revenue - total_debt) / revenue * 100) if revenue > 0 else 0
-
-        # No modo force (via terminal), ignoramos o ROI mínimo
-        if not force and roi < 30: return f"ROI {roi:.1f}% baixo do limiar (30%)"
-
-        approved = 0
-        all_withdrawals = db.reference('withdrawals').get() or {}
-
-        for uid, ws in all_withdrawals.items():
-            for wid, w in ws.items():
-                if w.get('status') == 'pending':
-                    # Determina qual chave usar (Projeto ou Global)
-                    pid = w.get('projectId')
-                    node = nodes.get(pid) if pid else None
-                    api_key = (node.get('asaas_key') if node else None) or global_asaas_key
-
-                    if not api_key:
-                        print(f"Pulo saque {wid}: Nenhuma chave Asaas configurada.")
-                        continue
-
-                    amount = float(w.get('amount', 0))
-                    # Limite de segurança para auto-payout
-                    if not force and amount > 5.0: continue
-
-                    pix_key = w.get('pixKey', '')
-
-                    def detect_pix(t):
-                        t = str(t).strip()
-                        clean = "".join(filter(str.isdigit, t))
-                        if '@' in t: return 'EMAIL'
-                        if t.startswith('+') or (len(clean) >= 10 and len(clean) <= 11 and (t.startswith('(') or t.startswith('0'))): return 'PHONE'
-                        if len(clean) == 11: return 'CPF'
-                        if len(clean) == 14: return 'CNPJ'
-                        return 'EVP'
-
-                    # Prioriza o tipo salvo no banco, se não existir, tenta detectar
-                    type_detected = w.get('pixType')
-                    if not type_detected:
-                        def detect_pix(t):
-                            t = str(t).strip()
-                            clean = "".join(filter(str.isdigit, t))
-                            if '@' in t: return 'EMAIL'
-                            if len(clean) == 11 and (t.startswith('85') or t.startswith('085') or not t.startswith('0')): return 'PHONE'
-                            if len(clean) == 11: return 'CPF'
-                            if len(clean) == 14: return 'CNPJ'
-                            return 'EVP'
-                        type_detected = detect_pix(pix_key)
-
-                    final_pix_key = pix_key
-                    if type_detected in ['CPF', 'CNPJ', 'PHONE']:
-                        final_pix_key = "".join(filter(str.isdigit, pix_key))
-                        if type_detected == 'PHONE' and not final_pix_key.startswith('55'):
-                            if len(final_pix_key) <= 11: final_pix_key = "55" + final_pix_key
-
-                    # Determina URL baseada na chave
-                    is_sandbox = '_prod_' not in api_key.lower()
-                    asaas_url = "https://www.asaas.com/api/v3/transfers" if not is_sandbox else "https://www.asaas.com/api/v3/transfers"
-                    # Força produção se a chave for prod
-                    if '_prod_' in api_key.lower():
-                        asaas_url = "https://www.asaas.com/api/v3/transfers"
-                    else:
-                        asaas_url = "https://sandbox.asaas.com/api/v3/transfers"
-
-                    headers = {"access_token": api_key.strip(), "Content-Type": "application/json"}
-                    payload = {
-                        "value": amount,
-                        "pixAddressKey": final_pix_key,
-                        "pixAddressKeyType": type_detected,
-                        "description": f"Brasil Hexa Resgate Auto #{wid}"
-                    }
-
-                    try:
-                        print(f"Tentando pagar {wid} (R$ {amount}) via Asaas...")
-                        resp = requests.post(asaas_url, json=payload, headers=headers, timeout=25)
-                        res_json = resp.json()
-
-                        if resp.status_code == 200:
-                            db.reference(f'withdrawals/{uid}/{wid}').update({
-                                "status": "paid", "auto_approved": True,
-                                "asaas_id": res_json.get('id'), "paid_at": datetime.now().isoformat()
-                            })
-                            # Remove da fila de pendentes se existir
-                            db.reference(f'admin/pending_withdrawals/{wid}').delete()
-                            approved += 1
-                            print(f"OK {wid} pago com sucesso!")
-                        else:
-                            err = res_json.get('errors', [{}])[0].get('description', 'Erro desconhecido')
-                            print(f"Falha no saque {wid}: {err}")
-                    except Exception as e:
-                        print(f"Erro crítico na conexão Asaas para {wid}: {e}")
-        return f"Processamento concluído. Aprovados: {approved} | ROI: {roi:.1f}%"
-    except Exception as e: return f"Auto-approve error: {e}"
-
-# --- NÚCLEO IA (GEMINI) ---
-
-def tool_sentinel_enforcement():
-    try:
-        config = db.reference('config').get() or {}
-        block_vpn = config.get('blockVPN', False)
-        block_root = config.get('blockRoot', False)
-        device_lock = config.get('deviceLock', False)
-        auto_ban = config.get('autoBan', False)
-
-        users = db.reference('users').get() or {}
-        banned = 0
-
-        # Mapeia fingerprint -> lista de uids para detectar múltiplas contas
-        fingerprint_map = {}
-        for uid, user in users.items():
-            if not isinstance(user, dict): continue
-            fp = user.get('security', {}).get('fingerprint', '')
-            if fp and len(fp) > 10:
-                if fp not in fingerprint_map: fingerprint_map[fp] = []
-                fingerprint_map[fp].append(uid)
-
-        # Lista de UIDs isentos de verificação (admin, teste, etc.)
-        whitelist = config.get('sentinel_whitelist', {})
-        if not isinstance(whitelist, dict): whitelist = {}
-
-        for uid, user in users.items():
-            if not isinstance(user, dict): continue
-            status = user.get('status', 'ativo')
-            if status == 'banido': continue
-            if whitelist.get(uid): continue  # Pula UIDs na whitelist
-
-            sec = user.get('security', {})
-            fp = sec.get('fingerprint', '')
-            fp_detail = sec.get('fp_detail', {}) or {}
-            vpn = fp_detail.get('vpn', False)
-            root_hints = fp_detail.get('root_hints', [])
-            risk = user.get('risk_score', 0)
-            balance = float(user.get('balance', 0))
-            reason = None
-
-            # 1. Bloqueio de Proxy/VPN
-            if block_vpn and vpn:
-                reason = "VPN/Proxy detectado (Política de Blindagem)"
-
-            # 2. Detecção de Root/Jailbreak
-            if block_root and root_hints and len(root_hints) > 0:
-                if any(h not in ('no_plugins',) for h in root_hints):
-                    reason = f"Root/Jailbreak detectado: {', '.join(root_hints)}"
-
-            # 3. Score de risco
-            if not reason and risk >= 100:
-                reason = "Score de risco crítico (100+)"
-
-            # 4. Saldo suspeito
-            if not reason and balance > 1000 and user.get('videosWatched', 0) < 5:
-                reason = "Saldo suspeito com baixa atividade"
-
-            # 5. Auto-Ban (múltiplas contas no mesmo dispositivo)
-            if auto_ban and not reason and fp and len(fp) > 10:
-                accounts_on_device = fingerprint_map.get(fp, [])
-                if len(accounts_on_device) > 1:
-                    reason = f"Múltiplas contas no mesmo dispositivo ({len(accounts_on_device)} contas)"
-
-            if reason:
-                tool_execute_ban(uid, reason)
-                banned += 1
-                db.reference('logs/sentinel_alerts').push({
-                    "uid": uid, "reason": reason,
-                    "timestamp": {".sv": "timestamp"},
-                    "policies": {
-                        "blockVPN": block_vpn, "blockRoot": block_root,
-                        "deviceLock": device_lock, "autoBan": auto_ban
-                    }
-                })
-
-            # 6. Device Lock: apenas marca como suspeito, não bane (bloqueia login)
-            if device_lock and not reason and fp and len(fp) > 10:
-                accounts_on_device = fingerprint_map.get(fp, [])
-                if len(accounts_on_device) > 1:
-                    # Marca o usuário para bloqueio de login (não banimento)
-                    db.reference(f'users/{uid}/security/device_lock_alert').set(True)
-                    db.reference('logs/device_lock_alerts').push({
-                        "uid": uid, "fingerprint": fp,
-                        "accounts": accounts_on_device,
-                        "timestamp": {".sv": "timestamp"}
-                    })
-
-        return f"Sentinel: {banned} banidos | VPN:{block_vpn} Root:{block_root} DevLock:{device_lock} AutoBan:{auto_ban}"
-    except Exception as e: return f"Erro Sentinel: {str(e)}"
-
-WORKSPACE_DIR = os.path.join(PROJECT_ROOT, "brasilhexa_workspace")
-if not os.path.exists(WORKSPACE_DIR):
-    os.makedirs(WORKSPACE_DIR)
-
-def get_project_workspace(project="default"):
-    """Retorna o diretório do workspace para um projeto específico, criando se necessário."""
-    path = os.path.join(WORKSPACE_DIR, project)
-    os.makedirs(path, exist_ok=True)
-    return path
-
-# --- BRASIL HEXA MEMÓRIA PERSISTENTE ---
-MEMORY_DIR = os.path.join(PROJECT_ROOT, "brasilhexa-memory")
-for sub in ["projects", "agents", "architecture", "logs"]:
-    os.makedirs(os.path.join(MEMORY_DIR, sub), exist_ok=True)
-
-def memory_file_read(category: str, name: str):
-    try:
-        path = os.path.join(MEMORY_DIR, category, f"{name}.json")
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        return None
-    except: return None
-
-def memory_file_save(category: str, name: str, data: dict):
-    try:
-        path = os.path.join(MEMORY_DIR, category, f"{name}.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        return True
-    except: return False
-
-def memory_file_list(category: str):
-    try:
-        path = os.path.join(MEMORY_DIR, category)
-        files = [f.replace(".json","") for f in os.listdir(path) if f.endswith(".json")]
-        return sorted(files)
-    except: return []
-
-def memory_log(category: str, entry: dict):
-    try:
-        entry["timestamp"] = datetime.now().isoformat()
-        logfile = os.path.join(MEMORY_DIR, "logs", f"{category}.jsonl")
-        with open(logfile, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except: pass
-
-def tool_write_studio_file(filename, content, project="default"):
-    try:
-        filename = os.path.basename(filename)
-        path = os.path.join(get_project_workspace(project), filename)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-        return f"Arquivo {filename} gerado com sucesso no projeto {project}."
-    except Exception as e:
-        return f"Erro ao escrever arquivo: {e}"
-
-def tool_list_studio_files(project="default"):
-    try:
-        files = os.listdir(get_project_workspace(project))
-        return {"files": files, "project": project}
-    except Exception as e:
-        return f"Erro ao listar arquivos: {e}"
-
-AVAILABLE_TOOLS = {
-    "toggle_maintenance": lambda state: db.reference('config/maintenance').set(state) or f"Manutenção: {state}",
-    "update_cpm": lambda value: db.reference('config/cpm').set(value) or f"CPM: {value}",
-    "analyze_system_health": tool_analyze_health,
-    "sync_monetag": tool_sync_monetag,
-    "execute_ban": tool_execute_ban,
-    "execute_unban": tool_execute_unban,
-    "send_push_notification": tool_send_push,
-    "get_user_data": lambda uid: db.reference(f'users/{uid}').get(),
-    "check_frauds": lambda: db.reference('logs/frauds').get(),
-    "process_all_payments": auto_approve_withdrawals,
-    "sentinel_enforcement": tool_sentinel_enforcement,
-    "write_studio_file": tool_write_studio_file,
-    "list_studio_files": tool_list_studio_files
-}
-
-TOOLS_DEFINITION = [
-    {
-        "functionDeclarations": [
-            {"name": "toggle_maintenance", "description": "Ativa/desativa manutenção.", "parameters": {"type": "object", "properties": {"state": {"type": "boolean"}}, "required": ["state"]}},
-            {"name": "update_cpm", "description": "Ajusta o valor do CPM.", "parameters": {"type": "object", "properties": {"value": {"type": "number"}}, "required": ["value"]}},
-            {"name": "analyze_system_health", "description": "Analisa ganhos, dívidas e CTR.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "execute_ban", "description": "Bane um usuário.", "parameters": {"type": "object", "properties": {"uid": {"type": "string"}, "reason": {"type": "string"}}, "required": ["uid", "reason"]}},
-            {"name": "execute_unban", "description": "Desbane um usuário.", "parameters": {"type": "object", "properties": {"uid": {"type": "string"}, "reason": {"type": "string"}}, "required": ["uid", "reason"]}},
-            {"name": "send_push_notification", "description": "Envia push via FCM.", "parameters": {"type": "object", "properties": {"target": {"type": "string"}, "message": {"type": "string"}}, "required": ["target", "message"]}},
-            {"name": "sync_monetag", "description": "Sincroniza lucros Monetag.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "get_user_data", "description": "Dados do usuário.", "parameters": {"type": "object", "properties": {"uid": {"type": "string"}}, "required": ["uid"]}},
-            {"name": "check_frauds", "description": "Verifica logs de fraude.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "process_all_payments", "description": "Processa todos os saques pendentes.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "sentinel_enforcement", "description": "Executa varredura e banimento automático de fraudes.", "parameters": {"type": "object", "properties": {}}},
-            {"name": "write_studio_file", "description": "Salva um arquivo ou script gerado no workspace do Studio.", "parameters": {"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}}, "required": ["filename", "content"]}},
-            {"name": "list_studio_files", "description": "Lista os arquivos gerados no workspace do Studio.", "parameters": {"type": "object", "properties": {}}}
-        ]
-    }
-]
-
-# --- GROQ (Nuvem Gratuita, Prioridade 1) ---
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-if not GROQ_API_KEY:
-    try:
-        groq_config = db.reference('config/groqKey').get()
-        if groq_config: GROQ_API_KEY = str(groq_config).strip()
-    except: pass
-if not GROQ_API_KEY:
-    try:
-        config_data = db.reference('config').get() or {}
-        GROQ_API_KEY = str(config_data.get('groqKey', '')).strip()
-    except: pass
-GROQ_AVAILABLE = bool(GROQ_API_KEY)
-GROQ_MODEL_MAP = {
-    "llama3:latest": "llama-3.3-70b-versatile",
-    "llama3:8b": "llama3-8b-8192",
-    "mixtral": "mixtral-8x7b-32768",
-    "gemma2": "gemma2-9b-it",
-}
-
-def gemini_generate(prompt, model="gemini-2.0-flash"):
-    """Call Google Gemini with a specific model directly."""
-    config = db.reference('config').get() or {}
-    api_key = os.environ.get("GEMINI_API_KEY") or str(config.get('geminiKey', '')).strip()
-    if not api_key:
-        return "Gemini não configurado. Configure GEMINI_API_KEY."
-    try:
-        api_ver = "v1beta" if "flash" in model or "pro" in model else "v1"
-        url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model}:generateContent?key={api_key}"
-        payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-        }
-        resp = requests.post(url, json=payload, timeout=60)
-        data = resp.json()
-        if resp.status_code == 200 and "candidates" in data:
-            return data["candidates"][0]["content"]["parts"][0].get("text", "Sem resposta.")
-        return f"Erro Gemini: {data.get('error', {}).get('message', str(data))}"
-    except Exception as e:
-        return f"Erro ao chamar Gemini: {str(e)}"
-
-# --- GPT MAKER API ---
-GPTMAKER_BASE = "https://api.gptmaker.ai/v2"
-
-def _get_gptmaker_token():
-    config = db.reference('config').get() or {}
-    token = os.environ.get("GPTMAKER_API_KEY") or str(config.get('gptmakerKey', '')).strip()
-    return token
-
-def _gptmaker_headers():
-    token = _get_gptmaker_token()
-    if not token:
-        return None
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
-def gptmaker_list_workspaces():
-    headers = _gptmaker_headers()
-    if not headers:
-        return {"status": "error", "msg": "GPT Maker token não configurado."}
-    try:
-        resp = requests.get(f"{GPTMAKER_BASE}/workspaces", headers=headers, timeout=15)
-        if resp.status_code == 200:
-            return {"status": "success", "workspaces": resp.json()}
-        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
-    except Exception as e:
-        return {"status": "error", "msg": f"Falha ao conectar GPT Maker: {str(e)}"}
-
-def gptmaker_list_agents(workspace_id: str):
-    headers = _gptmaker_headers()
-    if not headers:
-        return {"status": "error", "msg": "GPT Maker token não configurado."}
-    try:
-        resp = requests.get(f"{GPTMAKER_BASE}/workspace/{workspace_id}/agents", headers=headers, timeout=15)
-        if resp.status_code == 200:
-            return {"status": "success", "agents": resp.json()}
-        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
-    except Exception as e:
-        return {"status": "error", "msg": f"Falha ao conectar GPT Maker: {str(e)}"}
-
-def gptmaker_conversation(agent_id: str, prompt: str, context_id: str = "cybercore_studio"):
-    headers = _gptmaker_headers()
-    if not headers:
-        return {"status": "error", "msg": "GPT Maker token não configurado."}
-    try:
-        payload = {
-            "contextId": context_id,
-            "prompt": prompt
-        }
-        resp = requests.post(f"{GPTMAKER_BASE}/agent/{agent_id}/conversation", json=payload, headers=headers, timeout=60)
-        if resp.status_code == 200:
-            data = resp.json()
-            return {"status": "success", "message": data.get("message", ""), "images": data.get("images", []), "audios": data.get("audios", []), "documents": data.get("documents", [])}
-        return {"status": "error", "msg": f"Erro GPT Maker: {resp.status_code} - {resp.text}"}
-    except Exception as e:
-        return {"status": "error", "msg": f"Falha ao conversar com GPT Maker: {str(e)}"}
-
-def groq_generate(prompt, system_extra="", uid="admin_master"):
-    if not GROQ_AVAILABLE:
-        return None
-    try:
-        groq_model = GROQ_MODEL_MAP.get(model := "llama3:latest", "llama-3.3-70b-versatile")
-
-        # Busca dados do usuário para contexto
-        user_context = ""
-        if uid and uid != "admin_master" and uid != "guest":
-            try:
-                u = db.reference(f'users/{uid}').get()
-                if u:
-                    user_context = f"""CONTEXTO DO USUÁRIO:
-- Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
-- Saldo: {float(u.get('balance', 0)):.2f} Gols
-- Lances processados: {u.get('videosWatched', 0)}
-- Status: {u.get('status', 'ativo')}
-"""
-            except:
-                pass
-
-        system_prompt = f"""Você é o Agente Canarinho, um assistente virtual especializado no Brasil Hexa, uma plataforma que paga usuários para processar lances via IA.
-
-REGRAS GERAIS:
-1. Responda SEMPRE em português brasileiro, de forma amigável, didática e motivacional.
-2. Trate o usuário com respeito e paciência, como um tutor.
-3. NUNCA invente informações — se não souber, diga que vai verificar.
-4. Pode usar [COMMAND:NAVIGATE:nome_da_aba] para sugerir navegação: inicio, intercambio, convites, historico.
-5. Pode usar [COMMAND:START_TOUR] para iniciar o tour guiado.
-
-PLATAFORMA BRASIL HEXA:
-- 4 abas principais: Início (dashboard), Intercâmbio (saques), Convites (indicações), Histórico (transações)
-- Lances: o usuário clica em "Processar Lances" no dashboard para validar campanhas via IA
-- Saldo: exibido no topo, acumulado por lances, bônus diário e indicações
-- Saque mínimo: 0,50 Gols via PIX
-- Valores de saque: 0,50 | 3,00 | 5,00 | 10,00 | 50,00 Gols
-
-BÔNUS DIÁRIO:
-- Valor: 0,20 Gols
-- Disponível apenas em finais de semana (sábado e domingo)
-- 1 vez por dia, botão "COLETAR BÔNUS" na aba Início
-
-METAS (progresso de lances → valor de saque liberado):
-- 150 lances → 0,50 Gols
-- 900 lances → 3,00 Gols
-- 1500 lances → 5,00 Gols
-- 3000 lances → 10,00 Gols
-- 15000 lances → 50,00 Gols
-
-SISTEMA DE CONVITES (INDICAÇÕES):
-- Cada amigo convidado que assistir 25 lances rende 0,20 Gols
-- A cada 5 amigos válidos, bônus extra de 1,00 Gols
-- O link de convite fica na aba Convites
-
-TIPOS DE CHAVE PIX:
-- CPF: 11 dígitos
-- CNPJ: 14 dígitos
-- E-mail: formato padrão
-- Telefone: 10 a 13 dígitos (com DDD)
-- Chave aleatória (EVP): formato UUID
-
-PROCESSAMENTO DE PAGAMENTOS:
-- Os saques são processados via gateway Asaas
-- Status: Pendente → Pago ou Recusado
-- Aprovação manual pelo administrador
-
-{user_context}"""
-
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": groq_model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.7,
-            "max_tokens": 1024,
-        }
-        resp = requests.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=30)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data["choices"][0]["message"]["content"]
-        return None
-    except:
-        return None
-
-async def ask_ai(prompt: str, uid="admin_master"):
-    try:
-        # Busca dados do usuário para contexto
-        user_context = ""
-        if uid and uid != "admin_master" and uid != "guest":
-            try:
-                u = db.reference(f'users/{uid}').get()
-                if u:
-                    user_context = f"""
-DADOS DO USUÁRIO ATUAL:
-- Nome: {u.get('fullname') or u.get('firstname') or u.get('username') or uid}
-- Saldo: {float(u.get('balance', 0)):.2f} Gols
-- Lances processados: {u.get('videosWatched', 0)}
-- Status: {u.get('status', 'ativo')}
-"""
-            except:
-                pass
-
-        # Prioridade 1: Groq (mais rápido, gratuito, sempre disponível)
-        groq_result = groq_generate(prompt, uid=uid)
-        if groq_result:
-            try:
-                history_ref = db.reference(f'ai_memory/{uid}')
-                history = history_ref.get() or []
-                history.append({"role": "user", "text": prompt})
-                history.append({"role": "model", "text": groq_result})
-                history_ref.set(history[-20:])
-            except:
-                pass
-            return groq_result
-
-        # Prioridade 2: Gemini (fallback)
-        config = db.reference('config').get() or {}
-        api_key = os.environ.get("GEMINI_API_KEY") or str(config.get('geminiKey', '')).strip()
-
-        if api_key:
-            history_ref = db.reference(f'ai_memory/{uid}')
-            history = history_ref.get() or []
-            contents = [{"role": m["role"], "parts": [{"text": m["text"]}]} for m in history[-10:]]
-            contents.append({"role": "user", "parts": [{"text": prompt}]})
-            system_prompt = f"""Você é o Agente Canarinho do Brasil Hexa, especialista na plataforma.
-
-REGRAS:
-- Responda em PT-BR de forma amigável, didática e motivacional.
-- Use [COMMAND:NAVIGATE:inicio|intercambio|convites|historico] para sugerir navegação.
-- Use [COMMAND:START_TOUR] para iniciar o tour guiado.
-
-SOBRE O BRASIL HEXA:
-- 4 abas: Início (dashboard/processar lances), Intercâmbio (saques PIX), Convites (indicações), Histórico (transações)
-- Saque mínimo: 0,50 Gols. Valores: 0,50 | 3,00 | 5,00 | 10,00 | 50,00 Gols
-- Bônus diário: 0,20 Gols apenas em fins de semana
-- Metas: 150→0,50 | 900→3,00 | 1500→5,00 | 3000→10,00 | 15000→50,00 Gols
-- Convites: 0,20 Gols por amigo válido (25 lances), +1,00 Gols a cada 5 amigos
-
-{user_context}"""
-
-            for model in ("gemini-2.0-flash", "gemini-1.5-flash"):
-                api_ver = "v1beta" if model == "gemini-2.0-flash" else "v1"
-                url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model}:generateContent?key={api_key}"
-                payload = {"contents": contents, "tools": TOOLS_DEFINITION}
-                if api_ver == "v1beta": payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
-
-                resp = requests.post(url, json=payload, timeout=60)
-                res_data = resp.json()
-                if resp.status_code == 200 and "candidates" in res_data:
-                    part = res_data['candidates'][0]['content']['parts'][0]
-                    if "functionCall" in part:
-                        call = part["functionCall"]
-                        f_name = call["name"]
-                        f_args = call.get("args", {})
-                        func = AVAILABLE_TOOLS[f_name]
-                        if asyncio.iscoroutinefunction(func):
-                            result = await func(**f_args) if f_name != "process_all_payments" else await func(force=True)
-                        else:
-                            result = func(**f_args)
-                        return await ask_ai(f"Resultado {f_name}: {result}. Finalize sua resposta.", uid)
-
-                    answer = part.get("text", "Comando processado.")
-                    history.append({"role": "user", "text": prompt})
-                    history.append({"role": "model", "text": answer})
-                    history_ref.set(history[-20:])
-                    return answer
-
-        return "Nenhum motor de IA disponível. Configure GROQ_API_KEY ou GEMINI_API_KEY."
-    except Exception as e:
-        return f"Erro Núcleo: {str(e)}"
-
-# --- OADA CYCLE ---
-
-def memory_save(category: str, key: str, data: dict):
-    data["_ts"] = datetime.now().isoformat()
-    db.reference(f"{MEMORY_BASE}/{category}/{key}").set(data)
-
-def compute_alert_level():
-    health = tool_analyze_health()
-    frauds = db.reference('logs/sentinel_alerts').get() or {}
-    fraud_rate = len(frauds) / 100
-    if fraud_rate > 0.1 or health['revenue_brl'] < (health['total_debt'] * 1.1): return "critical"
-    if fraud_rate > 0.05: return "alert"
-    return "normal"
-
-async def oada_cycle():
-    health = tool_analyze_health()
-    level = compute_alert_level()
-    decisions = []
-
-    if level == "critical":
-        new_cpm = round((db.reference('config/cpm').get() or 0.18) + 0.02, 3)
-        db.reference('config/cpm').set(new_cpm)
-        decisions.append(f"Ajuste emergencial CPM -> {new_cpm}")
-
-    if level != "emergency":
-        auto_result = await auto_approve_withdrawals()
-        decisions.append(f"Auto-approve: {auto_result}")
-
-    memory_save('decisions', f"cycle_{datetime.now().strftime('%Y%m%d%H%M')}", {
-        "level": level, "health": health, "decisions": decisions
-    })
-    return {"level": level, "decisions": decisions}
-
-async def monitor_connected_projects():
-    """Monitora projetos conectados (neural/nodes) em tempo real."""
-    try:
-        nodes = db.reference('neural/nodes').get() or {}
-        for node_id, node in nodes.items():
-            identifier = node.get('identifier', '')
-            ptype = node.get('type', 'website')
-            if not identifier:
-                continue
-
-            health = {"last_checked": datetime.now().isoformat()}
-            try:
-                if ptype == 'website':
-                    url = identifier if identifier.startswith('http') else 'https://' + identifier
-                    start = time.time()
-                    resp = requests.head(url, timeout=8, allow_redirects=True)
-                    latency_ms = int((time.time() - start) * 1000)
-                    health['status'] = 'online' if resp.status_code < 500 else 'degraded'
-                    health['http_status'] = resp.status_code
-                    health['latency_ms'] = latency_ms
-                elif ptype == 'api':
-                    url = identifier if identifier.startswith('http') else 'https://' + identifier
-                    start = time.time()
-                    resp = requests.get(url, timeout=8)
-                    latency_ms = int((time.time() - start) * 1000)
-                    health['status'] = 'online' if resp.status_code < 500 else 'degraded'
-                    health['http_status'] = resp.status_code
-                    health['latency_ms'] = latency_ms
-                elif ptype == 'local':
-                    from urllib.parse import urlparse
-                    if ':' in identifier:
-                        parts = identifier.split(':')
-                        host = parts[0].strip()
-                        port = parts[1].strip()
-                        import socket
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        sock.settimeout(3)
-                        result = sock.connect_ex((host, int(port)))
-                        sock.close()
-                        health['status'] = 'online' if result == 0 else 'offline'
-                        health['tcp_port'] = int(port)
-                    else:
-                        health['status'] = 'unknown'
-                else:
-                    health['status'] = 'unknown'
-            except Exception:
-                health['status'] = 'offline'
-                health['error'] = 'timeout_or_unreachable'
-
-            db.reference(f'neural/nodes/{node_id}/health').update(health)
-    except Exception as e:
-        print(f"[MONITOR] Erro ao monitorar projetos: {e}")
-
-
-async def brasilhexa_audit_loop():
-    while True:
-        try:
-            # Registra o pulso específico do modo (USER ou ADMIN)
-            node_name = f"pulse_{HUB_MODE.lower()}"
-            db.reference(f'status/{node_name}').set({".sv": "timestamp"})
-
-            if HUB_MODE == "ADMIN":
-                # Sincroniza o sinal que o site (WWW) espera para mostrar "ONLINE"
-                db.reference('status/auditor_last_pulse').set({".sv": "timestamp"})
-
-                # Executa tarefas de auditoria
-                tool_sync_monetag()
-                sentinel_report = tool_sentinel_enforcement()
-
-                # --- SENTINEL: MONITORAMENTO DE ESTOQUE CRÍTICO ---
-                try:
-                    estoque = db.reference('projects/estoque_bebidas/produtos').get() or {}
-                    for pid, pdata in estoque.items():
-                        if isinstance(pdata, dict) and int(pdata.get('estoque', 0)) < 5:
-                            msg = f"⚠️ ESTOQUE CRÍTICO: {pdata.get('nome')} está com apenas {pdata.get('estoque')} unidades!"
-                            # Evita spam: registra o alerta no log e envia push
-                            db.reference('logs/inventory_alerts').push({
-                                "product_id": pid,
-                                "name": pdata.get('nome'),
-                                "stock": pdata.get('estoque'),
-                                "timestamp": datetime.now().isoformat()
-                            })
-                            tool_send_push('global', msg)
-                            print(f"[SENTINEL] Alerta de estoque enviado: {pdata.get('nome')}")
-                except Exception as ex:
-                    print(f"[SENTINEL] Erro monitor estoque: {ex}")
-
-                await oada_cycle()
-                await monitor_connected_projects()
-
-                print(f"[ADMIN] Ciclo de Auditoria Completo: {datetime.now().strftime('%H:%M:%S')}")
-            else:
-                print(f"[USER] Brasil Hexa IA Ativo e Pulsando...")
-
-        except Exception as e:
-            print(f"Erro Loop {HUB_MODE}: {e}")
-
-        # Aumentamos um pouco o delay para evitar sobrecarga no reload
-        await asyncio.sleep(45)
-
-# --- INICIALIZAÇÃO DO APP ---
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Inicia o loop de auditoria em segundo plano
-    task = asyncio.create_task(brasilhexa_audit_loop())
-    print("🚀 Brasil Hexa IA: Loop de Auditoria Iniciado")
-
-    # Imprime rotas para diagnóstico
-    print("📌 Rotas registradas:")
-    for route in app.routes:
-        print(f"   {route.path} [{getattr(route, 'methods', 'ANY')}]")
-
-    yield
-    task.cancel()
-
-app = FastAPI(
-    title="Brasil Hexa IA Hub",
-    description="Núcleo de Inteligência e Gestão Brasil Hexa",
-    version="2.0.0",
-    lifespan=lifespan
-)
-
-# Middleware para logar todas as requisições e verificar autenticação
-@app.middleware("http")
-async def log_requests(request, call_next):
-    path = request.url.path
-
-    # Log da requisição
-    print(f"🔍 Requisição recebida: {request.method} {path}")
-
-    # Verifica autenticação nas rotas protegidas (exceto rotas públicas)
-    if (path.startswith("/api/") or path.startswith("/ai/") or path.startswith("/payments/") or path.startswith("/user/") or path.startswith("/video/") or path.startswith("/audit/") or path.startswith("/heartbeat/")) and not is_public_route(path):
-        auth_header = request.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return JSONResponse(status_code=401, content={"detail": "Token de autenticação não fornecido"})
-        token = auth_header.split(" ", 1)[1]
-        try:
-            decoded = firebase_auth.verify_id_token(token, check_revoked=False)
-            request.state.user_uid = decoded.get("uid", "")
-            request.state.user_email = decoded.get("email", "")
-        except firebase_auth.ExpiredIdTokenError:
-            return JSONResponse(status_code=401, content={"detail": "Token expirado. Faça login novamente."})
-        except Exception as e:
-            return JSONResponse(status_code=401, content={"detail": f"Token inválido: {str(e)}"})
-
-        # Verificação de admin para rotas do painel administrativo
-        if path.startswith("/api/studio/") or path.startswith("/payments/approve") or path.startswith("/api/sentinel/") or path.startswith("/audit/"):
-            if request.state.user_email != ADMIN_EMAIL:
-                return JSONResponse(status_code=403, content={"detail": "Acesso restrito ao administrador"})
-
-        # Rate limiting por UID (10 req/min para rotas financeiras)
-        if path.startswith("/payments/") or path.startswith("/video/") or path.startswith("/api/game/") or path.startswith("/audit/"):
-            uid = request.state.user_uid
-            now = datetime.now()
-            key = f"rl:{uid}:{path.split('/')[1]}"
-            entry = _rate_limit_store.get(key)
-            if not entry or (now - entry["window_start"]).total_seconds() > 60:
-                _rate_limit_store[key] = {"count": 1, "window_start": now}
-            else:
-                entry["count"] += 1
-                if entry["count"] > 10:
-                    return JSONResponse(status_code=429, content={"detail": "Muitas requisições. Limite de 10 por minuto."})
-
-        # Rate limiting para rotas de admin (30 req/min)
-        if path.startswith("/api/studio/") or path.startswith("/payments/approve") or path.startswith("/api/sentinel/") or path.startswith("/audit/"):
-            uid = request.state.user_uid
-            now = datetime.now()
-            key = f"rl_admin:{uid}:studio"
-            entry = _rate_limit_store.get(key)
-            if not entry or (now - entry["window_start"]).total_seconds() > 60:
-                _rate_limit_store[key] = {"count": 1, "window_start": now}
-            else:
-                entry["count"] += 1
-                if entry["count"] > 30:
-                    return JSONResponse(status_code=429, content={"detail": "Muitas requisições no painel admin. Limite de 30 por minuto."})
-
-    response = await call_next(request)
-    print(f"📤 Resposta: {response.status_code}")
-    return response
+# ─── FastAPI App ───
+app = FastAPI(title="CineCash API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:7860",
-        "http://127.0.0.1:7860",
-        "https://desenvovimento-brasilhexa-ia.hf.space",
-        "https://desenvovimento-cinecash-ia.hf.space",
-        "https://desenvovimento-cybercore-ia.hf.space",
-        "https://brasilhexa.com.br",
-        "https://www.brasilhexa.com.br",
-        "https://cinecash.com.br",
-        "https://www.cinecash.com.br",
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# --- PROXY N8N ---
-import httpx
+PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api/nexus/report", "/api/metrics"}
 
-N8N_BASE = os.environ.get("N8N_BASE_URL", "http://localhost:5678")
-n8n_client = httpx.AsyncClient(base_url=N8N_BASE, timeout=30)
+def is_public(path: str) -> bool:
+    if path in PUBLIC_ROUTES: return True
+    if path.startswith("/api/referral/resolve/"): return True
+    return False
 
-@app.api_route("/n8n/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-async def n8n_proxy(request: Request, path: str):
-    try:
-        target_path = f"/{path}"
-        query = request.url.query
-        if query:
-            target_path += f"?{query}"
-        body = await request.body()
-        headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
-        resp = await n8n_client.request(
-            method=request.method,
-            url=target_path,
-            content=body,
-            headers=headers
-        )
-        return Response(content=resp.content, status_code=resp.status_code, headers=dict(resp.headers))
-    except Exception as e:
-        return JSONResponse(status_code=502, content={"detail": f"N8N indisponivel: {str(e)}"})
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    # Capture Client IP
+    request.state.client_ip = request.headers.get("X-Forwarded-For", request.client.host)
 
-@app.get("/api/n8n/url")
-async def n8n_url():
-    return {"url": f"{N8N_BASE}/", "status": "online"}
+    # Bypass auth for static files and public routes
+    if not path.startswith(("/api/", "/video/", "/payments/")) or is_public(path):
+        return await call_next(request)
 
-# --- N8N WEBHOOK TRIGGERS ---
-@app.post("/api/n8n/trigger/risk-alert")
-async def n8n_trigger_risk(data: dict = Body({})):
-    try:
-        resp = await n8n_client.post("/webhook/risk-alert", json=data)
-        return {"status": "triggered", "n8n_status": resp.status_code}
-    except:
-        return {"status": "n8n_offline"}
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"detail": "Token não fornecido"})
 
-@app.post("/api/n8n/trigger/new-user")
-async def n8n_trigger_new_user(data: dict = Body({})):
-    try:
-        resp = await n8n_client.post("/webhook/new-user", json=data)
-        return {"status": "triggered", "n8n_status": resp.status_code}
-    except:
-        return {"status": "n8n_offline"}
+    token = auth_header.split(" ", 1)[1]
+    cached = _token_cache.get(token)
 
-@app.post("/api/n8n/trigger/weekly-report")
-async def n8n_trigger_weekly():
-    try:
-        resp = await n8n_client.post("/webhook/weekly-report", json={})
-        return {"status": "triggered", "n8n_status": resp.status_code}
-    except:
-        return {"status": "n8n_offline"}
-
-@app.post("/api/monitor/heartbeat/{project_id}")
-async def monitor_heartbeat(project_id: str, data: dict = Body(...)):
-    """Recebe heartbeat de agentes locais (CPU, RAM, disco)"""
-    try:
-        report = {
-            "cpu": data.get("cpu"),
-            "ram": data.get("ram"),
-            "disk": data.get("disk"),
-            "uptime": data.get("uptime"),
-            "last_report": datetime.now().isoformat()
-        }
-        db.reference(f'neural/nodes/{project_id}/health').update(report)
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/api/monitor/agent-script")
-async def monitor_agent_script():
-    """Retorna o script do agente para instalar no servidor alvo."""
-    script = '''#!/usr/bin/env python3
-import requests, psutil, time, socket, json, platform, os
-
-HUB_URL = "INSIRA_AQUI_A_URL_DO_SEU_HUB"
-PROJECT_ID = "INSIRA_O_ID_DO_PROJETO"
-
-while True:
-    try:
-        report = {
-            "cpu": psutil.cpu_percent(interval=1),
-            "ram": psutil.virtual_memory().percent,
-            "disk": psutil.disk_usage("/").percent,
-            "uptime": time.time() - psutil.boot_time(),
-            "hostname": socket.gethostname(),
-            "platform": platform.platform(),
-        }
-        r = requests.post(f"{HUB_URL}/api/monitor/heartbeat/{PROJECT_ID}", json=report, timeout=10)
-        print(f"[AGENT] Report sent: {report['cpu']}% CPU, {report['ram']}% RAM")
-    except Exception as e:
-        print(f"[AGENT] Error: {e}")
-    time.sleep(30)
-'''
-    return Response(content=script, media_type="text/plain", headers={
-        "Content-Disposition": "attachment; filename=brasilhexa_agent.py"
-    })
-
-
-# --- BRASIL HEXA BRIDGE: ENDPOINTS ---
-@app.post("/api/brasilhexa/chat")
-async def brasilhexa_chat(data: dict = Body(...)):
-    """Portal único: prompt -> Brasil Hexa (GPT Maker) raciocina -> plano -> execução"""
-    prompt = data.get("prompt", "")
-    project = data.get("project", "default")
-    uid = data.get("uid", "admin_brasilhexa")
-    context_id = f"brasilhexa_{project}"
-
-    if not prompt:
-        return {"status": "error", "msg": "Prompt obrigatório"}
-
-    project_memory = memory_file_read("projects", project) or {
-        "name": project, "created": datetime.now().isoformat(),
-        "tech_stack": [], "status": "desenvolvimento", "context": ""
-    }
-    agent_memories = {}
-    for agent_name in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]:
-        am = memory_file_read("agents", agent_name.lower())
-        if am: agent_memories[agent_name] = am
-
-    memory_context = project_memory.get("context", "")
-    agents_context = "\n".join([f"- {k}: {v.get('role','')} | status: {v.get('status','')}" for k,v in agent_memories.items()])
-
-    gptmaker_agent_id = os.environ.get("BRASILHEXA_GPTMAKER_AGENT")
-    if not gptmaker_agent_id:
-        config_ref = db.reference('config').get() or {}
-        gptmaker_agent_id = config_ref.get('brasilhexaGptmakerAgent', '')
-
-    coordinator_prompt = f"""SISTEMA: Você é o CEO Digital da Brasil Hexa IA.
-
-MEMÓRIA DO PROJETO "{project}":
-Status: {project_memory.get('status','desenvolvimento')}
-Stack: {', '.join(project_memory.get('tech_stack',[])) or 'Indefinido'}
-Contexto: {memory_context[:2000] if memory_context else 'Novo projeto'}
-
-AGENTES DISPONÍVEIS:
-{agents_context or 'Nenhum agente configurado ainda.'}
-
-OBJETIVO DO USUÁRIO: {prompt}
-
-INSTRUÇÕES:
-1. Analise o objetivo e o contexto do projeto.
-2. Crie um plano de ação detalhado.
-3. Defina quais agentes CyberCore executarão cada parte.
-4. Para cada tarefa, especifique o agente e a descrição.
-
-Responda EXATAMENTE neste formato JSON (sem markdown):
-{{
-  "raciocinio": "seu raciocínio detalhado aqui",
-  "plano": [
-    {{"agente": "DESIGNER", "tarefa": "descrição clara da tarefa"}},
-    {{"agente": "BUILDER", "tarefa": "descrição clara da tarefa"}}
-  ],
-  "mudancas_memoria": {{
-    "project_status": "atualização do status se aplicável",
-    "tech_stack": ["tecnologias identificadas"],
-    "context_summary": "resumo do que foi feito"
-  }}
-}}"""
-
-    answer = ""
-    if gptmaker_agent_id:
-        gpt_resp = gptmaker_conversation(gptmaker_agent_id, coordinator_prompt, context_id=context_id)
-        if gpt_resp.get("status") == "success":
-            answer = gpt_resp.get("message", "")
-        else:
-            answer = f"[GPT Maker fallback] {gpt_resp.get('msg', '')}"
+    if cached and (datetime.now() - cached["at"]).total_seconds() < 10:
+        if cached.get("banned"):
+            return JSONResponse(status_code=403, content={"detail": "Conta suspensa pelo sistema VAR (Atividade Suspeita)"})
+        request.state.user_uid = cached["uid"]
     else:
-        answer = await ask_ai(coordinator_prompt, uid=uid)
-
-    plan = []
-    raciocinio = ""
-    memory_updates = {}
-    try:
-        json_str = answer
-        if "```json" in answer:
-            json_str = answer.split("```json")[1].split("```")[0]
-        elif "```" in answer:
-            json_str = answer.split("```")[1].split("```")[0]
-        parsed = json.loads(json_str.strip())
-        raciocinio = parsed.get("raciocinio", answer[:500])
-        plan = parsed.get("plano", [])
-        memory_updates = parsed.get("mudancas_memoria", {})
-    except:
-        raciocinio = answer[:1000]
-        plan = []
-
-    if memory_updates:
-        if memory_updates.get("project_status"):
-            project_memory["status"] = memory_updates["project_status"]
-        if memory_updates.get("tech_stack"):
-            existing = set(project_memory.get("tech_stack", []))
-            existing.update(memory_updates["tech_stack"])
-            project_memory["tech_stack"] = list(existing)
-        if memory_updates.get("context_summary"):
-            old = project_memory.get("context", "")
-            project_memory["context"] = f"{old}\n[{datetime.now().strftime('%d/%m/%Y %H:%M')}] {memory_updates['context_summary']}"[-5000:]
-    project_memory["last_prompt"] = prompt
-    project_memory["last_updated"] = datetime.now().isoformat()
-    memory_file_save("projects", project, project_memory)
-
-    memory_log("chat", {
-        "project": project, "prompt": prompt,
-        "agents_planned": [p.get("agente") for p in plan],
-        "raciocinio": raciocinio[:200]
-    })
-
-    return {
-        "status": "success",
-        "raciocinio": raciocinio,
-        "plano": plan,
-        "projeto": project_memory,
-        "raw": answer,
-        "mensagem": f"🧠 **Brasil Hexa analisou:**\n{raciocinio}\n\n**Plano:** {len(plan)} tarefas distribuídas."
-    }
-
-@app.post("/api/brasilhexa/execute")
-async def brasilhexa_execute(data: dict = Body(...)):
-    """Executa um plano da Brasil Hexa: distribui tarefas para os agentes"""
-    plan = data.get("plano", [])
-    project = data.get("project", "default")
-    uid = data.get("uid", "admin_brasilhexa")
-    context_extra = data.get("contexto_extra", "")
-
-    if not plan:
-        return {"status": "error", "msg": "Plano vazio. Use /api/cybercore/chat primeiro."}
-
-    ctx_resp = await studio_context(project)
-    workspace_ctx = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
-
-    results = []
-    for i, task in enumerate(plan):
-        agent = task.get("agente", "").upper().strip()
-        tarefa = task.get("tarefa", "")
-        if agent not in AGENT_MODELS:
-            results.append({"agente": agent, "status": "ignorado", "output": f"Agente {agent} não reconhecido"})
-            continue
-
-        agent_prompt = f"""CONTEXTO DO WORKSPACE:
-{workspace_ctx[:3000] if workspace_ctx else 'Projeto novo'}
-
-TAREFA ATUAL ({i+1}/{len(plan)}): {tarefa}
-
-INSTRUÇÕES PARA {agent}:
-{context_extra}
-
-- Analise o contexto do workspace e execute APENAS sua tarefa específica.
-- Para código: responda APENAS JSON bruto {{"arquivo": "conteudo"}} sem markdown.
-- Se for análise/relatório: responda em markdown."""
-
         try:
-            check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
-            output = await execute_single_agent(agent, agent_prompt, uid)
+            decoded = firebase_auth.verify_id_token(token, check_revoked=False)
+            uid = decoded.get("uid", "")
 
-            try:
-                json_str = output
-                if "```json" in output:
-                    json_str = output.split("```json")[1].split("```")[0]
-                elif "```" in output:
-                    json_str = output.split("```")[0]
-                files = json.loads(json_str.strip())
-                if isinstance(files, dict) and len(files) > 0:
-                    saved = []
-                    for fn, fc in files.items():
-                        tool_write_studio_file(fn, fc, project)
-                        saved.append(fn)
-                    results.append({"agente": agent, "status": "concluido", "output": f"Arquivos: {', '.join(saved)}", "arquivos": saved})
-                    continue
-            except:
-                pass
+            # Verificação rápida de ban no RTDB
+            user_status = db.reference(f"users/{uid}/banned").get()
+            if user_status:
+                _token_cache[token] = {"uid": uid, "at": datetime.now(), "banned": True}
+                return JSONResponse(status_code=403, content={"detail": "Conta suspensa pelo sistema VAR (Atividade Suspeita)"})
 
-            results.append({"agente": agent, "status": "concluido", "output": output[:2000]})
+            request.state.user_uid = uid
+            _token_cache[token] = {"uid": uid, "at": datetime.now(), "banned": False}
         except Exception as e:
-            results.append({"agente": agent, "status": "erro", "output": str(e)})
+            return JSONResponse(status_code=401, content={"detail": f"Token inválido: {str(e)}"})
 
-        memory_log("execute", {"project": project, "agent": agent, "task": tarefa[:100], "status": results[-1]["status"]})
+    response = await call_next(request)
+    return response
 
-    return {
-        "status": "success",
-        "resultados": results,
-        "total": len(results),
-        "concluidos": sum(1 for r in results if r["status"] == "concluido"),
-        "mensagem": f"**Execução concluída:** {sum(1 for r in results if r['status'] == 'concluido')}/{len(results)} tarefas."
-    }
+# ─── VAR Security System (Canarinho) ───
+def run_var_check(uid: str, ip: str, action: str, current_data: dict):
+    """
+    Sistema de Assistente de Vídeo (VAR) para detecção de fraudes.
+    """
+    risk_delta = 0
+    reasons = []
 
-@app.get("/api/brasilhexa/memory/{category:path}")
-async def brasilhexa_memory_list(category: str = ""):
-    if not category or category.strip() == "":
-        return {"status": "success", "categories": ["projects","agents","architecture","logs"]}
-    category = category.strip("/")
-    if category not in ["projects","agents","architecture","logs"]:
-        return {"status": "error", "msg": "Categoria inválida"}
-    items = memory_file_list(category)
-    return {"status": "success", "category": category, "items": items}
+    # 1. IP Consistency
+    last_ip = current_data.get("last_ip")
+    if last_ip and last_ip != ip:
+        risk_delta += 10
+        reasons.append(f"Troca de IP: {last_ip} -> {ip}")
 
-@app.get("/api/brasilhexa/memory/{category}/{name}")
-async def brasilhexa_memory_read(category: str, name: str):
-    if category not in ["projects","agents","architecture","logs"]:
-        return {"status": "error", "msg": "Categoria inválida"}
-    data = memory_file_read(category, name)
-    if data is None:
-        return {"status": "error", "msg": "Item não encontrado"}
-    return {"status": "success", "category": category, "name": name, "data": data}
+    # 2. Velocity Check
+    if action == "video_complete":
+        last_video = current_data.get("last_video_at")
+        if last_video:
+            elapsed = (datetime.now() - datetime.fromisoformat(last_video)).total_seconds()
+            if elapsed < 25:
+                risk_delta += 30
+                reasons.append(f"Velocidade impossível: {elapsed}s entre vídeos")
 
-@app.post("/api/brasilhexa/memory/{category}/{name}")
-async def brasilhexa_memory_save(category: str, name: str, data: dict = Body(...)):
-    if category not in ["projects","agents","architecture"]:
-        return {"status": "error", "msg": "Categoria inválida para escrita"}
-    ok = memory_file_save(category, name, data.get("data", data))
-    if ok:
-        memory_log("memory", {"action": "save", "category": category, "name": name})
-        return {"status": "success", "msg": f"{category}/{name} salvo"}
-    return {"status": "error", "msg": "Falha ao salvar"}
+    # 3. Multi-Account Check (Simulado)
+    # Se muitos UIDs usam o mesmo IP em pouco tempo (Pode ser implementado com um cache global)
 
-@app.get("/api/brasilhexa/logs/{category}")
-async def brasilhexa_logs(category: str):
-    try:
-        path = os.path.join(MEMORY_DIR, "logs", f"{category}.jsonl")
-        if not os.path.exists(path):
-            return {"status": "success", "logs": []}
-        logs = []
-        with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    logs.append(json.loads(line))
-        return {"status": "success", "logs": logs[-50:]}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
+    if risk_delta > 0:
+        new_risk = int(current_data.get("risk_score", 0)) + risk_delta
+        db.reference(f"logs/security/{uid}").push({
+            "action": action,
+            "ip": ip,
+            "risk_added": risk_delta,
+            "reasons": reasons,
+            "timestamp": datetime.now().isoformat()
+        })
+        return new_risk
 
+    return int(current_data.get("risk_score", 0))
+
+# ─── Health ───
 @app.get("/health")
 @app.get("/health/")
-async def health_check():
-    return {
-        "status": "Brasil Hexa IA Elite Online",
-        "mode": HUB_MODE,
-        "timestamp": datetime.now().isoformat()
-    }
+async def health():
+    return {"status": "online", "timestamp": datetime.now().isoformat()}
 
-@app.post("/api/sentinel/scan")
-@app.post("/api/sentinel/scan/")
-async def manual_sentinel_scan():
-    """Executa a varredura do Sentinel sob demanda via painel admin"""
-    try:
-        result = tool_sentinel_enforcement()
-        return {"status": "success", "msg": result}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/test/push")
-async def test_push(data: dict = Body(...), request: Request = None):
-    """Dispara um push de teste (Individual ou Global) — apenas admin."""
-    if request.state.user_email != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
-    target = data.get("target") or data.get("uid")
-    message = data.get("message") or "🔔 Teste de Notificação Brasil Hexa IA: Sua conexão está ativa!"
-
-    if not target:
-        return {"status": "error", "msg": "Target (uid ou 'global') não fornecido"}
-
-    res = tool_send_push(target, message)
-    if "enviado" in res.lower():
-        return {"status": "success", "msg": res}
-    return {"status": "error", "msg": res}
-
-@app.post("/api/var/report")
-async def var_report(data: dict = Body(...)):
-    """Recebe dados do Agente VAR ou Local e encaminha ao Painel via Firebase."""
-    try:
-        uid = data.get("uid")
-        if not uid: return {"status": "ignored"}
-
-        source = data.get("source", "var")
-        telemetry = data.get("telemetry", data) # Fallback para compatibilidade
-
-        # 1. Se for Telemetria de Nó Local
-        if source == "local_node":
-            node_id = uid
-            db.reference(f'neural/nodes/{node_id}/health').update({
-                "status": telemetry.get("status", "online"),
-                "latency_ms": telemetry.get("latency_ms", 0),
-                "cpu": telemetry.get("cpu_usage", 0),
-                "ram": telemetry.get("ram_usage", 0),
-                "last_checked": datetime.now().isoformat(),
-                "metrics": telemetry
-            })
-            return {"status": "processed", "node_sync": "active"}
-
-        # 2. Lógica Original VAR (Monitoramento de Usuário)
-        db.reference(f'logs/var/{uid}').push({"report": data, "received_at": datetime.now().isoformat()})
-        db.reference('agent_data/incoming').push({"agent_id": "var_brasilhexa", "type": "telemetry", "payload": data, "received_at": datetime.now().isoformat()})
-
-        user_ref = db.reference(f'users/{uid}')
-        user_data = user_ref.get()
-        if user_data:
-            real_ads = int(data.get("ads_watched", 0))
-            balance = float(user_data.get('balance', 0))
-            if balance > 50 and real_ads < 2:
-                risk = user_data.get('risk_score', 0) + 30
-                user_ref.update({"risk_score": risk, "last_fraud_attempt": "Manipulação detectada pelo VAR"})
-                db.reference('logs/sentinel_alerts').push({
-                    "uid": uid, "type": "VAR_FRAUD",
-                    "msg": f"Inconsistência: {balance} Gols com {real_ads} lances.",
-                    "timestamp": {".sv": "timestamp"}
-                })
-        return {"status": "processed", "var_action": "monitoring"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/ai/recall")
-async def ai_recall(data: dict = Body(...)):
-    uid = data.get("uid", "admin_master")
-    query = data.get("query", "")
-    results = memory_recall(uid, query)
-    return {"results": results, "count": len(results)}
-
-@app.get("/ai/status")
-async def ai_status():
-    """Retorna o status detalhado da IA para o painel."""
-    try:
-        health = tool_analyze_health()
-
-        # Determina o motor de IA prioritário disponível
-        motor_ativo = "nenhum"
-        if GROQ_AVAILABLE:
-            motor_ativo = "groq"
-        else:
-            # Verifica se Gemini está configurado
-            config = db.reference('config').get() or {}
-            gemini_key = os.environ.get("GEMINI_API_KEY") or str(config.get('geminiKey', '')).strip()
-            if gemini_key:
-                motor_ativo = "gemini"
-
-        # Check for Gemini key even if Groq is primary
-        gemini_config = db.reference('config').get() or {}
-        gemini_key_available = bool(os.environ.get("GEMINI_API_KEY") or str(gemini_config.get('geminiKey', '')).strip())
-
-        # Check if Ollama is running
-        ollama_online = False
-        try:
-            oresp = requests.get(OLLAMA_URL.replace("/api/generate", "/api/tags"), timeout=3)
-            ollama_online = oresp.status_code == 200
-        except:
-            pass
-
-        # Check GPT Maker
-        gptmaker_token = _get_gptmaker_token()
-        gptmaker_available = bool(gptmaker_token)
-
-        return {
-            "status": "online",
-            "engine": "Groq/Gemini Hybrid",
-            "motor_ativo": motor_ativo,
-            "independente_de_api_paga": GROQ_AVAILABLE,
-            "ambiente": "Produção" if HUB_MODE == "ADMIN" else "Desenvolvimento",
-            "motores": {
-                "groq": {"ativo": GROQ_AVAILABLE},
-                "gemini": {"ativo": gemini_key_available},
-                "ollama": {"ativo": ollama_online},
-                "gptmaker": {"ativo": gptmaker_available}
-            },
-            "alert_level": compute_alert_level(),
-            "last_audit": datetime.now().isoformat(),
-            "mode": HUB_MODE,
-            "neural_sync": True,
-            "system_health": health
-        }
-    except Exception as e:
-        print(f"[AI STATUS] Erro: {e}")
-        return {"status": "degraded", "error": str(e)}
-
-from core.agent_manager import AgentManager
-
-# Inicializa o AgentManager Global
-agent_manager = AgentManager()
-
-@app.post("/api/ai/chat")
-async def ai_chat_specialized(data: dict = Body(...)):
-    prompt = data.get("prompt", "")
-    agent = data.get("agent", "ORCHESTRATOR")
-    uid = data.get("uid", "admin_master")
-
-    # Primeiro, tentamos o AgentManager se o agente não for o ORCHESTRATOR
-    if agent != "ORCHESTRATOR":
-        res = agent_manager.execute({"agent": agent.lower() + "_core" if "core" not in agent.lower() else agent.lower(), "prompt": prompt, "id": uid})
-        if res.get("status") == "success":
-            return {"answer": res.get("answer"), "agent": agent}
-
-    answer = await ask_ai_specialized(agent, prompt, uid)
-    return {"answer": answer, "agent": agent}
-
-# --- GPT MAKER API ENDPOINTS ---
-@app.get("/api/ai/gptmaker/workspaces")
-async def gptmaker_workspaces():
-    return gptmaker_list_workspaces()
-
-@app.get("/api/ai/gptmaker/agents/{workspace_id}")
-async def gptmaker_agents(workspace_id: str):
-    return gptmaker_list_agents(workspace_id)
-
-@app.post("/api/ai/gptmaker/chat")
-async def gptmaker_chat(data: dict = Body(...)):
-    agent_id = data.get("agent_id", "")
-    prompt = data.get("prompt", "")
-    context_id = data.get("context_id", "cybercore_studio")
-    if not agent_id or not prompt:
-        return {"status": "error", "msg": "agent_id e prompt são obrigatórios."}
-    return gptmaker_conversation(agent_id, prompt, context_id)
-
-@app.post("/ai/chat")
-async def ai_chat(data: dict = Body(...)):
-    prompt = data.get("prompt", "")
-    uid = data.get("uid", "admin_master")
-    answer = await ask_ai(prompt, uid)
-    return {"answer": answer}
-
-# --- SENTINEL LOGS ---
-@app.get("/api/sentinel/logs")
-async def sentinel_logs():
-    try:
-        # Pega os últimos 20 logs reais do Firebase
-        logs = db.reference('logs').order_by_key().limit_to_last(20).get() or {}
-        log_list = []
-        for lid, ldata in logs.items():
-            if isinstance(ldata, dict):
-                log_list.append({
-                    "id": lid,
-                    "time": ldata.get("timestamp", datetime.now().isoformat()),
-                    "msg": ldata.get("message", "Sem descrição"),
-                    "level": ldata.get("level", "INFO")
-                })
-        return {"logs": log_list[::-1]}
-    except Exception as e:
-        return {"logs": [{"time": "-", "msg": f"Erro Sentinel: {str(e)}", "level": "ERROR"}]}
-
-@app.post("/api/sentinel/log")
-async def add_sentinel_log(data: dict = Body(...)):
-    msg = data.get("message")
-    level = data.get("level", "INFO")
-    if not msg: return {"status": "error"}
-    db.reference('logs').push({
-        "message": msg,
-        "level": level,
-        "timestamp": datetime.now().strftime('%H:%M:%S')
-    })
-    return {"status": "success"}
-
-# --- BRASIL HEXA ORCHESTRATION & BRIDGE ---
-
-@app.post("/api/brasilhexa/orchestrate")
-async def brasilhexa_orchestrate(data: dict = Body(...)):
-    """Orquestrador Central: Recebe comandos estratégicos e delega para agentes especializados."""
-    prompt = data.get("prompt", "")
-    uid = data.get("uid", "admin_master")
-
-    # 1. Registro na Memória de Logs
-    log_entry = {
-        "timestamp": datetime.now().isoformat(),
-        "event": "orchestration_start",
-        "prompt": prompt,
-        "uid": uid
-    }
-    try:
-        log_path = os.path.join(PROJECT_ROOT, "memory", "logs", f"log_{datetime.now().strftime('%Y%m%d')}.json")
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-    except: pass
-
-    # 2. Chamada para a "Mente" (GPT Maker ou Pipeline Local)
-    # Aqui simulamos a inteligência que quebra o problema em tarefas para os agentes.
-    plan_prompt = f"""Atue como CEO Digital da Brasil Hexa IA.
-Analise o pedido estratégico: "{prompt}"
-Crie um plano de execução técnico detalhado.
-Responda em formato JSON:
-{{
-  "project": "Nome do Projeto",
-  "analysis": "Breve análise estratégica",
-  "tasks": [
-    {{ "agent": "DESIGNER", "task": "Descrição da tarefa UI/UX" }},
-    {{ "agent": "BUILDER", "task": "Descrição da tarefa de construção" }},
-    {{ "agent": "FULLSTACK", "task": "Descrição da tarefa de integração/API" }}
-  ]
-}}
-Retorne APENAS o JSON."""
-
-    plan_raw = await ask_ai_specialized("ORCHESTRATOR", plan_prompt, uid)
-
-    try:
-        # Tenta extrair e limpar o JSON da resposta
-        json_start = plan_raw.find('{')
-        json_end = plan_raw.rfind('}') + 1
-        plan = json.loads(plan_raw[json_start:json_end])
-
-        # 3. Distribuição Automática (Execução em Background ou Sequencial)
-        execution_results = []
-        for task in plan.get("tasks", []):
-            agent = task.get("agent")
-            task_desc = task.get("task")
-            # Executa o agente especializado
-            res = await execute_single_agent(agent, f"Executor da tarefa: {task_desc}. Contexto do Projeto: {plan.get('project')}", uid)
-            execution_results.append({ "agent": agent, "status": "completed", "output": res[:100] + "..." })
-
-        # 4. Salva o projeto na Memória
-        project_name = plan.get("project", "Novo Projeto").lower().replace(" ", "_")
-        project_memory_path = os.path.join(PROJECT_ROOT, "memory", "projects", f"{project_name}.json")
-        with open(project_memory_path, "w", encoding="utf-8") as f:
-            json.dump({
-                "name": plan.get("project"),
-                "created_at": datetime.now().isoformat(),
-                "original_prompt": prompt,
-                "plan": plan,
-                "results": execution_results
-            }, f, indent=4)
-
-        return {
-            "status": "success",
-            "answer": f"🔮 **Plano '{plan.get('project')}' Ativado!**\n\n{plan.get('analysis')}\n\n**Execução:**\n" +
-                      "\n".join([f"✅ {r['agent']}: {r['output']}" for r in execution_results]),
-            "plan": plan
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "answer": f"Falha na orquestração: {str(e)}\n\nResposta bruta da IA:\n{plan_raw}",
-            "raw": plan_raw
-        }
-
-@app.get("/api/brasilhexa/memory/stats")
-async def get_memory_stats():
-    """Retorna estatísticas da estrutura de memória."""
-    try:
-        projects_dir = os.path.join(PROJECT_ROOT, "memory", "projects")
-        projects = os.listdir(projects_dir) if os.path.exists(projects_dir) else []
-        return {
-            "projects_count": len(projects),
-            "last_project": projects[-1].replace('.json', '') if projects else None,
-            "memory_status": "synced"
-        }
-    except:
-        return {"projects_count": 0, "memory_status": "error"}
-
-@app.get("/api/brasilhexa/memory/list/{category}")
-async def list_memory_items(category: str):
-    """Lista itens de uma categoria específica da memória."""
-    valid_categories = ["projects", "agents", "architecture", "logs"]
-    if category not in valid_categories:
-        return {"items": []}
-
-    path = os.path.join(PROJECT_ROOT, "memory", category)
-    if not os.path.exists(path):
-        return {"items": []}
-
-    items = os.listdir(path)
-    return {"items": [i.replace('.json', '') for i in items if i.endswith('.json') or i.endswith('.log')]}
-
-@app.get("/api/brasilhexa/memory/read/{category}/{name}")
-async def read_memory_item(category: str, name: str):
-    """Lê o conteúdo de um item da memória."""
-    path = os.path.join(PROJECT_ROOT, "memory", category, f"{name}.json")
-    if not os.path.exists(path):
-        path = os.path.join(PROJECT_ROOT, "memory", category, f"{name}.log")
-        if not os.path.exists(path):
-            return {"content": "Arquivo não encontrado."}
-
-    with open(path, "r", encoding="utf-8") as f:
-        return {"content": f.read()}
-
-@app.post("/api/node/register")
-async def register_node(data: dict = Body(...), request: Request = None):
-    """Registra um novo nó — apenas admin."""
-    if request.state.user_email != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
-    try:
-        name = data.get("name", "Novo Nó")
-        ptype = data.get("type", "local")
-        identifier = data.get("identifier", "localhost")
-
-        node_id = f"node_{int(time.time())}"
-        node_data = {
-            "name": name,
-            "type": ptype,
-            "identifier": identifier,
-            "connected_at": datetime.now().isoformat(),
-            "health": {"status": "online", "last_checked": datetime.now().isoformat()}
-        }
-        db.reference(f'neural/nodes/{node_id}').set(node_data)
-
-        # Log no Sentinel
-        db.reference('logs').push({
-            "message": f"Novo nó registrado: {name} ({ptype})",
-            "level": "INFO",
-            "timestamp": datetime.now().strftime('%H:%M:%S')
-        })
-
-        return {"status": "success", "node_id": node_id}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/node/heartbeat/{node_id}")
-async def node_heartbeat(node_id: str, data: dict = Body(...)):
-    try:
-        stats = data.get("stats", {})
-        db.reference(f'neural/nodes/{node_id}/health').update({
-            "status": "online",
-            "last_checked": datetime.now().isoformat(),
-            "stats": stats
-        })
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-# --- STUDIO WORKSPACE API ---
-
-@app.get("/api/studio/projects")
-async def studio_list_projects():
-    """Lista todos os projetos (pastas) no workspace."""
-    try:
-        projects = [d for d in os.listdir(WORKSPACE_DIR) if os.path.isdir(os.path.join(WORKSPACE_DIR, d))]
-        return {"status": "success", "projects": sorted(projects) or ["default"]}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/projects")
-async def studio_create_project(data: dict = Body(...)):
-    """Cria um novo projeto."""
-    name = data.get("name", "").strip()
-    if not name:
-        return {"status": "error", "msg": "Nome do projeto obrigatório"}
-    name = name.replace(" ", "_").lower()
-    try:
-        path = get_project_workspace(name)
-        return {"status": "success", "project": name, "path": path}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/migrate")
-async def studio_migrate_workspace(data: dict = Body(...)):
-    """Migra arquivos soltos na raiz do workspace para um projeto específico."""
-    target = data.get("project", "default")
-    try:
-        flat_files = [f for f in os.listdir(WORKSPACE_DIR) if os.path.isfile(os.path.join(WORKSPACE_DIR, f))]
-        target_dir = get_project_workspace(target)
-        moved = 0
-        for f in flat_files:
-            if f.startswith('.'): continue
-            src = os.path.join(WORKSPACE_DIR, f)
-            dst = os.path.join(target_dir, f)
-            if not os.path.exists(dst):
-                os.rename(src, dst)
-                moved += 1
-        return {"status": "success", "moved": moved, "msg": f"{moved} arquivos migrados para projeto '{target}'."}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/sync-emails")
-async def studio_sync_emails():
-    """Sincroniza emails do Firebase Auth para o Realtime Database."""
-    try:
-        ref = db.reference("users")
-        users = ref.get() or {}
-        synced = 0
-        errors = []
-        for uid, data in users.items():
-            if not data.get("email"):
-                try:
-                    user_record = firebase_auth.get_user(uid)
-                    if user_record.email:
-                        ref.child(uid).child("email").set(user_record.email)
-                        synced += 1
-                except Exception as e:
-                    errors.append({"uid": uid, "error": str(e)})
-        return {
-            "status": "success",
-            "synced": synced,
-            "errors": errors,
-            "msg": f"{synced} emails sincronizados do Auth para o Database."
-        }
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/delete-users")
-async def studio_delete_users(data: dict = Body(...)):
-    """Remove usuários do Realtime Database e Firebase Auth."""
-    uids = data.get("uids", [])
-    if not uids:
-        return {"status": "error", "msg": "Nenhum UID fornecido."}
-    results = []
-    for uid in uids:
-        entry = {"uid": uid}
-        try:
-            db.reference(f"users/{uid}").delete()
-            entry["db"] = "deleted"
-        except Exception as e:
-            entry["db"] = f"error: {e}"
-        try:
-            firebase_auth.delete_user(uid)
-            entry["auth"] = "deleted"
-        except firebase_auth.UserNotFoundError:
-            entry["auth"] = "not_found"
-        except Exception as e:
-            entry["auth"] = f"error: {e}"
-        results.append(entry)
-    return {"status": "success", "results": results, "msg": f"{len(uids)} usuários processados."}
-
-@app.post("/api/studio/unban")
-async def studio_unban(data: dict = Body(...)):
-    """Desbane um usuário no Realtime Database."""
-    uid = data.get("uid", "")
-    if not uid:
-        return {"status": "error", "msg": "UID obrigatório."}
-    try:
-        db.reference(f"users/{uid}/status").set("ativo")
-        db.reference(f"users/{uid}/risk_score").set(0)
-        db.reference(f"users/{uid}/ban_reason").delete()
-        return {"status": "success", "msg": f"Usuário {uid} desbanido."}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/api/studio/files")
-async def studio_files(project: str = Query("default")):
-    try:
-        pdir = get_project_workspace(project)
-        files = os.listdir(pdir)
-        file_details = []
-        for f in files:
-            path = os.path.join(pdir, f)
-            stat = os.stat(path)
-            file_details.append({
-                "name": f,
-                "size": stat.st_size,
-                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                "ext": f.split('.')[-1] if '.' in f else 'txt'
-            })
-        return {"status": "success", "files": file_details, "project": project}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/api/studio/context")
-async def studio_context(project: str = Query("default")):
-    """Retorna o conteudo completo do workspace como contexto para a IA."""
-    try:
-        pdir = get_project_workspace(project)
-        files = os.listdir(pdir)
-        context_parts = []
-        for f in sorted(files):
-            if f.startswith('.'): continue
-            path = os.path.join(pdir, f)
-            if not os.path.isfile(path): continue
-            ext = os.path.splitext(f)[1].lower()
-            if ext in ('.png','.jpg','.jpeg','.gif','.ico','.apk'): continue
-            try:
-                with open(path, "r", encoding="utf-8", errors="replace") as fh:
-                    content = fh.read()
-                context_parts.append(f"=== {f} ===\n{content}")
-            except:
-                pass
-        return {"status": "success", "context": "\n\n".join(context_parts), "files": [f for f in sorted(files) if not f.startswith('.')], "project": project}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/orchestrate")
-async def studio_orchestrate(data: dict = Body(...)):
-    """Orquestrador: analisa o projeto existente + prompt, decide agentes, executa pipeline."""
-    prompt = data.get("prompt", "")
-    uid = data.get("uid", "admin_studio")
-    project = data.get("project", "default")
-    session_id = data.get("session_id")
-    if not prompt:
-        return {"status": "error", "msg": "Prompt obrigatório"}
-
-    # Recupera contexto do Project Manager se houver session_id
-    pm_context = ""
-    if session_id:
-        pm_data = db.reference(f'cybercore/pm_sessions/{session_id}').get()
-        if pm_data:
-            p = pm_data.get("project", {})
-            pm_context = f"""
-DADOS DO PLANEJAMENTO (Project Manager):
-- Nome do Projeto: {p.get('name') or 'Não definido'}
-- Tipo: {p.get('type') or 'Não definido'}
-- Caminho sugerido: {p.get('path') or 'Não definido'}
-- Resumo do Plano: {pm_data.get('history', [])[-1]['content'] if pm_data.get('history') else 'Nenhum'}
-"""
-
-    # Pega contexto do workspace do projeto
-    ctx_resp = await studio_context(project)
-    workspace_context = ctx_resp.get("context", "") if ctx_resp.get("status") == "success" else ""
-    existing_files = ctx_resp.get("files", [])
-
-    # Monta prompt para o Orchestrator com contexto
-    orchestrator_prompt = f"""{pm_context}
-CONTEXTO DO PROJETO ATUAL NO WORKSPACE:
-Arquivos existentes: {', '.join(existing_files) if existing_files else 'Nenhum'}
-
-{workspace_context[:3000] if workspace_context else ''}
-
-SOLICITAÇÃO DO USUÁRIO: {prompt}
-
-Com base no contexto acima, determine a sequência de especialistas CyberCore necessários.
-Responda APENAS uma lista separada por vírgula em ordem de execução.
-Opções: BUILDER, PYTHON, JAVA, FULLSTACK, DESIGNER, SECURITY, AUDITOR, SOFTWARE.
-Se o projeto não tiver arquivos, use os agentes padrão: BUILDER, DESIGNER, FULLSTACK.
-
-Exemplo: DESIGNER, BUILDER, FULLSTACK"""
-
-    plan_raw = await ask_ai(orchestrator_prompt, uid="system_orchestrator")
-    agents_sequence = []
-    if plan_raw:
-        agents_sequence = [a.strip().upper() for a in plan_raw.split(",") if a.strip().upper() in AGENT_MODELS]
-    if not agents_sequence:
-        agents_sequence = ["BUILDER", "DESIGNER", "FULLSTACK"]
-
-    # Prepara o prompt final com contexto completo
-    full_context_prompt = f"""{pm_context}
-CONTEXTO DO PROJETO ATUAL NO WORKSPACE:
-{workspace_context[:5000] if workspace_context else 'Projeto novo, sem arquivos ainda.'}
-
-OBJETIVO: {prompt}
-
-INSTRUÇÕES:
-- Leia TODO o contexto acima antes de responder.
-- Se o projeto já tem arquivos, analise-os e faça alterações ou acréscimos conforme solicitado.
-- Se for um projeto novo, crie a estrutura completa do zero.
-- Mantenha consistência com o que já existe.
-- Para código: gere {', '.join(agents_sequence)} atuando como uma equipe unificada.
-- IMPORTANTE: Responda APENAS JSON bruto {{"nome_arquivo": "conteudo"}} sem markdown."""
-
-    # Executa o pipeline com contexto acumulado
-    execution_results = []
-    current_context = full_context_prompt
-    for i, agent in enumerate(agents_sequence):
-        try:
-            step_prompt = current_context if i == 0 else f"{current_context}\n\nProgresso:\n{execution_results[-1]['output'][:2000]}"
-            check_credits(agent) and deduct_credit(agent) if check_credits(agent) else None
-            output = await execute_single_agent(agent, step_prompt, uid)
-            # Tenta extrair e salvar arquivos do JSON na resposta do agente
-            try:
-                json_str = output
-                if "```json" in output:
-                    json_str = output.split("```json")[1].split("```")[0]
-                elif "```" in output:
-                    json_str = output.split("```")[0]
-                parsed = json.loads(json_str.strip())
-                if isinstance(parsed, dict) and len(parsed) > 0:
-                    saved = []
-                    for fn, fc in parsed.items():
-                        tool_write_studio_file(fn, fc, project)
-                        saved.append(fn)
-                    output = f"Arquivos salvos: {', '.join(saved)}"
-            except:
-                pass
-            execution_results.append({"agent": agent, "output": output[:3000] if output else "Sem resposta"})
-        except Exception as e:
-            execution_results.append({"agent": agent, "output": f"Erro: {str(e)}"})
-
-    return {
-        "status": "success",
-        "plan": agents_sequence,
-        "results": execution_results,
-        "context": existing_files,
-        "project": project,
-        "answer": f"🔮 **Pipeline CyberCore Ativado:** {' → '.join(agents_sequence)}\n\n" +
-                  "\n\n".join([f"### Passo {i+1}: {r['agent']}\n{r['output']}" for i, r in enumerate(execution_results)])
-    }
-
-@app.get("/api/studio/read-file/{filename}")
-async def studio_read_file(filename: str, project: str = Query("default")):
-    try:
-        filename = os.path.basename(filename)
-        path = os.path.join(get_project_workspace(project), filename)
-        if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Arquivo não encontrado")
-        with open(path, "r", encoding="utf-8") as f:
-            return {"status": "success", "content": f.read(), "project": project}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/studio/save-file")
-async def studio_save_file(data: dict = Body(...)):
-    filename = data.get("filename")
-    content = data.get("content")
-    project = data.get("project", "default")
-    if not filename or content is None:
-        return {"status": "error", "msg": "Nome e conteúdo são obrigatórios"}
-
-    result = tool_write_studio_file(filename, content, project)
-    if "sucesso" in result:
-        return {"status": "success", "msg": result, "project": project}
-    return {"status": "error", "msg": result}
-
-@app.delete("/api/studio/delete-file/{filename}")
-async def studio_delete_file(filename: str, project: str = Query("default")):
-    try:
-        filename = os.path.basename(filename)
-        path = os.path.join(get_project_workspace(project), filename)
-        if os.path.exists(path):
-            os.remove(path)
-            return {"status": "success", "msg": f"Arquivo {filename} removido do projeto {project}."}
-        return {"status": "error", "msg": "Arquivo não encontrado."}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-# --- STUDIO PREVIEW ---
-@app.get("/api/studio/preview/{filename:path}")
-async def studio_preview_file(filename: str, project: str = Query("default")):
-    """Serve workspace files for live preview."""
-    try:
-        safe = os.path.basename(filename)
-        pdir = get_project_workspace(project)
-        path = os.path.join(pdir, safe)
-        if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Arquivo não encontrado")
-        ext = os.path.splitext(path)[1].lower()
-        media_types = {
-            ".html": "text/html; charset=utf-8",
-            ".css": "text/css; charset=utf-8",
-            ".js": "application/javascript; charset=utf-8",
-            ".json": "application/json",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".gif": "image/gif",
-            ".svg": "image/svg+xml",
-            ".ico": "image/x-icon",
-        }
-        return FileResponse(path, media_type=media_types.get(ext, "text/plain; charset=utf-8"))
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/studio/preview")
-async def studio_preview_site(project: str = Query("default")):
-    """Serve the complete workspace site as a preview page with iframe."""
-    try:
-        pdir = get_project_workspace(project)
-        files = os.listdir(pdir)
-        html = """<!DOCTYPE html><html lang="pt-br"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Brasil Hexa Studio - Preview</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
-body{background:#0a0a0f;color:#fff;display:flex;flex-direction:column;height:100vh}
-.toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);flex-wrap:wrap}
-.toolbar h3{font-size:12px;color:#e8b830;letter-spacing:1px;font-weight:800}
-.toolbar a{color:#64748b;text-decoration:none;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);transition:.2s}
-.toolbar a:hover{color:#e8b830;border-color:rgba(232,184,48,0.3)}
-.toolbar .active{color:#e8b830;border-color:rgba(232,184,48,0.3);background:rgba(232,184,48,0.06)}
-iframe{flex:1;border:none;background:#fff;width:100%}
-.empty{flex:1;display:flex;align-items:center;justify-content:center;color:#333;font-size:14px}
-</style></head><body>
-<div class="toolbar">
-<h3>🖥️ BRASIL HEXA PREVIEW</h3>
-"""
-        has_html = False
-        for f in sorted(files):
-            ext = os.path.splitext(f)[1].lower()
-            if ext in ('.html','.htm'):
-                has_html = True
-                is_active = f == "index.html"
-                cls = ' active' if is_active else ''
-                html += f'<a href="/api/studio/preview/{f}?project={project}" target="preview" class="{cls}">🌐 {f}</a>'
-            elif ext in ('.css','.js'):
-                pass
-        if not has_html:
-            html += '<span style="color:#666;font-size:12px">Nenhum arquivo HTML no workspace</span>'
-        html += '</div>'
-        if has_html:
-            html += f'<iframe name="preview" src="/api/studio/preview/index.html?project={project}"></iframe>'
-        else:
-            html += '<div class="empty">Nenhum arquivo HTML para exibir</div>'
-        html += '</body></html>'
-        return HTMLResponse(content=html)
-    except Exception as e:
-        return HTMLResponse(content=f"<pre>Erro: {e}</pre>", status_code=500)
-
-# --- PROJECT MANAGER & CREDIT SYSTEM ---
-
-DESKTOP_DIR = os.path.expanduser("~/Desktop")
-
-def get_agent_credits():
-    """Get credit limits and usage from Firebase."""
-    try:
-        data = db.reference('config/agent_credits').get() or {}
-        return {
-            "BUILDER":  {"limit": data.get("BUILDER", {}).get("limit", 50), "used": data.get("BUILDER", {}).get("used", 0)},
-            "DESIGNER": {"limit": data.get("DESIGNER", {}).get("limit", 50), "used": data.get("DESIGNER", {}).get("used", 0)},
-            "FULLSTACK": {"limit": data.get("FULLSTACK", {}).get("limit", 50), "used": data.get("FULLSTACK", {}).get("used", 0)},
-            "PYTHON":   {"limit": data.get("PYTHON", {}).get("limit", 50), "used": data.get("PYTHON", {}).get("used", 0)},
-            "JAVA":     {"limit": data.get("JAVA", {}).get("limit", 50), "used": data.get("JAVA", {}).get("used", 0)},
-            "SOFTWARE": {"limit": data.get("SOFTWARE", {}).get("limit", 50), "used": data.get("SOFTWARE", {}).get("used", 0)},
-        }
-    except:
-        return {a: {"limit": 50, "used": 0} for a in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]}
-
-def deduct_credit(agent):
-    """Deduct one credit for an agent usage."""
-    try:
-        ref = db.reference(f'config/agent_credits/{agent}')
-        data = ref.get() or {"used": 0, "limit": 50}
-        data["used"] = data.get("used", 0) + 1
-        ref.set(data)
-        return data["used"] <= data.get("limit", 50)
-    except:
-        return True
-
-def check_credits(agent):
-    """Check if agent has credits remaining."""
-    data = get_agent_credits()
-    a = data.get(agent, {"limit": 50, "used": 0})
-    return a["used"] < a["limit"]
-
-@app.get("/api/studio/credits")
-async def studio_credits():
-    return {"status": "success", "credits": get_agent_credits()}
-
-@app.post("/api/studio/credits/set-limit")
-async def studio_set_limit(data: dict = Body(...)):
-    agent = data.get("agent", "")
-    limit = data.get("limit", 50)
-    if agent not in ["BUILDER","DESIGNER","FULLSTACK","PYTHON","JAVA","SOFTWARE"]:
-        return {"status": "error", "msg": "Agente inválido"}
-    try:
-        ref = db.reference(f'config/agent_credits/{agent}')
-        current = ref.get() or {"used": 0}
-        current["limit"] = max(1, int(limit))
-        ref.set(current)
-        return {"status": "success", "msg": f"Limite do {agent} atualizado para {limit}"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-# --- DECIDE ENGINE: escolhe Groq ou Ollama com base na complexidade ---
-def decide_engine(question):
-    """Retorna 'groq' para perguntas complexas, 'ollama' para simples."""
-    complex_keywords = [
-        "criar", "gerar", "desenvolver", "arquitetura", "estrutura",
-        "banco de dados", "api", "autenticação", "segurança",
-        "como implementar", "melhor prática", "design pattern",
-        "refatorar", "otimizar", "escalar", "deploy"
-    ]
-    q = question.lower()
-    score = sum(1 for kw in complex_keywords if kw in q)
-    return "groq" if score >= 2 else "ollama"
-
-# Store PM conversation history in memory (per-session) - MIGRADO PARA FIREBASE
-# pm_sessions = {}
-
-@app.post("/api/studio/project-manager/chat")
-async def pm_chat(data: dict = Body(...)):
-    session_id = data.get("session_id", "default")
-    message = data.get("message", "")
-    mode = data.get("mode", "auto")  # auto | groq | ollama
-
-    # Recupera sessão do Firebase para persistência
-    ref = db.reference(f'cybercore/pm_sessions/{session_id}')
-    session = ref.get()
-
-    if not session:
-        session = {
-            "history": [],
-            "project": {"name": "", "path": "", "type": "", "existing": False}
-        }
-
-    # Decide engine
-    engine = mode if mode != "auto" else decide_engine(message)
-
-    system_prompt = """Você é o Project Manager da CyberCore IA, um assistente especializado em planejar projetos de software.
-
-SUA FUNÇÃO:
-- Faça perguntas objetivas e diretas sobre o projeto (nome, tipo, onde salvar)
-- Dê sugestões e exemplos práticos
-- Detecte se o usuário já tem um projeto iniciado
-- NÃO gere código completo — apenas planos, sugestões e direcionamentos
-- Quando o projeto estiver bem definido, avise que pode chamar os agentes especializados
-
-REGRAS:
-- Seja curto e objetivo (máx 3 parágrafos)
-- Responda em português brasileiro
-- Use tom amigável e didático
-- Se o usuário mencionar um projeto existente, pergunte o caminho da pasta"""
-
-    user_context = f"""Contexto atual do projeto:
-- Nome: {session['project']['name'] or 'não definido'}
-- Tipo: {session['project']['type'] or 'não definido'}
-- Caminho: {session['project']['path'] or 'não definido'}
-- Projeto existente: {'Sim' if session['project']['existing'] else 'Não'}
-
-Últimas mensagens:
-{chr(10).join([f"{m['role']}: {m['content'][:100]}" for m in session['history'][-6:]])}"""
-
-    full_prompt = f"{system_prompt}\n\n{user_context}\n\nUsuário: {message}"
-
-    try:
-        if engine == "groq" and GROQ_AVAILABLE:
-            answer = groq_generate(full_prompt, uid="pm_session")
-            if not answer:
-                answer = "Desculpe, não consegui processar sua solicitação no momento."
-        else:
-            # Ollama (mais leve)
-            resp = requests.post(OLLAMA_URL, json={
-                "model": "deepseek-coder:latest",
-                "prompt": full_prompt,
-                "stream": False
-            }, timeout=30)
-            if resp.status_code == 200:
-                answer = resp.json().get("response", "Sem resposta.")
-            else:
-                answer = "Não consegui processar. Vou usar o Groq como fallback."
-                if GROQ_AVAILABLE:
-                    answer = groq_generate(full_prompt, uid="pm_session") or answer
-    except Exception as e:
-        answer = f"Erro na comunicação: {str(e)}"
-
-    # Save to history
-    if "history" not in session: session["history"] = []
-    session["history"].append({"role": "user", "content": message})
-    session["history"].append({"role": "assistant", "content": answer})
-    if len(session["history"]) > 20:
-        session["history"] = session["history"][-20:]
-
-    # Salva no Firebase
-    ref.set(session)
-
-    return {
-        "status": "success",
-        "answer": answer,
-        "engine": engine,
-        "project": session["project"]
-    }
-
-@app.post("/api/studio/project-manager/update")
-async def pm_update(data: dict = Body(...)):
-    session_id = data.get("session_id", "default")
-    updates = data.get("project", {})
-
-    ref = db.reference(f'cybercore/pm_sessions/{session_id}')
-    session = ref.get()
-
-    if not session:
-        session = {"history": [], "project": {"name": "", "path": "", "type": "", "existing": False}}
-
-    if "project" not in session: session["project"] = {"name": "", "path": "", "type": "", "existing": False}
-    session["project"].update(updates)
-
-    # Persiste a atualização
-    ref.set(session)
-    return {"status": "success", "project": session["project"]}
-
-@app.post("/api/studio/project-manager/dispatch")
-async def pm_dispatch(data: dict = Body(...)):
-    session_id = data.get("session_id", "default")
-    agent = data.get("agent", "BUILDER")
-    prompt = data.get("prompt", "")
-
-    if not check_credits(agent):
-        return {"status": "error", "msg": f"Agente {agent} sem créditos. Aumente o limite em Configurações."}
-
-    try:
-        resp = await execute_single_agent(agent, prompt, "admin_studio")
-        deduct_credit(agent)
-        return {"status": "success", "answer": resp, "agent": agent}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/api/studio/detect")
-async def studio_detect(path: str = ""):
-    """Detecta projetos existentes no Desktop ou em path específico."""
-    try:
-        base = path if path else DESKTOP_DIR
-        if not os.path.exists(base):
-            return {"status": "error", "msg": "Caminho não encontrado"}
-        items = []
-        for entry in os.listdir(base):
-            full = os.path.join(base, entry)
-            if os.path.isdir(full):
-                # Detecta se parece um projeto
-                has_files = any(os.path.isfile(os.path.join(full, f)) for f in os.listdir(full)[:50])
-                if has_files:
-                    items.append({
-                        "name": entry,
-                        "path": full,
-                        "type": detect_project_type(full)
-                    })
-        return {"status": "success", "projects": items, "base": base}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-def detect_project_type(folder):
-    """Tenta detectar o tipo de projeto."""
-    files = os.listdir(folder)
-    if any(f.endswith('.html') for f in files): return "website"
-    if any(f.endswith('.py') for f in files): return "python"
-    if any(f.endswith('.java') or f.endswith('.apk') for f in files): return "android"
-    if any(f.endswith('.js') or f.endswith('.ts') for f in files): return "website"
-    return "unknown"
-
-@app.get("/api/studio/detect/check-path")
-async def studio_check_path(path: str = ""):
-    """Verifica se um caminho existe."""
-    return {"exists": os.path.exists(path), "path": path}
-
-# --- SERVE STATIC FILES ---
-# As rotas estáticas manuais foram removidas em favor dos mounts automáticos.
-# O site de usuários (WWW) será servido na raiz (/) e o admin em (/admin).
-
-# --- API DE TELEMETRIA E SESSÃO ---
-@app.post("/api/session/pulse")
-async def session_pulse():
-    return {"status": "online", "timestamp": time.time(), "core": "BrasilHexa-VAR"}
-
-# --- API: MÉTRICAS EM TEMPO REAL ---
+# ─── Metrics ───
 @app.get("/api/metrics")
-async def api_metrics():
+async def metrics():
     try:
-        # Ping do Firebase (latência)
         t0 = time.time()
-        db.reference('status/ping_test').set({"ts": time.time()})
+        db.reference("status/ping_test").set({"ts": time.time()})
         ping = round((time.time() - t0) * 1000, 1)
     except:
         ping = 0
-    try:
-        import psutil
-        cpu = round(psutil.cpu_percent(interval=0.1), 1)
-        ram = round(psutil.virtual_memory().used / 1024 / 1024, 0)
-    except:
-        cpu = 0
-        ram = 0
-    try:
-        users = db.reference('users').get() or {}
-        config = db.reference('config').get() or {}
-        hits = config.get('stats', {}).get('hits', 0)
-        cpm = config.get('cpm', 0.18)
-        dollar = get_dollar_rate()
-        revenue = (hits / 1000) * cpm * dollar
-        total_debt = sum(float(u.get('balance', 0)) for u in users.values() if isinstance(u, dict))
-        net = revenue - total_debt
-    except:
-        revenue, total_debt, net = 0, 0, 0
     return {
-        "ping": ping, "cpu": cpu, "ram": str(int(ram)) + "MB",
-        "revenue_brl": round(revenue, 2), "total_debt": round(total_debt, 2),
-        "net_profit_brl": round(net, 2),
-        "status": "online", "timestamp": datetime.now().isoformat()
+        "ping": ping,
+        "status": "online",
+        "timestamp": datetime.now().isoformat()
     }
 
-# --- API: NEXUS TELEMETRIA ---
+# ─── Nexus Telemetry ───
 @app.post("/api/nexus/report")
 async def nexus_report(data: dict = Body({})):
     uid = data.get("uid", "unknown")
-    ads = int(data.get("ads_watched", 0))
-    balance = float(data.get("balance", 0))
-    page = data.get("page_context", "unknown")
-    duration = int(data.get("session_duration", 0))
-    platform = data.get("platform", "unknown")
-    doubt = data.get("user_doubt")
-
     try:
-        db.reference(f'logs/nexus/{uid}').push({
-            "report": data, "received_at": datetime.now().isoformat()
+        db.reference(f"logs/nexus/{uid}").push({
+            "report": data,
+            "received_at": datetime.now().isoformat()
         })
-        user_ref = db.reference(f'users/{uid}')
-        user_data = user_ref.get() or {}
-        risk = user_data.get('risk_score', 0) if isinstance(user_data, dict) else 0
-        email = user_data.get('email', uid) if isinstance(user_data, dict) else uid
-        now = datetime.now().isoformat()
-
-        alerts = []
-        nexus_actions = []
-
-        if balance > 10 and ads < 3:
-            alerts.append(f"Possivel fraude: {email} - R${balance} com {ads} ads")
-            nexus_actions.append({"to": "sentinel", "level": "alerta", "msg": f"NEXUS: {email} saldo R${balance} com apenas {ads} anuncios"})
-
-        financial_status = "saudavel"
-        if balance >= 5:
-            financial_status = "otimo"
-            nexus_actions.append({"to": "auditor", "level": "info", "msg": f"NEXUS: {email} saldo R${balance} - apto para saque"})
-        elif balance >= 1:
-            financial_status = "bom"
-        elif balance > 0:
-            financial_status = "regular"
-
-        engaged = "alto" if duration > 300 else "medio" if duration > 60 else "baixo"
-
-        insight = {
-            "uid": uid, "email": email, "balance": balance, "ads": ads,
-            "page": page, "duration": duration, "platform": platform,
-            "risk": risk, "financial_status": financial_status,
-            "engagement": engaged, "last_seen": now, "doubt": doubt
-        }
-        db.reference(f'nexus/insights/{uid}').update(insight)
-
-        if nexus_actions:
-            for action in nexus_actions:
-                action["uid"] = uid
-                action["timestamp"] = now
-                db.reference('nexus/actions').push(action)
-
-        if doubt:
-            db.reference('neural/insights/nexus_last_doubt').set({
-                "uid": uid, "doubt": doubt, "timestamp": now
-            })
     except Exception as e:
-        print(f"[NEXUS] Erro ao processar relatorio: {e}")
-
+        print(f"[NEXUS] Erro: {e}")
     return {"status": "received", "uid": uid}
 
-@app.post("/payments/approve-all")
-async def approve_all_payments_route(request: Request):
-    # Verifica admin
-    uid = request.state.user_uid
-    user = db.reference(f'users/{uid}').get() or {}
-    if user.get('email') != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Apenas administrador pode aprovar saques")
-    try:
-        result = await auto_approve_withdrawals(force=True)
-        return {"status": "success", "msg": result}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.get("/audit/financial")
-def get_audit(): return tool_analyze_health()
-
-@app.post("/user/claim-daily/{uid}")
-@app.get("/user/claim-daily/{uid}")
-@app.post("/user/claim-daily/{uid}/")
-@app.get("/user/claim-daily/{uid}/")
-async def claim_daily(uid: str, request: Request = None):
-    if request.state.user_uid != uid:
-        raise HTTPException(status_code=403, detail="Acesso negado")
-    try:
-        auth_header = request.headers.get("Authorization", "")
-        id_token = auth_header.split("Bearer ", 1)[1] if "Bearer " in auth_header else ""
-
-        database_url = "https://playearn-b001b-default-rtdb.firebaseio.com"
-        user_url = f"{database_url}/users/{uid}.json?auth={id_token}"
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(user_url)
-            if resp.status_code != 200:
-                raise HTTPException(status_code=500, detail="Erro ao acessar banco de dados")
-            user_data = resp.json()
-            if not user_data:
-                raise HTTPException(status_code=404, detail="Usuário não encontrado")
-
-            today = datetime.now().strftime('%Y-%m-%d')
-            last_bonus = user_data.get('last_daily_bonus_date')
-
-            if last_bonus == today:
-                raise HTTPException(status_code=400, detail="Bônus já resgatado hoje.")
-
-            weekday = datetime.now().weekday()
-            if weekday >= 5:
-                raise HTTPException(status_code=400, detail="Bônus disponível apenas em dias úteis (segunda a sexta).")
-
-            new_balance = float(user_data.get('balance', 0)) + 0.20
-
-            patch_resp = await client.patch(user_url, json={
-                "balance": new_balance,
-                "last_daily_bonus_date": today
-            })
-            if patch_resp.status_code != 200:
-                raise HTTPException(status_code=500, detail="Erro ao creditar bônus")
-
-            return {"status": "success", "new_balance": new_balance, "message": "Bônus diário resgatado!"}
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+# ─── Video Start ───
 @app.post("/video/start/{uid}")
 @app.get("/video/start/{uid}")
 async def video_start(uid: str, request: Request):
-    # Verifica se o UID da rota corresponde ao UID do token
-    if request.state.user_uid != uid:
-        raise HTTPException(status_code=403, detail="Acesso negado")
-
-    # Registra o início da sessão para evitar bypass direto do endpoint complete
-    db.reference(f'users/{uid}/video_session').set({
-        "start_at": datetime.now().isoformat(),
-        "valid": True
-    })
-
-    return {"status": "success", "session": "active", "timestamp": datetime.now().isoformat()}
-
-@app.post("/api/referral/create/{uid}")
-async def create_referral_slug(uid: str, request: Request):
-    """Gera um novo slug de indicação (alias) válido por 30 dias."""
     if request.state.user_uid != uid:
         raise HTTPException(status_code=403, detail="Acesso negado")
     try:
-        user_ref = db.reference(f'users/{uid}')
+        db.reference(f"users/{uid}/video_session").set({
+            "start_at": datetime.now().isoformat(),
+            "valid": True
+        })
+        return {"status": "success", "session": "active", "timestamp": datetime.now().isoformat()}
+    except HTTPException: raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Video Complete ───
+@app.post("/video/complete/{uid}")
+async def video_complete(uid: str, request: Request):
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+
+    client_ip = request.state.client_ip
+
+    try:
+        user_ref = db.reference(f"users/{uid}")
+
+        def trans(current):
+            if current is None: return current
+            cd = current if isinstance(current, dict) else {}
+
+            # Rodar VAR (Segurança)
+            new_risk = run_var_check(uid, client_ip, "video_complete", cd)
+            cd["risk_score"] = new_risk
+            cd["last_ip"] = client_ip
+
+            if new_risk >= 100:
+                cd["banned"] = True
+                cd["_error"] = "Sua conta foi suspensa por atividade suspeita (VAR)."
+                return cd
+
+            session = cd.get("video_session")
+            if not session or not session.get("valid"):
+                cd["_error"] = "Sessão inválida. Use o botão oficial."
+                return cd
+
+            start_ts = datetime.fromisoformat(session.get("start_at"))
+            elapsed = (datetime.now() - start_ts).total_seconds()
+            if elapsed < 29:
+                risk = int(cd.get("risk_score", 0)) + 15
+                cd["risk_score"] = risk
+                if risk > 50:
+                    cd["soft_ban_until"] = (datetime.now() + timedelta(hours=2)).isoformat()
+                    cd["_error"] = "Atividade suspeita. Suspensão de 2h."
+                else:
+                    cd["_error"] = f"Análise muito rápida ({int(elapsed)}s)."
+                return cd
+
+            last_video = cd.get("last_video_at")
+            if last_video:
+                diff = (datetime.now() - datetime.fromisoformat(last_video)).total_seconds()
+                if diff < 28:
+                    cd["risk_score"] = int(cd.get("risk_score", 0)) + 5
+                    cd["_error"] = "Aguarde o processamento."
+                    return cd
+
+            cd["video_session"] = {"valid": False}
+            current_videos = int(cd.get("videosWatched", 0))
+            new_videos = current_videos + 1
+            current_balance = float(cd.get("balance", 0))
+
+            milestones = [200, 800, 1000, 2000, 10000]
+            rewards = [0.50, 3.00, 5.00, 10.00, 50.00]
+            claimed = dict(cd.get("milestones", {}))
+            reward_total = 0
+            for i, m in enumerate(milestones):
+                mk = str(m)
+                if new_videos >= m and not claimed.get(mk):
+                    reward_total += rewards[i]
+                    claimed[mk] = True
+
+            cd["balance"] = current_balance + reward_total
+            cd["videosWatched"] = new_videos
+            cd["last_video_at"] = datetime.now().isoformat()
+            if reward_total > 0:
+                cd["milestones"] = claimed
+
+            # Increment global hits for telemetry
+            try:
+                stats_ref = db.reference("config/stats")
+                stats_ref.child("hits").transaction(lambda current: (current or 0) + 1)
+
+                # Update daily profit history
+                config = db.reference("config").get() or {}
+                cpm = float(config.get("cpm", 0.18))
+                rate = float(db.reference("status/financial_realtime/rate").get() or 5.25)
+                profit_per_hit = (cpm * rate) / 1000
+
+                history_ref = db.reference("config/profit_history")
+                def update_history(current):
+                    if not current or not isinstance(current, list):
+                        return [{"t": int(time.time()), "v": profit_per_hit}]
+                    current.append({"t": int(time.time()), "v": profit_per_hit})
+                    if len(current) > 2000:
+                        return current[-2000:]
+                    return current
+
+                history_ref.transaction(update_history)
+            except:
+                pass
+
+            cd["_reward_total"] = reward_total
+            cd["_new_videos"] = new_videos
+            return cd
+
+        result = user_ref.transaction(trans)
+        if result is None:
+            return {"status": "error", "message": "Usuário não encontrado"}
+        if result.get("_error"):
+            return {"status": "error", "message": result["_error"]}
+
+        reward_total = result.pop("_reward_total", 0)
+        new_videos = result.pop("_new_videos", 0)
+
+        if new_videos == 50:
+            sponsor = result.get("referredBy")
+            if sponsor:
+                try:
+                    sref = db.reference(f"users/{sponsor}")
+                    def st(sp):
+                        if sp is None: return None
+                        sd = sp if isinstance(sp, dict) else {}
+                        vrefs = int(sd.get("validReferrals", 0)) + 1
+                        sd["balance"] = float(sd.get("balance", 0)) + 0.20
+                        sd["validReferrals"] = vrefs
+                        sd["referralBonus"] = float(sd.get("referralBonus", 0)) + 0.20
+                        if vrefs % 7 == 0:
+                            sd["balance"] = float(sd["balance"]) + 1.50
+                            sd["referralBonus"] = float(sd["referralBonus"]) + 1.50
+                        return sd
+                    sref.transaction(st)
+                except:
+                    pass
+
+        return {
+            "status": "success",
+            "new_balance": result.get("balance", 0),
+            "videos_count": new_videos,
+            "milestone_reward": reward_total
+        }
+    except HTTPException: raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ─── Referral Create ───
+@app.post("/api/referral/create/{uid}")
+async def create_referral(uid: str, request: Request):
+    if request.state.user_uid != uid:
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    try:
+        user_ref = db.reference(f"users/{uid}")
         if not user_ref.get():
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
 
-        # Gera slug seguro e único
         slug = secrets.token_urlsafe(8)
         expires_at = (datetime.now() + timedelta(days=30)).isoformat()
 
-        # Armazena mapeamento slug -> UID
-        db.reference(f'referrals/{slug}').set({
-            "uid": uid,
-            "expires_at": expires_at,
-            "created_at": datetime.now().isoformat()
+        db.reference(f"referrals/{slug}").set({
+            "uid": uid, "expires_at": expires_at, "created_at": datetime.now().isoformat()
         })
-
-        # Atualiza registro do usuário
         user_ref.update({
             "active_referral_slug": slug,
             "referral_slug_expires": expires_at
         })
 
         return {"status": "success", "slug": slug, "expires_at": expires_at}
-    except HTTPException:
-        raise
+    except HTTPException: raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ─── Referral Resolve ───
 @app.get("/api/referral/resolve/{slug}")
-async def resolve_referral_slug(slug: str):
-    """Resolve um slug de indicação de volta para o UID original. (Pública)"""
+async def resolve_referral(slug: str):
     try:
-        ref_data = db.reference(f'referrals/{slug}').get()
+        ref_data = db.reference(f"referrals/{slug}").get()
         if not ref_data:
-            return {"status": "error", "message": "Link de convite inválido ou inexistente."}
-
-        # Verifica expiração
-        expires_at_str = ref_data.get("expires_at")
-        if expires_at_str:
-            expires_at = datetime.fromisoformat(expires_at_str)
-            if datetime.now() > expires_at:
-                return {"status": "error", "message": "Este link de convite expirou (validade de 30 dias)."}
-
+            return {"status": "error", "message": "Link inválido."}
+        expires = ref_data.get("expires_at")
+        if expires and datetime.now() > datetime.fromisoformat(expires):
+            return {"status": "error", "message": "Link expirado (30 dias)."}
         return {"status": "success", "uid": ref_data.get("uid")}
-    except Exception as e:
-        return {"status": "error", "message": f"Erro ao resolver link: {str(e)}"}
-
-@app.get("/api/referral/list/{uid}")
-async def list_referrals(uid: str, request: Request):
-    """Retorna usuários que se cadastraram usando o link de indicação do usuário."""
-    if request.state.user_uid != uid:
-        raise HTTPException(status_code=403, detail="Acesso negado")
-    try:
-        users_ref = db.reference('users')
-        all_users = users_ref.order_by_child('referredBy').equal_to(uid).get() or {}
-        result = []
-        for ref_uid, data in all_users.items():
-            if isinstance(data, dict):
-                result.append({
-                    "uid": ref_uid,
-                    "fullname": data.get("fullname") or data.get("firstname") or "Usuário",
-                    "username": data.get("username") or "",
-                    "videosWatched": data.get("videosWatched", 0),
-                    "status": data.get("status", "ativo")
-                })
-        return {"status": "success", "referrals": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/video/complete/{uid}")
-async def video_complete(uid: str, request: Request):
-    if request.state.user_uid != uid:
-        raise HTTPException(status_code=403, detail="Acesso negado")
-    try:
-        user_ref = db.reference(f'users/{uid}')
-
-        # Usa transação Firebase para evitar race conditions
-        def trans(current):
-            if current is None:
-                return current  # usuário não existe
-            current_data = current if isinstance(current, dict) else {}
-
-            # 1. VERIFICAÇÃO DE SOFT BAN (Risk Score > 50)
-            risk = int(current_data.get('risk_score', 0))
-            ban_until = current_data.get('soft_ban_until')
-            if ban_until:
-                if datetime.now() < datetime.fromisoformat(ban_until):
-                    current_data['_error'] = 'VAR: Conta suspensa por 2h devido a atividade suspeita.'
-                    return current_data
-                else:
-                    # Ban expirou, reseta o risco
-                    current_data['risk_score'] = 0
-                    risk = 0
-
-            # 2. VERIFICAÇÃO DE SESSÃO (Anti-Bypass)
-            session = current_data.get('video_session')
-            if not session or not session.get('valid'):
-                current_data['_error'] = 'Sessão inválida. Use o botão oficial de análise.'
-                return current_data
-
-            start_ts = datetime.fromisoformat(session.get('start_at'))
-            elapsed = (datetime.now() - start_ts).total_seconds()
-
-            if elapsed < 29:
-                new_risk = risk + 15
-                current_data['risk_score'] = new_risk
-                if new_risk > 50:
-                    current_data['soft_ban_until'] = (datetime.now() + timedelta(hours=2)).isoformat()
-                    current_data['_error'] = 'VAR: Fraude detectada. Suspensão de 2 horas aplicada.'
-                else:
-                    current_data['_error'] = f'Análise muito rápida ({int(elapsed)}s). O VAR está de olho.'
-                return current_data
-
-            # 3. VALIDAÇÃO DE COOLDOWN GERAL (Anti-Spam)
-            last_video_at = current_data.get('last_video_at')
-            if last_video_at:
-                last_ts = datetime.fromisoformat(last_video_at)
-                diff = (datetime.now() - last_ts).total_seconds()
-                if diff < 28:
-                    current_data['risk_score'] = risk + 5
-                    current_data['_error'] = 'Aguarde o processamento da rede.'
-                    return current_data
-
-            # Limpa sessão após uso bem-sucedido
-            current_data['video_session'] = {"valid": False}
-
-            current_videos = int(current_data.get('videosWatched', 0))
-            new_videos = current_videos + 1
-            current_balance = float(current_data.get('balance', 0))
-
-            # Verifica milestones
-            milestones_list = [200, 800, 1000, 2000, 10000]
-            rewards_list = [0.50, 3.00, 5.00, 10.00, 50.00]
-            claimed = dict(current_data.get('milestones', {}))
-            reward_total = 0
-
-            for i, milestone in enumerate(milestones_list):
-                m_key = str(milestone)
-                if new_videos >= milestone and not claimed.get(m_key):
-                    reward_total += rewards_list[i]
-                    claimed[m_key] = True
-
-            current_data['balance'] = current_balance + reward_total
-            current_data['videosWatched'] = new_videos
-            current_data['last_video_at'] = datetime.now().isoformat()
-            if reward_total > 0:
-                current_data['milestones'] = claimed
-
-            current_data['_reward_total'] = reward_total
-            current_data['_new_videos'] = new_videos
-            return current_data
-
-        result = user_ref.transaction(trans)
-
-        if result is None:
-            return {"status": "error", "message": "Usuário não encontrado"}
-        if result.get('_error'):
-            return {"status": "error", "message": result['_error']}
-
-        reward_total = result.pop('_reward_total', 0)
-        new_videos = result.pop('_new_videos', 0)
-
-        # Sistema de Indicação (fora da transação para evitar complexidade)
-        if new_videos == 25:
-            sponsor_uid = result.get('referredBy')
-            if sponsor_uid:
-                try:
-                    sponsor_ref = db.reference(f'users/{sponsor_uid}')
-                    def sponsor_trans(current):
-                        if current is None:
-                            return None
-                        cd = current if isinstance(current, dict) else {}
-                        current_valid = int(cd.get('validReferrals', 0)) + 1
-                        bonus_amount = 0.20
-                        extra_bonus = 1.00 if current_valid % 5 == 0 else 0
-                        total_bonus = bonus_amount + extra_bonus
-                        cd['validReferrals'] = current_valid
-                        cd['balance'] = float(cd.get('balance', 0)) + total_bonus
-                        cd['referralBonus'] = float(cd.get('referralBonus', 0)) + total_bonus
-                        cd['_total_bonus'] = total_bonus
-                        return cd
-                    sponsor_ref.transaction(sponsor_trans)
-                except:
-                    pass  # Falha no bônus não deve quebrar o fluxo principal
-
-        return {"status": "success", "new_balance": result.get('balance', 0), "videos_count": new_videos, "milestone_reward": reward_total}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+# ─── Payments Request ───
 @app.post("/payments/request/{uid}")
 async def request_withdrawal(uid: str, data: dict = Body(...), request: Request = None):
     if request.state.user_uid != uid:
@@ -2822,102 +388,180 @@ async def request_withdrawal(uid: str, data: dict = Body(...), request: Request 
         amount = float(data.get("amount", 0))
         pix_key = data.get("pixKey", "").strip()
         pix_type = data.get("pixType", "EVP").upper()
-        project_id = data.get("projectId") or data.get("nodeId")
+        project_id = data.get("projectId")
 
-        # --- VALIDAÇÕES INICIAIS ---
         if amount < 0.50:
-            return {"status": "error", "message": "Valor mínimo para saque é R$ 0,50"}
+            return {"status": "error", "message": "Mínimo R$ 0,50"}
         if amount > 50.0:
-            return {"status": "error", "message": "Valor máximo por saque é R$ 50,00"}
+            return {"status": "error", "message": "Máximo R$ 50,00"}
         if not pix_key:
-            return {"status": "error", "message": "Chave PIX é obrigatória"}
+            return {"status": "error", "message": "Chave PIX obrigatória"}
+        valid_types = {"CPF", "CNPJ", "EMAIL", "PHONE", "EVP"}
+        if pix_type not in valid_types:
+            return {"status": "error", "message": "Tipo de chave inválido"}
 
-        # --- VALIDAÇÃO DE CHAVE PIX SERVER-SIDE ---
-        valid_pix_types = {"CPF", "CNPJ", "EMAIL", "PHONE", "EVP"}
-        if pix_type not in valid_pix_types:
-            return {"status": "error", "message": "Tipo de chave PIX inválido"}
-        if pix_type == "CPF" and len("".join(filter(str.isdigit, pix_key))) != 11:
-            return {"status": "error", "message": "CPF deve ter 11 dígitos"}
-        if pix_type == "CNPJ" and len("".join(filter(str.isdigit, pix_key))) != 14:
-            return {"status": "error", "message": "CNPJ deve ter 14 dígitos"}
-        if pix_type == "PHONE" and len("".join(filter(str.isdigit, pix_key))) < 10:
-            return {"status": "error", "message": "Telefone deve ter pelo menos 10 dígitos"}
-        if pix_type == "EMAIL" and "@" not in pix_key:
-            return {"status": "error", "message": "E-mail inválido para chave PIX"}
-
-        # --- TRANSAÇÃO ATÔMICA ---
-        user_ref = db.reference(f'users/{uid}')
+        user_ref = db.reference(f"users/{uid}")
 
         def trans(current):
-            if current is None:
-                return {"_error": "Usuário não localizado."}
+            if current is None: return {"_error": "Usuário não encontrado"}
             cd = current if isinstance(current, dict) else {}
 
-            if float(cd.get('balance', 0)) < amount:
-                cd['_error'] = f"Saldo insuficiente. Você tem R$ {float(cd.get('balance', 0)):.2f}"
+            if float(cd.get("balance", 0)) < amount:
+                cd["_error"] = f"Saldo insuficiente. Você tem R$ {float(cd.get('balance', 0)):.2f}"
                 return cd
-
-            # Cooldown de saque (1h)
-            last_withdraw = cd.get('last_withdraw_at')
-            if last_withdraw:
-                lw_ts = datetime.fromisoformat(last_withdraw)
-                if (datetime.now() - lw_ts).total_seconds() < 3600:
-                    cd['_error'] = "Limite de 1 resgate por hora. Proteção Brasil Hexa."
+            last_wd = cd.get("last_withdraw_at")
+            if last_wd:
+                if (datetime.now() - datetime.fromisoformat(last_wd)).total_seconds() < 3600:
+                    cd["_error"] = "Limite de 1 saque por hora."
                     return cd
-
-            # Deduz saldo
-            cd['balance'] = float(cd.get('balance', 0)) - amount
-            cd['last_withdraw_at'] = datetime.now().isoformat()
-            cd['_success'] = True
+            cd["balance"] = float(cd.get("balance", 0)) - amount
+            cd["last_withdraw_at"] = datetime.now().isoformat()
+            cd["_success"] = True
             return cd
 
         result = user_ref.transaction(trans)
-
         if result is None:
-            return {"status": "error", "message": "Usuário não localizado."}
-        if result.get('_error'):
-            return {"status": "error", "message": result['_error']}
+            return {"status": "error", "message": "Usuário não encontrado"}
+        if result.get("_error"):
+            return {"status": "error", "message": result["_error"]}
 
-        # Gera ID de saque
         ts = int(datetime.now().timestamp() * 1000)
         wid = f"WID{ts}"
-
         user_data = user_ref.get() or {}
-
         withdraw_obj = {
-            "amount": amount,
-            "pixKey": pix_key,
-            "pixType": pix_type,
-            "status": "pending",
-            "timestamp": ts,
-            "created_at": datetime.now().isoformat(),
-            "uid": uid,
-            "fullname": user_data.get('fullname', 'Usuário Brasil Hexa'),
+            "amount": amount, "pixKey": pix_key, "pixType": pix_type,
+            "status": "pending", "timestamp": ts,
+            "created_at": datetime.now().isoformat(), "uid": uid,
+            "fullname": user_data.get("fullname", "Usuário"),
             "projectId": project_id,
             "fingerprint": data.get("fingerprint", "unknown"),
         }
+        db.reference(f"withdrawals/{uid}/{wid}").set(withdraw_obj)
+        db.reference(f"admin/pending_withdrawals/{wid}").set(withdraw_obj)
 
-        db.reference(f'withdrawals/{uid}/{wid}').set(withdraw_obj)
-        db.reference(f'admin/pending_withdrawals/{wid}').set(withdraw_obj)
-
-        return {"status": "success", "message": "Solicitação de saque enviada!", "wid": wid}
-    except HTTPException:
-        raise
+        return {"status": "success", "message": "Saque solicitado!", "wid": wid}
+    except HTTPException: raise
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/heartbeat/site")
-@app.get("/heartbeat/site")
-async def heartbeat(data: dict = Body(default={"source": "direct_access"})):
-    try:
-        db.reference(f'status/{data.get("source", "unknown")}_last_pulse').set({".sv": "timestamp"})
-        return {"ok": True, "status": "pulsing"}
-    except:
-        return {"ok": False, "error": "Firebase logic failed"}
+# ─── Payments Approval (Asaas Integration) ───
 
+async def process_asaas_pix(asaas_key: str, amount: float, pix_key: str, pix_type: str, description: str):
+    url = "https://www.asaas.com/api/v3/transfers"
+    # Mapping Pix types to Asaas format
+    pix_mapping = {
+        "CPF": "CPF",
+        "CNPJ": "CNPJ",
+        "EMAIL": "EMAIL",
+        "PHONE": "PHONE",
+        "EVP": "RANDOM_KEY"
+    }
+
+    headers = {
+        "access_token": asaas_key,
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "value": amount,
+        "pixAddressKey": pix_key,
+        "pixAddressKeyType": pix_mapping.get(pix_type, "RANDOM_KEY"),
+        "description": description
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(url, json=payload, headers=headers, timeout=30.0)
+            return resp.json()
+        except Exception as e:
+            return {"errors": [{"description": f"Erro de conexão com Asaas: {str(e)}"}]}
+
+@app.post("/payments/approve/{wid}")
+async def approve_payment(wid: str, request: Request):
+    # Security: Verify if the request comes from the admin
+    user_uid = getattr(request.state, "user_uid", "")
+    try:
+        user_data = firebase_auth.get_user(user_uid)
+        if user_data.email != ADMIN_EMAIL:
+             raise HTTPException(status_code=403, detail="Acesso administrativo exigido")
+    except:
+        raise HTTPException(status_code=403, detail="Acesso administrativo exigido")
+
+    try:
+        # Get withdrawal data
+        wd_ref = db.reference(f"admin/pending_withdrawals/{wid}")
+        wd = wd_ref.get()
+        if not wd:
+            return {"status": "error", "message": "Saque não encontrado na fila pendente"}
+
+        # Get Asaas Key from config
+        config = db.reference("config").get() or {}
+        asaas_key = config.get("asaasKey") or config.get("asaas_key")
+
+        if not asaas_key:
+            return {"status": "error", "message": "Chave API Asaas não configurada"}
+
+        # Process via Asaas
+        result = await process_asaas_pix(
+            asaas_key,
+            wd["amount"],
+            wd["pixKey"],
+            wd["pixType"],
+            f"CineCash - Resgate {wid}"
+        )
+
+        if "errors" in result:
+             return {"status": "error", "message": result["errors"][0]["description"]}
+
+        # Update status in Firebase
+        uid = wd["uid"]
+        update_data = {"status": "paid", "paid_at": datetime.now().isoformat(), "asaas_id": result.get("id")}
+
+        db.reference(f"withdrawals/{uid}/{wid}").update(update_data)
+        wd_ref.delete() # Remove from pending
+
+        # Log to financial logs
+        db.reference("logs/financial").push({
+            "type": "withdrawal_paid",
+            "wid": wid,
+            "uid": uid,
+            "amount": wd["amount"],
+            "timestamp": int(time.time() * 1000),
+            "description": f"Saque de R${wd['amount']} pago para {wd.get('fullname')}"
+        })
+
+        return {"status": "success", "message": "Saque pago com sucesso via Asaas!"}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/process-all-payments")
+async def process_all_payments(request: Request):
+    # Security: Verify if the request comes from the admin
+    user_uid = getattr(request.state, "user_uid", "")
+    try:
+        user_data = firebase_auth.get_user(user_uid)
+        if user_data.email != ADMIN_EMAIL:
+             raise HTTPException(status_code=403, detail="Acesso administrativo exigido")
+    except:
+        raise HTTPException(status_code=403, detail="Acesso administrativo exigido")
+
+    pending = db.reference("admin/pending_withdrawals").get()
+    if not pending:
+        return {"status": "success", "message": "Nenhum saque pendente"}
+
+    results = []
+    for wid in pending.keys():
+        # Ideally, this should be tasks in a queue, but for small volumes we can loop
+        # Note: In a production environment with many payments, use a background task
+        res = await approve_payment(wid, request)
+        results.append({"wid": wid, "result": res})
+
+    return {"status": "success", "processed": len(results), "details": results}
+
+# ─── Game Reward ───
 @app.post("/api/game/reward/{uid}")
 async def game_reward(uid: str, data: dict = Body(...), request: Request = None):
-    """Credita recompensa de jogo ao saldo do usuário — recompensa calculada server-side"""
     if request.state.user_uid != uid:
         raise HTTPException(status_code=403, detail="Acesso negado")
 
@@ -2928,459 +572,74 @@ async def game_reward(uid: str, data: dict = Body(...), request: Request = None)
     if game_id not in valid_games:
         return {"status": "error", "message": "Jogo inválido"}
 
-    # Recompensa calculada server-side (NUNCA confie no cliente)
     if game_id == "flappy":
-        if score >= 30:
-            reward = 0.03
-        elif score >= 10:
-            reward = 0.01
-        else:
-            reward = 0
+        reward = 0.03 if score >= 30 else (0.01 if score >= 10 else 0)
     elif game_id == "memory":
         time_taken = float(data.get("time", 999))
-        if time_taken < 30:
-            reward = 0.05
-        elif time_taken < 60:
-            reward = 0.03
-        else:
-            reward = 0
+        reward = 0.05 if time_taken < 30 else (0.03 if time_taken < 60 else 0)
     else:
         reward = 0
 
     if reward <= 0:
-        return {"status": "error", "message": "Pontuação insuficiente para recompensa"}
+        return {"status": "error", "message": "Pontuação insuficiente"}
 
-    user_ref = db.reference(f'users/{uid}')
+    try:
+        user_ref = db.reference(f"users/{uid}")
 
-    # Transação atômica
-    def trans(current):
-        if current is None:
-            return {"_error": "Usuário não encontrado"}
-        cd = current if isinstance(current, dict) else {}
+        def trans(current):
+            if current is None: return {"_error": "Usuário não encontrado"}
+            cd = current if isinstance(current, dict) else {}
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        game_data = dict(cd.get('games', {}).get(game_id, {}))
-        last_date = game_data.get('lastDate', '')
-        plays_today = game_data.get('playsToday', 0) if last_date == today else 0
+            # Rodar VAR (Segurança)
+            new_risk = run_var_check(uid, request.state.client_ip, f"game_reward_{game_id}", cd)
+            cd["risk_score"] = new_risk
+            if new_risk >= 100:
+                cd["banned"] = True
+                cd["_error"] = "Sua conta foi suspensa por atividade suspeita (VAR)."
+                return cd
 
-        max_plays = {"flappy": 10, "memory": 5}
-        max_play = max_plays.get(game_id, 10)
+            today = datetime.now().strftime("%Y-%m-%d")
+            game_data = dict(cd.get("games", {}).get(game_id, {}))
+            last_date = game_data.get("lastDate", "")
+            plays_today = game_data.get("playsToday", 0) if last_date == today else 0
 
-        if plays_today >= max_play:
-            cd['_error'] = f"Limite diário de {max_play} partidas atingido"
+            max_plays = {"flappy": 10, "memory": 5}
+            max_play = max_plays.get(game_id, 10)
+
+            if plays_today >= max_play:
+                cd["_error"] = f"Limite diário de {max_play} partidas atingido"
+                return cd
+
+            cd["balance"] = float(cd.get("balance", 0)) + reward
+            if "games" not in cd or not isinstance(cd["games"], dict):
+                cd["games"] = {}
+            if game_id not in cd["games"] or not isinstance(cd["games"][game_id], dict):
+                cd["games"][game_id] = {}
+
+            if last_date != today:
+                cd["games"][game_id]["totalEarned"] = 0
+                plays_today = 0
+
+            cd["games"][game_id]["playsToday"] = plays_today + 1
+            cd["games"][game_id]["lastDate"] = today
+            cd["games"][game_id]["totalEarned"] = float(cd["games"][game_id].get("totalEarned", 0)) + reward
+            cd["games"][game_id]["lastScore"] = score
+
             return cd
 
-        if 'games' not in cd or not isinstance(cd['games'], dict):
-            cd['games'] = {}
-        if game_id not in cd['games'] or not isinstance(cd['games'][game_id], dict):
-            cd['games'][game_id] = {}
+        result = user_ref.transaction(trans)
+        if result is None:
+            return {"status": "error", "message": "Usuário não encontrado"}
+        if result.get("_error"):
+            return {"status": "error", "message": result["_error"]}
 
-        if last_date != today:
-            cd['games'][game_id]['totalEarned'] = 0
-            plays_today = 0
-
-        cd['balance'] = float(cd.get('balance', 0)) + reward
-        cd['games'][game_id]['playsToday'] = plays_today + 1
-        cd['games'][game_id]['lastDate'] = today
-        cd['games'][game_id]['totalEarned'] = float(cd['games'][game_id].get('totalEarned', 0)) + reward
-        cd['games'][game_id]['lastScore'] = score
-
-        return cd
-
-    result = user_ref.transaction(trans)
-    if result is None:
-        return {"status": "error", "message": "Usuário não encontrado"}
-    if result.get('_error'):
-        return {"status": "error", "message": result['_error']}
-
-    return {"status": "success", "reward": reward, "new_balance": result.get('balance', 0)}
-
-# --- PAINEL GERENCIAMENTO INTEGRATION ---
-@app.post("/api/brasilhexa/heartbeat")
-async def painel_heartbeat():
-    """Endpoint para verificar status do Hub Brasil Hexa."""
-    db.reference('status/brasilhexa_last_pulse').set({".sv": "timestamp"})
-    return {"status": "brasilhexa_online", "service": "BrasilHexa-Hub"}
-
-@app.post("/api/cybercore/analyze_project")
-async def analyze_project(data: dict = Body(...)):
-    """Analisa uma URL para identificar tecnologias e nível de segurança."""
-    url = data.get("url")
-    if not url:
-        return {"status": "error", "msg": "URL não fornecida"}
-
-    try:
-        if not url.startswith("http"):
-            url = "https://" + url
-
-        # Proteção SSRF: bloqueia IPs privados
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        hostname = parsed.hostname or ""
-        import socket
-        try:
-            ip = socket.gethostbyname(hostname)
-            private_prefixes = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
-                                "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
-                                "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
-                                "172.31.", "192.168.", "127.", "0.", "169.254.")
-            if ip.startswith(private_prefixes) or ip == "::1" or ip == "localhost":
-                return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
-        except:
-            return {"status": "error", "msg": "Hostname inválido"}
-
-        # Simulação de Scraping/Análise de Tecnologias
-        response = requests.get(url, timeout=10, allow_redirects=True)
-        html = response.text.lower()
-
-        techs = []
-        if "react" in html or "_next" in html: techs.append("React/Next.js")
-        if "vue" in html: techs.append("Vue.js")
-        if "firebase" in html: techs.append("Firebase")
-        if "service-worker.js" in html or "manifest.json" in html: techs.append("PWA")
-
-        # Heurística de segurança
-        security_score = 85
-        if not url.startswith("https"): security_score -= 40
-        if "eval(" in html: security_score -= 15
-
-        project_data = {
-            "name": url.split("//")[-1].split("/")[0],
-            "url": url,
-            "tech_stack": techs or ["Generic Web"],
-            "security_score": max(0, security_score),
-            "detected_at": datetime.now().isoformat(),
-            "status": "ready_to_connect"
-        }
-
-        return {"status": "success", "data": project_data}
-
+        return {"status": "success", "reward": reward, "balance": result.get("balance", 0)}
     except Exception as e:
-        return {"status": "error", "msg": f"Falha ao escanear URL: {str(e)}"}
+        return {"status": "error", "message": str(e)}
 
-
-@app.post("/api/project/analyze")
-async def project_analyze(data: dict = Body(...)):
-    """Analisa projetos multi-tipo: website, android, api, local."""
-    ptype = data.get("type", "website")
-    identifier = data.get("identifier", "")
-
-    if not identifier:
-        return {"status": "error", "msg": "Identificador não fornecido"}
-
-    result = {"status": "Conectado", "framework": "Desconhecido", "ambiente": "Produção", "monitoring": "Ativo"}
-
-    try:
-        if ptype == "website":
-            url = identifier if identifier.startswith("http") else "https://" + identifier
-
-            # Proteção SSRF: bloqueia IPs privados
-            from urllib.parse import urlparse
-            import socket
-            parsed = urlparse(url)
-            hostname = parsed.hostname or ""
-            try:
-                ip = socket.gethostbyname(hostname)
-                private_prefixes = ("10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
-                                    "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
-                                    "172.26.", "172.27.", "172.28.", "172.29.", "172.30.",
-                                    "172.31.", "192.168.", "127.", "0.", "169.254.")
-                if ip.startswith(private_prefixes) or ip == "::1" or ip == "localhost":
-                    return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
-            except:
-                return {"status": "error", "msg": "Hostname inválido"}
-
-            resp = requests.get(url, timeout=10, allow_redirects=False)
-            html = resp.text.lower()
-            techs = []
-            if "react" in html or "_next" in html: techs.append("React/Next.js")
-            if "vue" in html or "nuxt" in html: techs.append("Vue.js/Nuxt")
-            if "wordpress" in html or "wp-content" in html: techs.append("WordPress")
-            if "laravel" in html or "livewire" in html: techs.append("Laravel")
-            if "firebase" in html: techs.append("Firebase")
-            result["framework"] = techs[0] if techs else "HTML / Estático"
-            result["ambiente"] = "Produção" if "https" in url else "Desenvolvimento"
-
-        elif ptype == "android":
-            result["framework"] = "Android Native / Kotlin"
-            result["ambiente"] = "APK Identificado"
-            result["status"] = "Pronto para análise de dependências"
-
-        elif ptype == "api":
-            api_url = identifier if identifier.startswith("http") else "https://" + identifier
-
-            # Proteção SSRF: bloqueia IPs privados
-            parsed_api = urlparse(api_url)
-            hostname_api = parsed_api.hostname or ""
-            try:
-                ip_api = socket.gethostbyname(hostname_api)
-                if ip_api.startswith(private_prefixes) or ip_api == "::1" or ip_api == "localhost":
-                    return {"status": "error", "msg": "Acesso a redes privadas não permitido"}
-            except:
-                return {"status": "error", "msg": "Hostname inválido"}
-
-            resp = requests.get(api_url, timeout=10, allow_redirects=False)
-            ct = resp.headers.get("content-type", "").lower()
-            if "graphql" in ct: result["framework"] = "GraphQL"
-            elif "json" in ct: result["framework"] = "REST API (JSON)"
-            else: result["framework"] = f"API ({resp.status_code})"
-            result["ambiente"] = "Produção"
-
-        elif ptype == "local":
-            result["framework"] = "Sistema Local"
-            result["ambiente"] = identifier
-            result["status"] = "Endpoint manual - verifique conectividade"
-
-        return {"status": "success", "data": result}
-
-    except requests.exceptions.RequestException:
-        return {"status": "partial", "data": {"status": "Inacessível", "framework": "Não detectado (offline)", "ambiente": "Desconhecido", "monitoring": "Pendente"}}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-
-@app.post("/api/project/save")
-async def project_save(data: dict = Body(...), request: Request = None):
-    """Salva um projeto conectado no Firebase via admin SDK — apenas admin."""
-    if request.state.user_email != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
-    project_id = data.get("id")
-    project_data = data.get("data", {})
-    if not project_id or not project_data:
-        return {"status": "error", "msg": "id e data são obrigatórios"}
-    try:
-        db.reference(f'neural/nodes/{project_id}').set(project_data)
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-
-@app.post("/api/project/remove")
-async def project_remove(data: dict = Body(...), request: Request = None):
-    """Remove um projeto conectado do Firebase — apenas admin."""
-    if request.state.user_email != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Acesso restrito ao administrador")
-    project_id = data.get("id")
-    if not project_id:
-        return {"status": "error", "msg": "id é obrigatório"}
-    try:
-        db.reference(f'neural/nodes/{project_id}').delete()
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-# --- PROJETOS: GESTÃO DE ITENS (CRUD GENÉRICO) ---
-
-@app.get("/api/project/{project}/items")
-async def list_project_items(project: str):
-    """Lista todos os itens/produtos de um projeto específico."""
-    try:
-        items = db.reference(f'projects/{project}/produtos').get() or {}
-        # Converte dicionário em lista com IDs
-        item_list = []
-        for kid, val in items.items():
-            if isinstance(val, dict):
-                val['id'] = kid
-                item_list.append(val)
-        return {"status": "success", "items": item_list}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.post("/api/project/{project}/item")
-async def create_project_item(project: str, data: dict = Body(...)):
-    """Cria um novo item no estoque do projeto."""
-    try:
-        # Garante tipos corretos
-        if 'preco' in data: data['preco'] = float(data['preco'])
-        if 'estoque' in data: data['estoque'] = int(data['estoque'])
-        data['created_at'] = datetime.now().isoformat()
-
-        ref = db.reference(f'projects/{project}/produtos').push(data)
-        return {"status": "success", "id": ref.key}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.put("/api/project/{project}/item/{item_id}")
-async def update_project_item(project: str, item_id: str, data: dict = Body(...)):
-    """Atualiza um item existente (ex: reduzir estoque na venda)."""
-    try:
-        if 'preco' in data: data['preco'] = float(data['preco'])
-        if 'estoque' in data: data['estoque'] = int(data['estoque'])
-
-        db.reference(f'projects/{project}/produtos/{item_id}').update(data)
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-@app.delete("/api/project/{project}/item/{item_id}")
-async def delete_project_item(project: str, item_id: str):
-    """Remove um item do projeto."""
-    try:
-        db.reference(f'projects/{project}/produtos/{item_id}').delete()
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "msg": str(e)}
-
-
-@app.get("/api/local/setup-script")
-async def get_setup_script():
-    """Retorna o script do agente local para instalação."""
-    script_path = os.path.join(PROJECT_ROOT, "core", "local_agent.py")
-    if os.path.exists(script_path):
-        with open(script_path, "r", encoding="utf-8") as f:
-            return {"status": "success", "script": f.read()}
-    return {"status": "error", "msg": "Script não encontrado"}
-
-
-@app.get("/api/local/install-command")
-async def get_install_command():
-    """Retorna o comando de terminal para instalar o agente local."""
-    # Assume que o servidor está rodando em um host acessível
-    # Em ambiente local, usamos localhost:7860
-    host = "http://localhost:7860" # Idealmente viria de uma config ou request.base_url
-    cmd = f"python -c \"import requests; r = requests.get('{host}/api/local/setup-script'); open('cybercore_agent.py', 'w', encoding='utf-8').write(r.json()['script'])\" && python cybercore_agent.py --hub {host}"
-    return {"status": "success", "command": cmd}
-
-
-@app.post("/payments/approve/{wid}")
-async def approve_payment(wid: str, request: Request = None):
-    # Verifica admin
-    uid = request.state.user_uid
-    user = db.reference(f'users/{uid}').get() or {}
-    if user.get('email') != ADMIN_EMAIL:
-        raise HTTPException(status_code=403, detail="Apenas administrador pode aprovar saques")
-    try:
-        nodes = db.reference('neural/nodes').get() or {}
-        global_config = db.reference('config').get() or {}
-        global_asaas_key = global_config.get('asaasKey') or global_config.get('asaas_key') or os.environ.get('ASAAS_API_KEY', '')
-
-        withdraw_data = None
-        target_uid = None
-        all_withdrawals = db.reference('withdrawals').get() or {}
-
-        for uid, ws in all_withdrawals.items():
-            if wid in ws:
-                withdraw_data = ws[wid]
-                target_uid = uid
-                break
-
-        if not withdraw_data or not target_uid:
-            return {"status": "error", "msg": "Saque não localizado."}
-
-        if withdraw_data.get('status') != 'pending':
-            return {"status": "error", "msg": f"Saque já processado (Status: {withdraw_data.get('status')})"}
-
-        # Seleciona chave Asaas baseada no projeto
-        pid = withdraw_data.get('projectId')
-        node = nodes.get(pid) if pid else None
-        api_key = (node.get('asaas_key') if node else None) or global_asaas_key
-
-        if not api_key:
-            msg = "⚠️ Alerta CyberCore: Chave API ASAAS não configurada!"
-            tool_send_push('global', msg)
-            return {"status": "error", "msg": "ASAAS_API_KEY não configurada para este projeto."}
-
-        amount = float(withdraw_data.get('amount', 0))
-        pix_key = withdraw_data.get('pixKey', '')
-        # Usa o tipo de chave que veio do banco de dados (enviado pelo frontend)
-        type_detected = withdraw_data.get('pixType', 'EVP')
-
-        # Extrai apenas o token se a chave estiver no formato composto (com ::)
-        api_key = api_key.split('::')[0].strip() if '::' in api_key else api_key.strip()
-
-        final_pix_key = pix_key
-        if type_detected in ['CPF', 'CNPJ', 'PHONE']:
-            final_pix_key = "".join(filter(str.isdigit, pix_key))
-            if type_detected == 'PHONE' and not final_pix_key.startswith('55'):
-                if len(final_pix_key) <= 11: final_pix_key = "55" + final_pix_key
-
-        # Define a URL correta baseada na chave
-        if '_prod_' in api_key.lower():
-            asaas_url = "https://www.asaas.com/api/v3/transfers"
-        else:
-            asaas_url = "https://sandbox.asaas.com/api/v3/transfers"
-
-        headers = {"access_token": api_key, "Content-Type": "application/json"}
-        payload = {
-            "value": amount,
-            "pixAddressKey": final_pix_key,
-            "pixAddressKeyType": type_detected,
-            "description": f"Brasil Hexa Resgate #{wid}"
-        }
-
-        resp = requests.post(asaas_url, json=payload, headers=headers, timeout=25)
-        res_json = resp.json()
-
-        if resp.status_code == 200:
-            # ... (código de sucesso existente)
-            return {"status": "success", "msg": f"Pagamento de R$ {amount} enviado com sucesso!"}
-        else:
-            error_msg = res_json.get('errors', [{}])[0].get('description', 'Erro no gateway Asaas')
-            # DISPARA PUSH DE ALERTA PARA O ADMIN
-            tool_send_push('global', f"🚨 Falha no Saque: {error_msg} (Valor: R$ {amount})")
-            return {"status": "error", "msg": error_msg}
-
-    except Exception as e:
-        return {"status": "error", "msg": f"Erro interno: {str(e)}"}
-
-# --- STATIC MOUNTS (Configuração para Opção B: Separados) ---
-# HUB_MODE já definido no topo
-
-@app.exception_handler(404)
-async def not_found_handler(request, exc):
-    if request.url.path.startswith("/api/") or request.url.path.startswith("/ai/"):
-        return JSONResponse(status_code=404, content={"detail": "Not Found"})
-    if request.url.path == "/favicon.ico":
-        return JSONResponse(status_code=204, content=None)
-    return JSONResponse(status_code=404, content={"detail": "Not Found"})
-
-# Diagnóstico de caminhos
-print(f"[PATH] BACKEND_DIR={BACKEND_DIR}")
-print(f"[PATH] PROJECT_ROOT={PROJECT_ROOT}")
-print(f"[PATH] WWW_DIR={WWW_DIR} (exists={os.path.isdir(WWW_DIR)})")
-print(f"[PATH] ADMIN_DIR={ADMIN_DIR} (exists={os.path.isdir(ADMIN_DIR)})")
-print(f"[PATH] CWD={os.getcwd()}")
-print(f"[PATH] HUB_MODE={HUB_MODE}")
-
-if HUB_MODE == "ADMIN":
-    # No Space Brasil Hexa, o Admin é a raiz
-    try:
-        app.mount("/", StaticFiles(directory=ADMIN_DIR, html=True), name="admin")
-        print(f"[MODO] Brasil Hexa IA - Painel Admin na raiz => {ADMIN_DIR}")
-    except Exception as e:
-        print(f"[ERRO] Falha ao montar Admin: {e}")
-else:
-    # No Space Brasil Hexa, o Site é a raiz e o Admin é um caminho secreto (opcional)
-    try:
-        app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")
-        print(f"[MODO] Brasil Hexa IA - Site na raiz => {WWW_DIR}")
-    except Exception as e:
-        print(f"[ERRO] Falha ao montar Site: {e}")
-    try:
-        app.mount("/admin", StaticFiles(directory=ADMIN_DIR, html=True), name="admin")
-        print(f"[OK] Admin montado em /admin => {ADMIN_DIR}")
-    except Exception as e:
-        print(f"[ERRO] Falha ao montar Admin: {e}")
+# ─── Static Files ───
+app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")
 
 if __name__ == "__main__":
-    import uvicorn
-    import os
-
-    # Forma robusta: aponta o diretório base e o nome do módulo sem o prefixo da pasta
-    # Isso garante que tanto o uvicorn quanto o reload encontrem o arquivo main.py
-    app_module = "main:app"
-
-    preferred_port = int(os.environ.get("PORT", 7860))
-
-    print(f"🚀 Iniciando Brasil Hexa Elite em http://localhost:{preferred_port}")
-    print(f"🔄 Modo Auto-Reload Ativado")
-
-    uvicorn.run(
-        app_module,
-        host="0.0.0.0",
-        port=preferred_port,
-        reload=True,
-        app_dir=BACKEND_DIR, # Define explicitamente onde o código reside
-        proxy_headers=True,
-        forwarded_allow_ips="*"
-    )
+    print(f"[+] Servindo site de: {WWW_DIR}")
+    uvicorn.run(app, host="0.0.0.0", port=7860)

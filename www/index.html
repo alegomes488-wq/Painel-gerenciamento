@@ -521,6 +521,7 @@
                     </div>
                     <h2 style="letter-spacing: 2px; color: #f472b6;">MISSÃO: EMBAIXADOR VIP</h2>
                     <p style="font-weight: 600; opacity: 0.8;">Ganhe <b>R$ 0,20</b> por indicado ativo + seu amigo já começa com <b>R$ 0,25</b> de bônus!</p>
+                    <p style="font-size: 0.8rem; opacity: 0.7; margin-top: 6px;">🔥 <b>SUPER BÔNUS:</b> A cada <b>7</b> indicados que completarem a meta, você ganha <b style="color: #fbbf24;">+R$ 1,50</b> automático!</p>
 
                     <div class="referral-stats-grid" style="margin-top: 20px;">
                         <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
@@ -532,7 +533,33 @@
                             <span>BÔNUS TOTAL</span>
                             <h3 id="ref-bonus-txt" style="color: #10b981;">R$ 0,00</h3>
                         </div>
+
+                        <div class="referral-stat-item glass-premium" style="background: rgba(0,0,0,0.3) !important;">
+                            <span>PRÓXIMO SUPER BÔNUS</span>
+                            <h3 id="ref-batch-progress" style="color: #fbbf24;">0/7</h3>
+                        </div>
                     </div>
+                </div>
+
+                <!-- SUPER BÔNUS PROGRESS CARD -->
+                <div id="super-bonus-card" class="glass-premium" style="padding: 20px; margin-top: 16px; border: 1px solid rgba(251, 191, 36, 0.2); background: rgba(251, 191, 36, 0.05);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #fbbf24, #d97706); display: flex; align-items: center; justify-content: center;">
+                            <i data-lucide="award" style="width: 20px; height: 20px; color: #000;"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 0.85rem; color: #fbbf24;">🔥 SUPER BÔNUS: R$ 1,50</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">A cada 7 indicados que completarem as 3 etapas</div>
+                        </div>
+                    </div>
+                    <div id="super-bonus-bar-container" style="width: 100%; height: 10px; background: rgba(255,255,255,0.08); border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                        <div id="super-bonus-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #fbbf24, #d97706); border-radius: 5px; transition: width 0.6s ease;"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.7rem;">
+                        <span id="super-bonus-text" style="color: var(--text-muted);">0 de 7 indicados completaram as etapas</span>
+                        <span id="super-bonus-count" style="color: #fbbf24; font-weight: 800;">0/7</span>
+                    </div>
+                    <div id="super-bonus-message" style="margin-top: 8px; font-size: 0.75rem; color: #fbbf24; font-weight: 600; display: none;"></div>
                 </div>
 
                 <div class="referral-link-container glass-premium" style="flex-direction: column; gap: 15px; padding: 25px;">
@@ -823,7 +850,7 @@
             "anúncios": "Os lances são processados pelo botão principal 'INICIAR ANÁLISE'. Nossa tecnologia valida cada jogada. Acompanhe seu progresso nas metas na aba Início! 🎬",
             "processar": "É só clicar no botão 'INICIAR ANÁLISE' que a tecnologia entra em campo! Cada clique valida jogadas e acumula créditos que viram saldo real. ⚡",
             "bonus diario": "Final de semana tem bônus de treino! 🎉 Sábado e domingo você pode coletar R$ 0,20 de bônus na aba Início, clicando em 'RESGATAR'. Mas ó: só vale 1 vez por dia, hein!",
-            "bônus diário": "Fim de semana é dia de bônus! 🤑 Sábado e domingo, vai na aba Início e clica em 'RESGATAR' pra ganhar R$ 0,20. Aproveita a folga do time!",
+            "bônus diário": "Fim de semana é dia de bônus! 🤑 Sábado e domingo, vai na aba Início e clica em 'RESGATAR' pra ganhar R$ 0,20. Aproveita o final de semana!",
             "metas": "Temos dois tipos de metas: as **Metas de Lances** (na aba Início) e as **Metas de Jogos** (no GameCash)! Nas de lances: 500 lances → R$ 0,25, até 25.000 lances → R$ 3,50. Cada uma tem sua recompensa! 🎯",
             "metas de lances": "Na aba Início você encontra a tabela de metas de lances: 500 lances → R$ 0,25, 2.000 → R$ 0,50, 5.000 → R$ 1,00, 10.000 → R$ 2,00, 25.000 → R$ 3,50. Acompanhe sua subida na tabela! ✅",
             "metas de jogos": "No GameCash, cada jogo tem sua própria tabela: Flappy Bird e Memória. Tudo com barra de progresso e status de medalha! 🎮",
@@ -1403,7 +1430,7 @@
             const now = new Date();
             const todayStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
             const weekday = now.getDay(); // 0=Dom, 6=Sáb
-            const isWeekday = weekday >= 1 && weekday <= 5;
+            const isWeekend = weekday === 0 || weekday === 6;
             const lastBonus = _user && _user.last_daily_bonus_date;
             const alreadyClaimed = lastBonus === todayStr || _bonusClaimedToday;
             console.log('[Daily Bonus] last_daily_bonus_date:', lastBonus, 'today:', todayStr, 'match:', alreadyClaimed, 'flag:', _bonusClaimedToday, 'user:', _user ? 'loaded' : 'null');
@@ -1412,13 +1439,13 @@
                 btnBonus.disabled = true;
                 btnBonus.style.opacity = "0.5";
                 btnBonus.style.cursor = "default";
-            } else if (isWeekday) {
+            } else if (isWeekend) {
                 btnBonus.innerText = "RESGATAR";
                 btnBonus.disabled = false;
                 btnBonus.style.opacity = "1";
                 btnBonus.style.cursor = "pointer";
             } else {
-                btnBonus.innerText = "INDISPONÍVEL (FIM DE SEMANA)";
+                btnBonus.innerText = "INDISPONÍVEL (DIA ÚTIL)";
                 btnBonus.disabled = true;
                 btnBonus.style.opacity = "1";
                 btnBonus.style.cursor = "pointer";
@@ -1454,6 +1481,11 @@
 
             document.getElementById('ref-count').innerText = _user.validReferrals || 0;
             document.getElementById('ref-total-list').innerText = _user.referralCount || 0;
+
+            // Progresso para o próximo super bônus (a cada 7)
+            const validRefs = _user.validReferrals || 0;
+            const batchP = document.getElementById('ref-batch-progress');
+            if (batchP) batchP.innerText = `${validRefs % 7}/7`;
 
             // Exibe o bônus real creditado pelo Sentinel no backend
             const totalBonus = _user.referralBonus || 0;
@@ -1983,8 +2015,11 @@
                 return;
             }
             const uid = auth.currentUser.uid;
+            if (!window._creditedSet) window._creditedSet = new Set();
             console.log("[Brasil Hexa] Escutando referrals para UID:", uid);
-            onValue(ref(db, `referrals/${uid}`), snap => {
+            const refPath = ref(db, `referrals/${uid}`);
+            if (window._refUnlisten) window._refUnlisten();
+            window._refUnlisten = onValue(refPath, snap => {
                 const referrals = [];
                 snap.forEach(child => {
                     const d = child.val();
@@ -1999,17 +2034,19 @@
                     });
                 });
                 renderReferrals(referrals);
-                // Credita o indicador para cada indicado que completou 50 lances
+                if (!_user) return;
                 referrals.forEach(r => {
-                    if (r.completed && !r.credited && r.uid && _user) {
+                    if (r.completed && !r.credited && r.uid && !window._creditedSet.has(r.uid)) {
+                        window._creditedSet.add(r.uid);
                         const currentValid = _user.validReferrals || 0;
                         const currentBonus = _user.referralBonus || 0;
                         const currentBal = _user.balance || 0;
-                        const isBatch = (currentValid + 1) % 7 === 0;
+                        const newValid = currentValid + 1;
+                        const isBatch = newValid % 7 === 0;
                         const extra = isBatch ? 1.50 : 0;
                         update(ref(db, `users/${uid}`), {
                             balance: currentBal + 0.20 + extra,
-                            validReferrals: currentValid + 1,
+                            validReferrals: newValid,
                             referralBonus: currentBonus + 0.20 + extra
                         }).then(() => {
                             update(ref(db, `referrals/${uid}/${r.uid}`), { credited: true });
@@ -2017,7 +2054,7 @@
                         }).catch(err => console.warn('[Referral] Erro ao creditar indicacao:', err));
                     }
                 });
-            }, { onlyOnce: true });
+            });
         }
 
         function renderReferrals(referrals) {
@@ -2033,11 +2070,15 @@
                         <br><span>Nenhum operador recrutado ainda.</span>
                     </div>`;
                 lucide.createIcons();
+                renderSuperBonus(0, 0);
                 return;
             }
 
             list.innerHTML = '';
             list.className = 'referrals-list-container';
+
+            let completedCount = 0;
+
             referrals.forEach(r => {
                 const item = document.createElement('div');
                 item.className = 'referral-item glass-premium';
@@ -2048,8 +2089,28 @@
 
                 const vids = r.videosWatched || 0;
                 const target = 50;
+                const hasName = r.fullname && r.fullname !== 'Usuário';
+                const isCompleted = vids >= target;
+                if (isCompleted) completedCount++;
+
+                const stage1 = true; // entrou pelo link (existe no referral)
+                const stage2 = hasName; // cadastro completo
+                const stage3 = isCompleted; // 50 anuncios
+
+                const stages = [
+                    { label: 'Entrou pelo link', done: stage1 },
+                    { label: 'Cadastro completo', done: stage2 },
+                    { label: '50 anúncios assistidos', done: stage3 }
+                ];
+
+                const stagesHtml = stages.map((s, i) => `
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 0.65rem; color: ${s.done ? '#10b981' : 'var(--text-muted)'};">
+                        <span style="width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.5rem; background: ${s.done ? '#10b981' : 'rgba(255,255,255,0.1)'}; color: ${s.done ? '#fff' : 'var(--text-muted)'};">${s.done ? '✓' : i + 1}</span>
+                        ${s.label}
+                    </div>
+                `).join('');
+
                 const progress = Math.min(100, (vids / target) * 100);
-                const isActive = vids >= target;
 
                 item.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -2062,21 +2123,56 @@
                                 <div style="font-size: 0.65rem; color: var(--text-muted);">${r.username || ''}</div>
                             </div>
                         </div>
-                        <div style="font-size: 0.7rem; font-weight: 800; color: ${isActive ? '#10b981' : '#fbbf24'}; background: ${isActive ? '#10b981' : '#fbbf24'}15; padding: 4px 10px; border-radius: 20px;">
-                            ${isActive ? '✅ ATIVO' : '⏳ ' + vids + '/' + target}
+                        <div style="font-size: 0.65rem; font-weight: 800; color: ${isCompleted ? '#10b981' : '#fbbf24'}; background: ${isCompleted ? '#10b981' : '#fbbf24'}15; padding: 4px 10px; border-radius: 20px;">
+                            ${isCompleted ? '✅ COMPLETO' : '⏳ ' + vids + '/' + target}
                         </div>
                     </div>
-                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
-                        <div style="width: ${progress}%; height: 100%; background: ${isActive ? 'linear-gradient(90deg, #009739, #00b86b)' : 'linear-gradient(90deg, #002776, #38b6ff)'}; border-radius: 3px; transition: width 0.5s ease;"></div>
+                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                        <div style="width: ${progress}%; height: 100%; background: ${isCompleted ? 'linear-gradient(90deg, #009739, #00b86b)' : 'linear-gradient(90deg, #002776, #38b6ff)'}; border-radius: 3px; transition: width 0.5s ease;"></div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--text-muted); margin-top: 4px;">
-                        <span>${vids} lances</span>
-                        <span>Meta: ${target}</span>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        ${stagesHtml}
                     </div>
                 `;
                 list.appendChild(item);
             });
+
+            renderSuperBonus(completedCount, referrals.length);
             lucide.createIcons();
+        }
+
+        function renderSuperBonus(completed, total) {
+            const bar = document.getElementById('super-bonus-bar');
+            const barContainer = document.getElementById('super-bonus-bar-container');
+            const countEl = document.getElementById('super-bonus-count');
+            const textEl = document.getElementById('super-bonus-text');
+            const msgEl = document.getElementById('super-bonus-message');
+            if (!bar) return;
+
+            const batchProgress = completed % 7;
+            const pct = Math.min(100, (completed / 7) * 100);
+            bar.style.width = pct + '%';
+
+            if (countEl) countEl.innerText = completed + '/7';
+            if (textEl) textEl.innerText = completed + ' de 7 indicados completaram as etapas';
+
+            const remaining = 7 - batchProgress;
+            if (msgEl) {
+                if (completed >= 7) {
+                    msgEl.style.display = 'block';
+                    msgEl.innerHTML = '🎉 <b>SUPER BÔNUS LIBERADO!</b> Continue indicando para ganhar mais R$ 1,50!';
+                } else if (remaining <= 3 && remaining > 0) {
+                    msgEl.style.display = 'block';
+                    const falta = remaining === 1 ? 'apenas 1 usuário' : remaining + ' usuários';
+                    msgEl.innerHTML = '🔥 Faltam <b>' + falta + '</b> para você ganhar <b>R$ 1,50</b> de SUPER BÔNUS!';
+                } else {
+                    msgEl.style.display = 'none';
+                }
+            }
+
+            if (barContainer) {
+                barContainer.style.borderColor = completed >= 7 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(251, 191, 36, 0.2)';
+            }
         }
 
         // ============ SISTEMA DE TUTORIAL AGENTE CANARINHO ============
@@ -3075,8 +3171,8 @@
         window.claimDailyBonus = async () => {
             if (!_user || CyberUtils.isProcessing) return;
             const weekday = new Date().getDay();
-            if (weekday === 0 || weekday === 6) {
-                return showToast("Bônus disponível apenas em dias úteis (segunda a sexta).");
+            if (weekday >= 1 && weekday <= 5) {
+                return showToast("Bônus disponível apenas nos sábados e domingos.");
             }
             const todayStr = new Date().toISOString().split('T')[0];
             if (_user.last_daily_bonus_date === todayStr || _bonusClaimedToday) {
