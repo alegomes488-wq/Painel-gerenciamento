@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "question": "como faço para sacar",
+    "answer": "Claro! Pra sacar é moleza: vai na aba **Intercâmbio**, escolhe o valor do seu prêmio (R$ 0,50, R$ 3,00, R$ 5,00, R$ 10,00 ou R$ 50,00), informa sua chave PIX e pronto! O pagamento cai direto na conta via Asaas.",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 2,
+    "question": "como resgatar meu dinheiro",
+    "answer": "É facinho! Abre a aba Intercâmbio, escolhe o valor do bônus, coloca sua chave PIX (CPF, email, telefone, etc) e confirma. O Asaas faz o passe pra você!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 3,
+    "question": "como convidar amigos",
+    "answer": "Bora convocar os amigos! Na aba Convites tem seu link exclusivo de embaixador. Cada amigo que entra e assiste 50 lances rende R$ 0,20 no seu bolso. E de 7 em 7 amigos válidos, ainda ganha R$ 1,50 de super bônus!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 4,
+    "question": "como indicar um amigo",
+    "answer": "Ah, a convocação de amigos é sensacional! Cada amigo que você indica e entra pro time, depois que ele assiste 50 lances, você ganha R$ 0,20! E mais: a cada 7 amigos convocados, você leva R$ 1,50 extra no super bônus! São 3 etapas: entrar no link, cadastrar e bater 50 lances.",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 5,
+    "question": "como funciona o site",
+    "answer": "O Brasil Hexa usa tecnologia de ponta pra validar lances! Você clica no botão principal, nossa análise processa os dados e você recebe parte do prêmio em saldo real. Quanto mais lances, mais você ganha!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 6,
+    "question": "quanto posso ganhar com metas",
+    "answer": "Na aba Início você encontra a tabela de metas de anúncios: 200 ads → R$ 0,50, 800 → R$ 3,00, 1.000 → R$ 5,00, 2.000 → R$ 10,00, 10.000 → R$ 50,00. Acompanhe sua subida na tabela!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 7,
+    "question": "quais os tipos de pix aceitos",
+    "answer": "Aceitamos os principais tipos de PIX: **CPF**, **E-mail**, **Telefone** ou **Chave Aleatória**. Escolhe a sua e bora pro abraço!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 8,
+    "question": "bonus diario",
+    "answer": "Final de semana tem bônus de treino! Sábado e domingo você pode coletar R$ 0,20 de bônus na aba Início, clicando em 'RESGATAR'. Mas ó: só vale 1 vez por dia, hein!",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 9,
+    "question": "como jogar flappy bird",
+    "answer": "Flappy Bird é viciante! É só tocar na tela pro pássaro voar. Metas: 10 pontos = R$ 0,01, 30 pontos = R$ 0,03. Dá pra jogar até 10 partidas por dia. Bora bater esse recorde?",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 10,
+    "question": "como jogar jogo da memoria",
+    "answer": "Jogo da Memória é encontrar os pares no menor tempo! Metas: menos de 60 segundos = R$ 0,03, menos de 30 segundos = R$ 0,05. Máximo de 5 partidas por dia. Qual seu tempo recorde?",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 11,
+    "question": "qual meu saldo",
+    "answer": "Seu saldo atual aparece no topo do painel! Você acumula ele de várias formas: validando lances, coletando bônus, convidando amigos e treinando no GameCash.",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  },
+  {
+    "id": 12,
+    "question": "fui banido",
+    "answer": "Poxa, se você foi expulso do campo (banido), infelizmente não consegue mais jogar. Se achar que foi erro do juiz, fala com o suporte.",
+    "frequency": 1,
+    "created_at": "2026-06-28T18:00:00"
+  }
+]

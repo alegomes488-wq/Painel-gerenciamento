@@ -3462,6 +3462,8 @@
             container.appendChild(typingMsg);
             container.scrollTop = container.scrollHeight;
 
+            let canarinhoMemoryHit = false;
+
             // 1. Lógica de Tutorial/Tour
             if (lowText.includes('tour') || lowText.includes('me mostre') || lowText.includes('apresentar')) {
                 const typingEl = document.getElementById(typingId);
@@ -3487,7 +3489,23 @@
                 }
             }
 
-            // 2b. Aliases para pegadinhas do dia a dia
+            // 2b. Memória do Canarinho (FAQ aprendida)
+            if (!quickAnswer) {
+                try {
+                    const memRes = await fetch(`${CONFIG.apiBase}/api/memory/search`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ query: lowText, threshold: 0.3 })
+                    });
+                    const memData = await memRes.json();
+                    if (memData.status === 'success' && memData.found) {
+                        quickAnswer = memData.answer;
+                        canarinhoMemoryHit = true;
+                    }
+                } catch (e) { /* memory offline, segue fluxo */ }
+            }
+
+            // 2c. Aliases para pegadinhas do dia a dia
             if (!quickAnswer) {
                 const CANARINHO_ALIASES = {
                     'convidar': 'convites', 'convidar amigo': 'convites', 'convocar': 'convites',
@@ -3512,7 +3530,7 @@
                 }
             }
 
-            // 2c. Filtro Canarinho (Dúvidas Rápidas)
+            // 2d. Filtro Canarinho (Dúvidas Rápidas)
             if (!quickAnswer && typeof CANARINHO_KNOWLEDGE !== 'undefined') {
                 for (let key in CANARINHO_KNOWLEDGE) {
                     if (lowText.includes(key)) {
@@ -3522,16 +3540,28 @@
                 }
             }
 
+            // Grava na memória se respondeu via conhecimento estático
+            async function storeInMemory(q, a) {
+                try {
+                    await fetch(`${CONFIG.apiBase}/api/memory/store`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ question: q, answer: a })
+                    });
+                } catch (e) { /* silent */ }
+            }
+
             if (quickAnswer) {
+                const finalAnswer = canarinhoSpeak(quickAnswer);
+                if (!canarinhoMemoryHit) storeInMemory(lowText, finalAnswer);
                 setTimeout(() => {
                     const el = document.getElementById(typingId);
                     if (el) {
-                        const finalAnswer = canarinhoSpeak(quickAnswer);
                         el.innerHTML = `<strong>Canarinho:</strong> ${renderMarkdown(finalAnswer)}<span class="msg-ts">${getTimestamp()}</span>`;
                     }
                     safeClass('brasilhexa-floating-chat', 'remove', 'brasilhexa-responding');
                     container.scrollTop = container.scrollHeight;
-                    chatHistory.push({ role: 'assistant', content: quickAnswer, ts: getTimestamp() });
+                    chatHistory.push({ role: 'assistant', content: finalAnswer, ts: getTimestamp() });
                     saveChatHistory();
             updateSuggestions(['💳 Ver Saldo', '📊 Meu Desempenho', '⚽ Analisar Lances']);
                     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -3587,6 +3617,8 @@
                 if (responseText.toLowerCase().includes('convidar') || responseText.toLowerCase().includes('indicação')) dynSuggestions.push('👥 Convocados');
                 dynSuggestions.push('❓ Dúvidas', '🚀 Iniciar Tour');
                 updateSuggestions(dynSuggestions);
+
+                if (!responseText.includes('Não entendi direito')) storeInMemory(lowText, responseText);
 
                 if (typeof lucide !== 'undefined') lucide.createIcons();
 

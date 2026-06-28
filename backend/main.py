@@ -70,6 +70,7 @@ PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/api
 def is_public(path: str) -> bool:
     if path in PUBLIC_ROUTES: return True
     if path.startswith("/api/referral/resolve/"): return True
+    if path.startswith("/api/memory/"): return True
     return False
 
 @app.middleware("http")
@@ -515,9 +516,14 @@ async def approve_payment(wid: str, request: Request):
 
         # Update status in Firebase
         uid = wd["uid"]
-        update_data = {"status": "paid", "paid_at": datetime.now().isoformat(), "asaas_id": result.get("id")}
+        asaas_id = result.get("id")
+        update_data = {"status": "processing", "sent_at": datetime.now().isoformat(), "asaas_id": asaas_id}
 
         db.reference(f"withdrawals/{uid}/{wid}").update(update_data)
+
+        # Mapeamento para o Webhook encontrar o saque depois
+        db.reference(f"admin/asaas_mappings/{asaas_id}").set({"uid": uid, "wid": wid})
+
         wd_ref.delete() # Remove from pending
 
         # Log to financial logs
@@ -558,6 +564,65 @@ async def process_all_payments(request: Request):
         results.append({"wid": wid, "result": res})
 
     return {"status": "success", "processed": len(results), "details": results}
+
+@app.post("/payments/webhook")
+async def asaas_webhook(data: dict = Body(...)):
+    """
+    Recebe notificações do Asaas sobre o status das transferências.
+    Eventos: TRANSFER_PAID, TRANSFER_FAILED, TRANSFER_CANCELLED
+    """
+    event = data.get("event")
+    transfer = data.get("transfer")
+
+    if not transfer or not event:
+        return {"status": "ignored"}
+
+    asaas_id = transfer.get("id")
+    mapping = db.reference(f"admin/asaas_mappings/{asaas_id}").get()
+
+    if not mapping:
+        print(f"[Webhook] Mapeamento não encontrado para Asaas ID: {asaas_id}")
+        return {"status": "not_found"}
+
+    uid = mapping.get("uid")
+    wid = mapping.get("wid")
+
+    if event == "TRANSFER_PAID":
+        db.reference(f"withdrawals/{uid}/{wid}").update({
+            "status": "paid",
+            "paid_at": datetime.now().isoformat(),
+            "asaas_details": transfer
+        })
+        # Log final
+        db.reference("logs/financial").push({
+            "type": "webhook_confirmed",
+            "wid": wid,
+            "uid": uid,
+            "status": "paid",
+            "timestamp": int(time.time() * 1000)
+        })
+    elif event in ["TRANSFER_FAILED", "TRANSFER_CANCELLED"]:
+        # Se falhar, devolvemos o saldo ao usuário (opcional, mas recomendado)
+        fail_reason = transfer.get("failReason") or "Cancelado pelo Asaas"
+
+        def refund_trans(current):
+            if not current: return current
+            cd = current if isinstance(current, dict) else {}
+            # O valor do saque original precisa ser recuperado
+            # Para simplificar este MVP, apenas marcamos como erro
+            return cd
+
+        db.reference(f"withdrawals/{uid}/{wid}").update({
+            "status": "error",
+            "error_msg": fail_reason,
+            "failed_at": datetime.now().isoformat()
+        })
+
+        # Opcional: Re-adicionar à fila de admin para revisão
+        withdraw_data = db.reference(f"withdrawals/{uid}/{wid}").get()
+        db.reference(f"admin/failed_withdrawals/{wid}").set(withdraw_data)
+
+    return {"status": "processed"}
 
 # ─── Game Reward ───
 @app.post("/api/game/reward/{uid}")
@@ -636,6 +701,83 @@ async def game_reward(uid: str, data: dict = Body(...), request: Request = None)
         return {"status": "success", "reward": reward, "balance": result.get("balance", 0)}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+# ─── Memory FAQ (Aprendizado do Canarinho) ───
+MEMORY_DIR = os.path.join(PROJECT_ROOT, "memory")
+MEMORY_FILE = os.path.join(MEMORY_DIR, "faq.json")
+os.makedirs(MEMORY_DIR, exist_ok=True)
+
+def load_faq():
+    if os.path.exists(MEMORY_FILE):
+        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_faq(faq):
+    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(faq, f, ensure_ascii=False, indent=2)
+
+def tokenize(text):
+    import re
+    words = re.findall(r'[a-záéíóúãõâêîôûç]+', text.lower())
+    return set(words)
+
+def similarity(text1, text2):
+    t1 = tokenize(text1)
+    t2 = tokenize(text2)
+    if not t1 or not t2:
+        return 0
+    intersection = t1 & t2
+    union = t1 | t2
+    return len(intersection) / len(union) if union else 0
+
+@app.post("/api/memory/search")
+async def memory_search(data: dict = Body(...)):
+    query = data.get("query", "").strip()
+    threshold = float(data.get("threshold", 0.35))
+    if not query:
+        return {"status": "error", "message": "Query vazia"}
+    faq = load_faq()
+    best_score = 0
+    best_match = None
+    for entry in faq:
+        score = similarity(query, entry["question"])
+        if score > best_score:
+            best_score = score
+            best_match = entry
+    if best_match and best_score >= threshold:
+        return {
+            "status": "success",
+            "found": True,
+            "answer": best_match["answer"],
+            "question": best_match["question"],
+            "score": round(best_score, 3),
+            "frequency": best_match.get("frequency", 1)
+        }
+    return {"status": "success", "found": False, "score": 0}
+
+@app.post("/api/memory/store")
+async def memory_store(data: dict = Body(...)):
+    question = data.get("question", "").strip()
+    answer = data.get("answer", "").strip()
+    if not question or not answer:
+        return {"status": "error", "message": "Pergunta e resposta obrigatórias"}
+    faq = load_faq()
+    for entry in faq:
+        if similarity(question, entry["question"]) > 0.8:
+            entry["frequency"] = entry.get("frequency", 1) + 1
+            save_faq(faq)
+            return {"status": "success", "updated": True, "id": entry.get("id")}
+    new_id = (max((e.get("id", 0) for e in faq), default=0) + 1)
+    faq.append({
+        "id": new_id,
+        "question": question,
+        "answer": answer,
+        "frequency": 1,
+        "created_at": datetime.now().isoformat()
+    })
+    save_faq(faq)
+    return {"status": "success", "id": new_id}
 
 # ─── Static Files ───
 app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")
