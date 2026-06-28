@@ -783,7 +783,9 @@ async def memory_store(data: dict = Body(...)):
 # ─── Groq AI Chat ───
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "mixtral-8x7b-32768")
 
-def get_groq_key():
+def get_groq_key(body_key=""):
+    if body_key:
+        return body_key
     key = os.environ.get("GROQ_API_KEY", "")
     if key:
         return key
@@ -803,9 +805,9 @@ async def chat_with_groq(data: dict = Body(...)):
     if not prompt:
         return {"status": "error", "answer": "Mensagem vazia"}
 
-    groq_key = get_groq_key()
+    groq_key = get_groq_key(data.get("groq_key", ""))
     if not groq_key:
-        return {"status": "error", "answer": "Groq não configurado. Peça ao admin para configurar a GROQ_API_KEY."}
+        return {"status": "error", "answer": "Groq não configurado. Peça ao admin para configurar a chave GROQ no painel Administrativo."}
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in history[-10:]:
