@@ -71,6 +71,7 @@ def is_public(path: str) -> bool:
     if path in PUBLIC_ROUTES: return True
     if path.startswith("/api/referral/resolve/"): return True
     if path.startswith("/api/memory/"): return True
+    if path.startswith("/api/chat"): return True
     return False
 
 @app.middleware("http")
@@ -778,6 +779,85 @@ async def memory_store(data: dict = Body(...)):
     })
     save_faq(faq)
     return {"status": "success", "id": new_id}
+
+# ─── Groq AI Chat ───
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "mixtral-8x7b-32768")
+
+def get_groq_key():
+    key = os.environ.get("GROQ_API_KEY", "")
+    if key:
+        return key
+    cfg_path = os.path.join(BACKEND_DIR, "groq_key.txt")
+    if os.path.exists(cfg_path):
+        with open(cfg_path, "r") as f:
+            return f.read().strip()
+    return ""
+
+@app.post("/api/chat")
+async def chat_with_groq(data: dict = Body(...)):
+    prompt = data.get("prompt", "").strip()
+    uid = data.get("uid", "guest")
+    history = data.get("history", [])
+    system_prompt = data.get("system", "Você é um assistente útil e amigável.")
+
+    if not prompt:
+        return {"status": "error", "answer": "Mensagem vazia"}
+
+    groq_key = get_groq_key()
+    if not groq_key:
+        return {"status": "error", "answer": "Groq não configurado. Peça ao admin para configurar a GROQ_API_KEY."}
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history[-10:]:
+        role = "assistant" if msg.get("role") == "assistant" else "user"
+        messages.append({"role": role, "content": msg.get("content", "")})
+    messages.append({"role": "user", "content": prompt})
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": GROQ_MODEL,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 1024
+                }
+            )
+            data = resp.json()
+            answer = data["choices"][0]["message"]["content"]
+
+        if answer:
+            try:
+                faq = load_faq()
+                for entry in faq:
+                    if similarity(prompt, entry["question"]) > 0.8:
+                        entry["frequency"] = entry.get("frequency", 1) + 1
+                        save_faq(faq)
+                        return {"status": "success", "answer": answer}
+                new_id = (max((e.get("id", 0) for e in faq), default=0) + 1)
+                faq.append({
+                    "id": new_id,
+                    "question": prompt,
+                    "answer": answer,
+                    "frequency": 1,
+                    "created_at": datetime.now().isoformat()
+                })
+                save_faq(faq)
+            except:
+                pass
+
+        return {"status": "success", "answer": answer}
+
+    except httpx.HTTPStatusError as e:
+        detail = e.response.text[:200] if e.response else str(e)
+        return {"status": "error", "answer": f"Groq retornou erro: {detail}"}
+    except Exception as e:
+        return {"status": "error", "answer": f"Erro ao contactar Groq: {str(e)}"}
 
 # ─── Static Files ───
 app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")

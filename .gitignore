@@ -1,0 +1,7 @@
+# Groq API key (local)
+backend/groq_key.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

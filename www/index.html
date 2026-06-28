@@ -766,16 +766,13 @@
         import { getMessaging, getToken } from "./firebase-messaging.js";
 
         const CONFIG = {
-            apiBase: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? window.location.origin : window.location.origin,
-            adminBase: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? window.location.origin : window.location.origin,
-            workerBase: 'https://brasilhexa-api.alegomes488.workers.dev',
+            apiBase: window.location.origin,
+            adminBase: window.location.origin,
             monetagId: '7654321',
-            projectId: 'brasil_hexa_main' // Identificador deste nó de campo
+            projectId: 'brasil_hexa_main'
         };
 
-        // Detecta se está em produção para rotear chat pelo Worker (Groq)
         const IS_PRODUCTION_DOMAIN = window.location.hostname.includes('cinecash.com.br') || window.location.hostname.includes('brasilhexa.com.br') || window.location.hostname.includes('hf.space');
-        const CHAT_API_BASE = IS_PRODUCTION_DOMAIN ? CONFIG.workerBase : CONFIG.apiBase;
 
         // Controle de visibilidade da aba GameCash (apenas localhost para desenvolvimento)
         document.addEventListener('DOMContentLoaded', () => {
@@ -3574,7 +3571,7 @@
                 const typingEl = document.getElementById(typingId);
                 if (typingEl) typingEl.innerHTML = `<div class="typing-indicator"><span class="typing-agent">Canarinho</span><span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${canarinhoReact('thinking')}</span><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
 
-                const response = await fetch(`${CHAT_API_BASE}/ai/chat`, {
+                const response = await fetch(`${CONFIG.apiBase}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
