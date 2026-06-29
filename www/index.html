@@ -36,7 +36,7 @@
             backdrop-filter: blur(10px);
         }
         #maintenance-overlay h1 { color: var(--primary); margin-bottom: 10px; }
-        #maintenance-overlay p { color: white; max-width: 400px; }
+        #maintenance-overlay p { color: white; }
 
         /* Typing Indicator */
         .typing-indicator {
@@ -127,8 +127,10 @@
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }, 2000);
     </script>
-    <div class="projector-glow"></div>
+    <div class="bg-overlay"></div>
+    <div class="gradient-mesh"></div>
     <div class="cyber-grid"></div>
+    <div class="projector-glow"></div>
     <div class="cyber-scanlines"></div>
 
     <div id="toast">Operação realizada com sucesso!</div>
@@ -137,12 +139,12 @@
     <div id="ban-overlay" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
         <i data-lucide="shield-off" style="width:64px;height:64px;color:#ef4444;margin-bottom:20px;"></i>
         <h1 style="color:#ef4444;font-size:1.5rem;font-weight:900;">ACESSO BLOQUEADO</h1>
-        <p id="ban-reason-text" style="color:rgba(255,255,255,0.7);margin-top:10px;max-width:400px;">Atividade suspeita detectada pelo VAR.</p>
+        <p id="ban-reason-text" style="color:rgba(255,255,255,0.7);margin-top:10px;">Atividade suspeita detectada pelo VAR.</p>
     </div>
 
     <!-- MODAL DE TERMOS JURÍDICOS -->
     <div id="terms-modal" class="hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:99997;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
-        <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:30px;max-width:400px;">
+        <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.3);border-radius:20px;padding:30px;">
             <i data-lucide="file-text" style="width:48px;height:48px;color:var(--primary);margin-bottom:15px;"></i>
             <h2 style="font-size:1.2rem;font-weight:800;margin-bottom:10px;">TERMOS JURÍDICOS</h2>
             <p style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-bottom:20px;">Você precisa aceitar os Termos de Uso para continuar.</p>
@@ -414,7 +416,7 @@
                                 <input type="hidden" id="w-amount" value="0">
                                 <input type="hidden" id="w-type" value="CPF">
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 12px;">
+                            <div class="amount-grid" style="margin-top: 12px;">
                                 <button onclick="setAmount(0.50)" class="amount-btn">R$ 0,50</button>
                                 <button onclick="setAmount(3.00)" class="amount-btn">R$ 3,00</button>
                                 <button onclick="setAmount(5.00)" class="amount-btn">R$ 5,00</button>
@@ -425,7 +427,7 @@
 
                         <div class="input-group" style="margin-top: 25px;">
                             <label style="margin-bottom: 12px; display: block;">Tipo de Chave PIX</label>
-                            <div class="pix-type-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="pix-type-grid">
                                 <button class="pix-type-btn active" onclick="selectPixType('CPF', this)">
                                     <span>CPF</span>
                                 </button>
@@ -598,7 +600,7 @@
                 <div style="text-align:center;padding:60px 20px;">
                     <div style="font-size:4rem;margin-bottom:20px;">🔒</div>
                     <h2 style="font-size:1.4rem;margin-bottom:12px;">GameCash indisponível</h2>
-                    <p style="color:var(--muted-fg);font-size:0.9rem;max-width:400px;margin:0 auto;">
+                    <p style="color:var(--muted-fg);font-size:0.9rem;margin:0 auto;">
                         Esta funcionalidade está em desenvolvimento e será liberada em breve.
                     </p>
                 </div>

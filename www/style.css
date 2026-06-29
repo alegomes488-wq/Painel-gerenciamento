@@ -2,76 +2,66 @@
 
 /* ─── Design Tokens — Tema Brasil Futurista ─── */
 :root {
-    --bg:           hsl(240, 10%, 4%);
-    --card:         hsl(240, 8%, 8%);
-    --border:       hsl(240, 6%, 14%);
-    --sidebar:      hsl(240, 10%, 6%);
-    --primary:      hsl(145, 100%, 28%);
-    --primary-dark: hsl(145, 100%, 18%);
-    --primary-glow: hsla(145, 100%, 28%, 0.35);
-    --brazil-blue:  hsl(220, 100%, 23%);
-    --brazil-yellow: hsl(51, 100%, 50%);
-    --muted:        hsl(240, 5%, 12%);
-    --muted-fg:     hsl(240, 5%, 55%);
-    --foreground:   hsl(0, 0%, 96%);
-    --success:      hsl(145, 100%, 28%);
-    --error:        hsl(0, 72%, 51%);
-    --warning:      hsl(38, 92%, 50%);
-    --radius:       0.625rem;
+    --bg:           hsl(45, 100%, 2%); /* Fundo quase preto com toque dourado */
+    --card:         rgba(15, 15, 10, 0.7);
+    --border:       rgba(255, 215, 0, 0.2);
+    --sidebar:      hsl(45, 100%, 4%);
+    --primary:      #FFD700; /* Amarelo Ouro */
+    --primary-dark: #B8860B;
+    --primary-glow: rgba(255, 215, 0, 0.3);
+    --brazil-green: #006437;
+    --brazil-blue:  #002776;
+    --muted:        rgba(255, 255, 255, 0.05);
+    --muted-fg:     #a0a0a0;
+    --foreground:   #ffffff;
+    --success:      #00FF7F;
+    --error:        #FF4500;
+    --warning:      #FFD700;
+    --radius:       1rem;
 
     /* Elevação / hover */
-    --elevate-1: rgba(255,255,255,0.04);
-    --elevate-2: rgba(255,255,255,0.09);
-    --glass-border: rgba(255,255,255,0.08);
-    --shadow-lg: 0 8px 16px rgba(0,0,0,0.5);
-    --shadow-xl: 0 12px 24px rgba(0,0,0,0.5);
-    --shadow-2xl: 0 24px 48px rgba(0,0,0,0.6);
-}
-
-/* ─── Reset ─── */
-*, *::before, *::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid var(--border);
+    --glass-border: rgba(255, 215, 0, 0.15);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* ─── Base ─── */
-html { scroll-behavior: smooth; }
-
 body {
     background-color: var(--bg);
     color: var(--foreground);
     font-family: 'Sora', sans-serif;
-    font-size: 1rem;
-    line-height: 1.5;
-    min-height: 100svh;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
     overflow-x: hidden;
-    position: relative;
-    align-items: flex-start;
-    justify-content: center;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ─── Background & Mesh ─── */
+/* ─── Background Futurista ─── */
 .bg-overlay {
     position: fixed;
     inset: 0;
-    background: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTB_ozVR_60MsD2E3km7oyB5F3yI57vZ07A8gwytOadEPiKzxCDxxsDOVaL&s=10') no-repeat center center / cover;
-    z-index: -2;
-    filter: brightness(0.3) blur(1px) saturate(1.4);
+    /* Imagem de estádio/ouro futurista */
+    background: url('https://images.unsplash.com/photo-1504450758481-7338eba7524a?q=80&w=2069&auto=format&fit=crop') no-repeat center center / cover;
+    z-index: -3;
+    filter: brightness(0.2) saturate(0.5);
 }
 
 .gradient-mesh {
     position: fixed;
     inset: 0;
-    z-index: -1;
+    z-index: -2;
     background:
-        radial-gradient(ellipse 60% 50% at 15% 25%, hsla(145,100%,28%,0.15) 0%, transparent 70%),
-        radial-gradient(ellipse 50% 60% at 85% 75%, hsla(51,100%,50%,0.10) 0%, transparent 70%),
-        radial-gradient(ellipse 40% 40% at 50% 50%, hsla(220,100%,23%,0.12) 0%, transparent 70%);
-    pointer-events: none;
+        radial-gradient(circle at 20% 30%, rgba(0, 100, 55, 0.2) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 215, 0, 0.15) 0%, transparent 50%);
+}
+
+.cyber-grid {
+    position: fixed;
+    inset: 0;
+    background-image: linear-gradient(rgba(255, 215, 0, 0.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255, 215, 0, 0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+    z-index: -1;
+    mask-image: radial-gradient(circle at 50% 50%, black, transparent 80%);
 }
 
 /* Orbs decorativos */
@@ -1097,6 +1087,12 @@ p.subtitle {
 /* ─── Pix Type Selector Premium ─── */
 .pix-type-selector {
     margin-bottom: 20px;
+}
+
+.pix-type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
 }
 
 .pix-type-btn {
@@ -4244,61 +4240,339 @@ body.premium-theme::before {
     border-color: var(--primary);
 }
 
+/* ─── MOBILE FIRST — Adaptação Universal ─── */
+
+/* Tablet & abaixo */
+@media (max-width: 900px) {
+    .container { padding: 0 12px 30px; }
+    .goals-grid { grid-template-columns: 1fr; }
+    .main-grid { grid-template-columns: 1fr; }
+    .premium-grid { grid-template-columns: 1fr; }
+    .two-col-grid { grid-template-columns: 1fr; }
+    .benefits-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .steps-grid { grid-template-columns: 1fr; }
+    .stats-row { flex-wrap: wrap; gap: 8px; }
+    .stats-row > * { flex: 1 1 calc(50% - 8px); min-width: 0; }
+}
+
+/* 768px e abaixo */
 @media (max-width: 768px) {
     h1 { font-size: 1.4rem; }
-    .glass-card { padding: 25px 20px; width: 95%; }
+    h2 { font-size: 1.1rem; }
+    h3 { font-size: 0.95rem; }
+    p, li, label { font-size: 0.85rem; }
+
+    body { overflow-x: hidden; }
+
+    #app-container {
+        padding: 8px;
+        gap: 10px;
+    }
+
+    .container {
+        padding: 0 8px 24px;
+    }
 
     .navbar {
-        margin: 10px auto;
-        border-radius: 20px;
-        width: calc(100% - 20px);
+        margin: 8px auto;
+        border-radius: 16px;
+        width: calc(100% - 12px);
+        padding: 6px 8px;
+        gap: 4px;
+        flex-wrap: nowrap;
+    }
+
+    .menu {
+        gap: 3px;
+        padding: 2px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .nav-item {
-        padding: 8px 12px;
+        padding: 6px 8px;
+        font-size: 0.6rem;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+
+    .user-badge .avatar {
+        width: 26px;
+        height: 26px;
+        font-size: 0.65rem;
+    }
+
+    .logout {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+        border-radius: 8px;
+    }
+
+    .glass-card { padding: 18px 14px; width: 100%; }
+    .glass-premium { padding: 16px 12px; }
+
+    .stat-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-grid-premium { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-balloon { padding: 14px 10px; }
+    .stat-icon-wrapper { font-size: 1.6rem; }
+    .stat-label { font-size: 0.6rem; }
+    .stat-value { font-size: 1.1rem; }
+
+    /* Tabela de Metas */
+    .goals-table { font-size: 0.7rem; }
+    .goals-table th, .goals-table td { padding: 6px 4px; }
+
+    /* Botões de Valor (Intercâmbio) */
+    .amount-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    .amount-btn {
+        padding: 10px 4px;
         font-size: 0.7rem;
     }
 
-    .stat-grid {
-        grid-template-columns: 1fr;
+    /* Seção de metas (Início) */
+    .goals-section { padding: 14px 10px; }
+    .goals-section h3 { font-size: 0.85rem; }
+
+    /* Card de Bônus Diário */
+    #bonus-content { flex-direction: column; gap: 8px; }
+    #bonus-content button { width: 100%; }
+
+    /* Process button */
+    #btn-process {
+        font-size: 0.75rem;
+        padding: 16px 20px;
     }
 
-    .stat-balloon {
-        padding: 20px 15px;
+    /* Chat Widget Mobile */
+    #brasilhexa-chat-trigger {
+        width: 52px;
+        height: 52px;
+        bottom: 15px;
+        right: 15px;
+        font-size: 1.3rem;
+    }
+    .brasilhexa-chat-container {
+        width: calc(100% - 20px);
+        right: 10px;
+        bottom: 75px;
+        height: 70vh;
+        max-height: 500px;
+        border-radius: 20px;
+    }
+    .brasilhexa-chat-suggestions button {
+        font-size: 0.6rem;
+        padding: 5px 8px;
+        white-space: nowrap;
+    }
+    .brasilhexa-chat-header { padding: 12px 14px; }
+    .brasilhexa-chat-footer { padding: 8px 10px; }
+    #brasilhexa-chat-input { font-size: 0.8rem; padding: 8px 12px; }
+
+    /* Aba Convites */
+    #referrals-list .referral-card {
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px;
+    }
+    #referral-stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+    .referral-progress-steps {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    .referral-step {
+        font-size: 0.6rem;
+        padding: 4px 6px;
     }
 
-    .stat-icon-wrapper {
-        font-size: 2rem;
-    }
+    /* Super Bonus Card */
+    #super-bonus-card { padding: 14px; }
 
-    #app-container {
+    /* Histórico de Saques */
+    .withdraw-history-item {
+        flex-direction: column;
+        gap: 6px;
         padding: 10px;
-        gap: 15px;
+    }
+
+    /* GameCash */
+    .gamecash-grid { grid-template-columns: 1fr; }
+    .game-card { padding: 14px; }
+
+    /* Game Overlay */
+    #game-overlay { padding: 0; }
+    .game-overlay-header { padding: 10px 12px; }
+    .game-overlay-header h3 { font-size: 0.85rem; }
+    .game-overlay-header button {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+    }
+
+    .game-result-content {
+        padding: 24px 16px;
+        max-width: 90vw;
+    }
+    .game-result-content h2 { font-size: 1.2rem; }
+
+    /* Memory Grid */
+    .memory-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 5px;
+    }
+    .memory-card {
+        min-height: 70px;
+        font-size: 1.5rem;
+        border-radius: 10px;
+    }
+
+    /* Flappy Canvas */
+    #flappy-canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    /* Video Overlay (Processamento) */
+    #video-overlay .overlay-content {
+        max-width: 95vw;
+        padding: 20px;
+    }
+    #video-overlay .timer-text { font-size: 2rem; }
+
+    /* Ad Container */
+    #ad-container-box {
+        max-width: 95vw;
+        padding: 30px 16px;
+    }
+
+    /* Modais */
+    .modal-inner {
+        max-width: 90vw !important;
+        padding: 24px 16px !important;
+    }
+    #ban-reason-text, #terms-modal .terms-content {
+        max-width: 90vw !important;
+    }
+
+    /* Toast */
+    #toast { font-size: 0.75rem; padding: 8px 12px; }
+
+    /* Login/Register */
+    .login-box {
+        padding: 30px 18px !important;
+        max-width: 95vw !important;
+    }
+    .login-box h2 { font-size: 1.1rem; }
+    .login-box input { font-size: 0.85rem; padding: 10px 12px; }
+    .login-box button { font-size: 0.85rem; padding: 12px; }
+
+    /* Maintenance */
+    #maintenance-overlay h2 { font-size: 1.1rem; }
+    #maintenance-overlay p { max-width: 85vw; font-size: 0.85rem; }
+}
+
+/* 480px e abaixo (smartphones pequenos) */
+@media (max-width: 480px) {
+    h1 { font-size: 1.15rem; }
+    h2 { font-size: 0.95rem; }
+    p.subtitle { font-size: 0.7rem; margin-bottom: 16px; }
+
+    .navbar {
+        padding: 4px 6px;
+        border-radius: 12px;
+    }
+    .nav-item {
+        padding: 5px 6px;
+        font-size: 0.55rem;
+        border-radius: 8px;
+    }
+    .menu { gap: 2px; }
+
+    .stat-grid { gap: 6px; }
+    .stat-balloon { padding: 10px 8px; }
+    .stat-value { font-size: 1rem; }
+
+    .amount-grid { grid-template-columns: repeat(2, 1fr); }
+
+    .goals-table { font-size: 0.6rem; }
+    .goals-table th, .goals-table td { padding: 4px 3px; }
+
+    .glass-premium { padding: 12px 8px; border-radius: 12px; }
+
+    #btn-process {
+        font-size: 0.7rem;
+        padding: 14px 16px;
+    }
+
+    .brasilhexa-chat-container {
+        height: 65vh;
+        max-height: 420px;
+        width: calc(100% - 10px);
+        right: 5px;
+        bottom: 70px;
+        border-radius: 16px;
+    }
+    #brasilhexa-chat-trigger {
+        width: 46px;
+        height: 46px;
+        bottom: 12px;
+        right: 12px;
+        font-size: 1.1rem;
+    }
+
+    .game-result-content {
+        padding: 20px 14px;
+    }
+    .game-result-content h2 { font-size: 1rem; }
+    .game-result-content .reward-text { font-size: 1.5rem; }
+
+    .memory-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+    }
+    .memory-card {
+        min-height: 60px;
+        font-size: 1.2rem;
+        border-radius: 8px;
+    }
+
+    .login-box { padding: 24px 14px !important; }
+    .login-box h2 { font-size: 1rem; }
+    .login-box input { font-size: 0.8rem; padding: 8px 10px; }
+
+    #referral-stats-grid { grid-template-columns: 1fr; }
+
+    .modal-inner {
+        padding: 18px 12px !important;
     }
 }
 
-@media (max-width: 480px) {
-    .gamecash-grid {
-        grid-template-columns: 1fr;
+/* 360px e abaixo (smartphones muito pequenos) */
+@media (max-width: 360px) {
+    .nav-item {
+        font-size: 0.5rem;
+        padding: 4px 5px;
     }
-    .game-card {
-        padding: 18px;
-    }
-    .game-result-content {
-        padding: 28px 20px;
-    }
-    .memory-grid {
-        grid-template-columns: repeat(4, 1fr);
-        gap: 6px;
-    }
+    .stat-value { font-size: 0.85rem; }
+    .stat-label { font-size: 0.5rem; }
+    .amount-btn { font-size: 0.6rem; padding: 8px 4px; }
+    h1 { font-size: 1rem; }
+    .glass-premium { padding: 10px 6px; }
+    #btn-process { padding: 12px 14px; font-size: 0.65rem; }
+}
 
-    /* Ajuste para o formulário de login no celular */
-    .glass-card {
-        margin-top: 20px;
-    }
-
-    h1 { font-size: 1.25rem; }
-    p.subtitle { font-size: 0.75rem; margin-bottom: 20px; }
+/* Amount Grid */
+.amount-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
 }
 
 /* Amount Buttons Animados */
