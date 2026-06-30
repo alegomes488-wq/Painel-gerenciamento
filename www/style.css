@@ -4663,7 +4663,8 @@ body.premium-theme::before {
 .referrals-empty-state { padding: 20px; }
 
 @media (max-width: 768px) {
-    .terms-modal-box { max-width: 90vw; padding: 20px !important; }
+    .terms-modal-box { max-width: 90vw; padding: 20px !important; border-radius: 16px !important; }
+    .terms-modal-box .btn-primary { width: 100% !important; padding: 12px 16px; }
     .empty-state-box { padding: 16px; }
     .coming-soon-box { padding: 24px 16px; }
     .withdraw-list { max-height: 45vh; }
@@ -4673,10 +4674,11 @@ body.premium-theme::before {
     #super-bonus-card { padding: 14px; }
     .btn-saque { height: 52px; font-size: 0.85rem; }
     .referrals-empty-state { padding: 14px; }
+    #w-amount-display { padding-left: 38px !important; }
 }
 
 @media (max-width: 480px) {
-    .terms-modal-box { padding: 16px !important; }
+    .terms-modal-box { padding: 16px !important; border-radius: 14px !important; }
     .empty-state-box { padding: 12px; }
     .coming-soon-box { padding: 16px 12px; }
     .withdraw-history-card { padding: 12px; }
@@ -4685,4 +4687,5 @@ body.premium-theme::before {
     #super-bonus-card { padding: 12px; }
     .btn-saque { height: 48px; font-size: 0.8rem; }
     .referrals-empty-state { padding: 10px; }
+    #w-amount-display { padding-left: 35px !important; }
 }
