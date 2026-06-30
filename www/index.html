@@ -786,7 +786,7 @@
 
         // Função auxiliar para chamadas autenticadas à API
         async function apiFetch(path, options = {}) {
-            const token = auth && auth.currentUser ? await auth.currentUser.getIdToken() : '';
+            const token = window.auth && window.window.auth.currentUser ? await window.window.auth.currentUser.getIdToken() : '';
             const headers = { ...options.headers };
             if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
                 headers['Content-Type'] = 'application/json';
@@ -891,15 +891,24 @@
 
                 console.log("🔥 Firebase inicializado dinamicamente!");
 
-                // Se houver lógica que dependa do Firebase estar pronto, inicialize-a aqui ou emita um evento
+                // Inicia monitoramento de manutenção após Firebase pronto
+                onValue(ref(window.db, 'config/maintenance'), (snapshot) => {
+                    const isMaintenance = snapshot.val();
+                    if (isMaintenance && IS_PRODUCTION_DOMAIN) {
+                        safeClass('maintenance-overlay', 'remove', 'hidden');
+                        lucide.createIcons();
+                    } else {
+                        safeClass('maintenance-overlay', 'add', 'hidden');
+                    }
+                });
+
                 document.dispatchEvent(new CustomEvent('firebase-ready'));
             } catch (error) {
                 console.error("❌ Erro ao carregar configuração do Firebase:", error);
-                // Fallback ou mensagem de erro para o usuário
             }
         }
 
-        initApp();
+        initApp().catch(e => console.warn("initApp failed:", e));
 
         // Utilitário global para manipulação segura de classes
         window.safeClass = (idOrEl, method, className) => {
@@ -915,18 +924,17 @@
 
         async function saveFCMToken(uid) {
             try {
-                if (!('Notification' in window) || Notification.permission === 'denied') return;
-                // Busca a VAPID Key dinamicamente do Firebase Config
-                const configSnap = await new Promise(resolve => onValue(ref(db, 'config/vapidKey'), resolve, { onlyOnce: true }));
+                if (!window.db || !('Notification' in window) || Notification.permission === 'denied') return;
+                const configSnap = await new Promise(resolve => onValue(ref(window.db, 'config/vapidKey'), resolve, { onlyOnce: true }));
                 const VAPID_KEY = configSnap.val() || "BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4";
 
                 const registration = await navigator.serviceWorker.ready;
-                const token = await getToken(messaging, {
+                const token = await getToken(window.messaging, {
                     vapidKey: VAPID_KEY,
                     serviceWorkerRegistration: registration
                 });
                 if (token) {
-                    await update(ref(db, `users/${uid}`), {
+                    await update(ref(window.db, `users/${uid}`), {
                         fcm_token: token,
                         fcmToken: token,
                         last_token_update: serverTimestamp()
@@ -939,17 +947,6 @@
                 }
             }
         }
-
-        // Monitoramento de Modo Manutenção (Global) — só ativa em produção
-        onValue(ref(db, 'config/maintenance'), (snapshot) => {
-            const isMaintenance = snapshot.val();
-            if (isMaintenance && IS_PRODUCTION_DOMAIN) {
-                safeClass('maintenance-overlay', 'remove', 'hidden');
-                lucide.createIcons();
-            } else {
-                safeClass('maintenance-overlay', 'add', 'hidden');
-            }
-        });
 
         // ============ USER / BONUS / FINGERPRINT ============
         let _user = null;
@@ -971,10 +968,10 @@
         };
 
         window.acceptTerms = async () => {
-            if (!auth.currentUser) return;
+            if (!window.auth.currentUser) return;
             try {
                 const { update, ref } = await import('./firebase-database.js');
-                await update(ref(db, `users/${auth.currentUser.uid}/legal_acceptance`), {
+                await update(ref(window.db, `users/${window.auth.currentUser.uid}/legal_acceptance`), {
                     accepted: true,
                     timestamp: serverTimestamp(),
                     version: "2.0.4"
@@ -1266,7 +1263,7 @@
             btn.disabled = true;
 
             try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                const userCredential = await createUserWithEmailAndPassword(window.auth, email, pass);
                 const uid = userCredential.user.uid;
 
                 // Geração de Username Automático
@@ -1282,7 +1279,7 @@
                 const fpData = await collectDetailedFingerprint();
 
                 try {
-                    await set(ref(db, `users/${uid}`), {
+                    await set(ref(window.db, `users/${uid}`), {
                         fullname: `${fname} ${lname}`,
                         firstname: fname,
                         lastname: lname,
@@ -1309,7 +1306,7 @@
                         }
                     });
                     if (referredBy) {
-                        await set(ref(db, `referrals/${referredBy}/${uid}`), {
+                        await set(ref(window.db, `referrals/${referredBy}/${uid}`), {
                             fullname: `${fname} ${lname}`,
                             username: username,
                             videosWatched: 0
@@ -1317,7 +1314,7 @@
                     }
                 } catch (dbErr) {
                     console.error("[Brasil Hexa] Falha ao salvar dados no DB, removendo conta do Auth:", dbErr);
-                    try { await auth.currentUser?.delete(); } catch (delErr) {
+                    try { await window.auth.currentUser?.delete(); } catch (delErr) {
                         console.error("[Brasil Hexa] Falha ao remover conta órfã do Auth:", delErr);
                     }
                     if(dbErr.code === 'PERMISSION_DENIED') showToast("Erro de permissão ao criar conta.");
@@ -1349,7 +1346,7 @@
             loginInProgress = true;
 
             try { 
-                const userCredential = await signInWithEmailAndPassword(auth, e, p);
+                const userCredential = await signInWithEmailAndPassword(window.auth, e, p);
                 sessionStorage.removeItem('brasilhexa_lock');
                 sessionLocked = false;
                 const fingerprint = await getFingerprint();
@@ -1357,7 +1354,7 @@
 
                 // Atualiza o último dispositivo usado no login para auditoria
                 await import('./firebase-database.js').then(({update}) => {
-                    update(ref(db, `users/${userCredential.user.uid}/security`), {
+                    update(ref(window.db, `users/${userCredential.user.uid}/security`), {
                         last_login_fingerprint: fingerprint,
                         last_login_fp_detail: fpData,
                         last_login_at: serverTimestamp()
@@ -1498,7 +1495,7 @@
             document.getElementById('ref-bonus-txt').innerText = `R$ ${totalBonus.toFixed(2).replace('.', ',')}`;
 
             // Link de convite único por UID
-            const uid = auth.currentUser?.uid;
+            const uid = window.auth.currentUser?.uid;
             if (uid) {
                 const ref = _user.active_referral_slug || uid;
             document.getElementById('ref-link').value = `https://cinecash.com.br/?ref=${ref}`;
@@ -1507,18 +1504,18 @@
             // Sincroniza videosWatched com o nó referrals do meu indicador
             const myReferrer = _user.referredBy;
             if (myReferrer && uid) {
-                set(ref(db, `referrals/${myReferrer}/${uid}`), {
+                set(ref(window.db, `referrals/${myReferrer}/${uid}`), {
                     fullname: _user.fullname || _user.firstname || 'Usuário',
                     username: _user.username || '',
                     videosWatched: _user.videosWatched || 0
                 }).catch(() => {});
                 // Se atingiu 50 lances, marca como completed e credita R$ 0,25
                 if ((_user.videosWatched || 0) >= 50 && !_user.referralCompleted) {
-                    update(ref(db, `users/${uid}`), {
+                    update(ref(window.db, `users/${uid}`), {
                         balance: (_user.balance || 0) + 0.25,
                         referralCompleted: true
                     }).then(() => {
-                        update(ref(db, `referrals/${myReferrer}/${uid}`), { completed: true });
+                        update(ref(window.db, `referrals/${myReferrer}/${uid}`), { completed: true });
                     }).catch(err => console.warn('[Referral] Erro ao creditar bonus de indicado:', err));
                 }
             }
@@ -1557,7 +1554,7 @@
             }
         }
 
-        onAuthStateChanged(auth, u => {
+        onAuthStateChanged(window.auth, u => {
             lucide.createIcons();
 
             const splash = document.getElementById('splash-screen');
@@ -1572,10 +1569,10 @@
                 // Verifica trava de sessão (refresh/voltar de minimizar)
                 if (sessionStorage.getItem('brasilhexa_lock') === '1') {
                     sessionStorage.removeItem('brasilhexa_lock');
-                    signOut(auth).then(() => window.location.reload());
+                    signOut(window.auth).then(() => window.location.reload());
                     return;
                 }
-        onValue(ref(db, `users/${u.uid}`), s => {
+        onValue(ref(window.db, `users/${u.uid}`), s => {
                     _user = s.val();
                     if(_user) {
                         CANARINHO_USER_DATA = {
@@ -1625,7 +1622,7 @@
                         if (typeof triggerStrategicAd === 'function') setTimeout(triggerStrategicAd, 1000);
                         hideSplash();
                     } else {
-                        signOut(auth);
+                        signOut(window.auth);
                         hideSplash();
                     }
                 });
@@ -1636,14 +1633,14 @@
                 // Heartbeat de Status (30s)
                 if (!heartbeatInterval) {
                     heartbeatInterval = setInterval(() => {
-                        set(ref(db, 'status/site_last_pulse'), serverTimestamp());
+                        set(ref(window.db, 'status/site_last_pulse'), serverTimestamp());
                     }, 30000);
                     // Pulso inicial imediato
-                    set(ref(db, 'status/site_last_pulse'), serverTimestamp());
+                    set(ref(window.db, 'status/site_last_pulse'), serverTimestamp());
                 }
 
                 // Listener do Agente Auditor em Tempo Real
-                onValue(ref(db, 'status/auditor_last_pulse'), snap => {
+                onValue(ref(window.db, 'status/auditor_last_pulse'), snap => {
                     const lastPulse = snap.val();
                     const statusText = document.getElementById('auditor-status-text');
                     const statusDot = document.getElementById('auditor-status-dot');
@@ -1746,7 +1743,7 @@
         // A versão completa com Web Share API está abaixo
 
         window.rotateReferralLink = async () => {
-            if (!auth.currentUser) return;
+            if (!window.auth.currentUser) return;
             const btn = event.currentTarget;
             const icon = btn.querySelector('i');
 
@@ -1755,7 +1752,7 @@
                 if(icon) icon.style.transition = "transform 1s linear";
                 if(icon) icon.style.transform = "rotate(360deg)";
 
-                const res = await apiFetch(`/api/referral/create/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/api/referral/create/${window.auth.currentUser.uid}`, {
                     method: 'POST'
                 });
 
@@ -1946,8 +1943,8 @@
         };
 
         function loadWithdrawHistory() {
-            if(!auth.currentUser) return;
-            const refH = ref(db, `withdrawals/${auth.currentUser.uid}`);
+            if(!window.auth.currentUser) return;
+            const refH = ref(window.db, `withdrawals/${window.auth.currentUser.uid}`);
             onValue(refH, snap => {
                 const list = document.getElementById('withdraw-list');
                 const counter = document.getElementById('history-count');
@@ -2016,14 +2013,14 @@
 
 
         function loadReferrals() {
-            if (!auth.currentUser) {
+            if (!window.auth.currentUser) {
                 console.warn("[Brasil Hexa] loadReferrals abortado: Usuário não logado.");
                 return;
             }
-            const uid = auth.currentUser.uid;
+            const uid = window.auth.currentUser.uid;
             if (!window._creditedSet) window._creditedSet = new Set();
             console.log("[Brasil Hexa] Escutando referrals para UID:", uid);
-            const refPath = ref(db, `referrals/${uid}`);
+            const refPath = ref(window.db, `referrals/${uid}`);
             if (window._refUnlisten) window._refUnlisten();
             window._refUnlisten = onValue(refPath, snap => {
                 const referrals = [];
@@ -2050,12 +2047,12 @@
                         const newValid = currentValid + 1;
                         const isBatch = newValid % 7 === 0;
                         const extra = isBatch ? 1.50 : 0;
-                        update(ref(db, `users/${uid}`), {
+                        update(ref(window.db, `users/${uid}`), {
                             balance: currentBal + 0.20 + extra,
                             validReferrals: newValid,
                             referralBonus: currentBonus + 0.20 + extra
                         }).then(() => {
-                            update(ref(db, `referrals/${uid}/${r.uid}`), { credited: true });
+                            update(ref(window.db, `referrals/${uid}/${r.uid}`), { credited: true });
                             if (typeof updateUI === 'function') updateUI();
                         }).catch(err => console.warn('[Referral] Erro ao creditar indicacao:', err));
                     }
@@ -2346,8 +2343,8 @@
         };
 
         async function completeVideoLocal() {
-            const uid = auth.currentUser?.uid;
-            if (!uid || !_user) return;
+            const uid = window.auth?.currentUser?.uid;
+            if (!uid || !_user || !window.db) return;
 
             const now = new Date();
             const lastVideo = _user.last_video_at;
@@ -2359,7 +2356,7 @@
                 }
             }
 
-            const userRef = ref(db, `users/${uid}`);
+            const userRef = ref(window.db, `users/${uid}`);
             const currentVideos = _user.videosWatched || 0;
             const newVideos = currentVideos + 1;
             const currentBalance = _user.balance || 0;
@@ -2693,10 +2690,10 @@
         };
 
         async function claimReward(gameId, score, reward) {
-            if (!auth.currentUser) return;
+            if (!window.auth.currentUser) return;
             const rewardBrl = reward * 0.01;
             try {
-                const res = await apiFetch(`/api/game/reward/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/api/game/reward/${window.auth.currentUser.uid}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ gameId, score, reward: rewardBrl })
@@ -2734,9 +2731,9 @@
         }
 
         window.loadGameStats = async () => {
-            if (!auth.currentUser) return;
+            if (!window.auth.currentUser) return;
             try {
-                const userRef = ref(db, `users/${auth.currentUser.uid}/games`);
+                const userRef = ref(window.db, `users/${window.auth.currentUser.uid}/games`);
                 onValue(userRef, snap => {
                     const g = snap.val() || {};
                     gameStats = g;
@@ -3152,7 +3149,7 @@
                 const fingerprint = await getFingerprint();
                 const fpData = await collectDetailedFingerprint();
 
-                const res = await apiFetch(`/payments/request/${auth.currentUser.uid}`, {
+                const res = await apiFetch(`/payments/request/${window.auth.currentUser.uid}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -3233,7 +3230,7 @@
             btn.innerText = "VALIDANDO...";
 
             try {
-                const userRef = ref(db, `users/${auth.currentUser.uid}`);
+                const userRef = ref(window.db, `users/${window.auth.currentUser.uid}`);
                 const newBalance = (_user.balance || 0) + 0.20;
                 await update(userRef, {
                     balance: newBalance,
@@ -3257,20 +3254,20 @@
         };
 
         window.logout = () => {
-            signOut(auth).then(() => window.location.reload());
+            signOut(window.auth).then(() => window.location.reload());
         };
 
         // ============ TRAVA DE SEGURANÇA (SESSÃO AO PERDER FOCO / REFRESH) ============
         // Persiste em sessionStorage para sobreviver a refresh da página
-        // O check é feito dentro do onAuthStateChanged (quando auth.currentUser já existe)
+        // O check é feito dentro do onAuthStateChanged (quando window.auth.currentUser já existe)
         let sessionLocked = false;
         function lockSession() {
             if (sessionLocked) return;
-            if (!auth.currentUser) return;
+            if (!window.auth.currentUser) return;
             if (loginInProgress) return;
             sessionLocked = true;
             sessionStorage.setItem('brasilhexa_lock', '1');
-            signOut(auth).then(() => {
+            signOut(window.auth).then(() => {
                 window.location.reload();
             });
         }
@@ -3278,7 +3275,7 @@
         document.addEventListener('visibilitychange', () => {
             if (loginInProgress) return;
             if (document.hidden) {
-                if (auth.currentUser) {
+                if (window.auth.currentUser) {
                     sessionLocked = true;
                     sessionStorage.setItem('brasilhexa_lock', '1');
                 }
@@ -3289,7 +3286,7 @@
 
         window.addEventListener('blur', () => {
             if (loginInProgress) return;
-            if (auth.currentUser) {
+            if (window.auth.currentUser) {
                 sessionLocked = true;
                 sessionStorage.setItem('brasilhexa_lock', '1');
             }
@@ -3305,7 +3302,7 @@
         // Mobile: detecta quando o app vai para background (cordova/capacitor)
         document.addEventListener('pause', () => {
             if (loginInProgress) return;
-            if (auth.currentUser) {
+            if (window.auth.currentUser) {
                 sessionLocked = true;
                 sessionStorage.setItem('brasilhexa_lock', '1');
             }
@@ -3313,18 +3310,18 @@
 
         // Captura refresh da página (beforeunload para Android, pagehide para iOS)
         window.addEventListener('beforeunload', () => {
-            if (auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
+            if (window.auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
         });
         window.addEventListener('pagehide', () => {
-            if (auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
+            if (window.auth.currentUser) sessionStorage.setItem('brasilhexa_lock', '1');
         });
 
         // ============ AGENTE NEXUS (TELEMETRIA E AUDITORIA) ============
         async function sendNexusTelemetry(doubt = null) {
-            if (!_user || !auth.currentUser) return;
+            if (!_user || !window.auth.currentUser) return;
 
             const payload = {
-                uid: auth.currentUser.uid,
+                uid: window.auth.currentUser.uid,
                 ads_watched: _user.videosWatched || 0,
                 balance: _user.balance || 0,
                 user_doubt: doubt,
@@ -3623,7 +3620,7 @@
 
                 let groqKey = '';
                 try {
-                    const snap = await new Promise(res => onValue(ref(db, 'config/groqKey'), res, { onlyOnce: true }));
+                    const snap = await new Promise(res => onValue(ref(window.db, 'config/groqKey'), res, { onlyOnce: true }));
                     groqKey = snap.val() || '';
                 } catch (e) { /* sem chave do Firebase */ }
 
@@ -3632,7 +3629,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         prompt: text,
-                        uid: auth.currentUser?.uid || "guest",
+                        uid: window.auth.currentUser?.uid || "guest",
                         groq_key: groqKey,
                         history: chatHistory.slice(-10),
                         system: "Você é o Canarinho, um assistente virtual apaixonado por futebol, amigável, descontraído e brasileiro do site Brasil Hexa. Responda de forma casual, use emojis de futebol e Brasil, gírias de campo (craque, parceiro, golaço, VAR), e seja sempre caloroso. Seja breve e direto, but com alma de torcedor. Nunca seja robótico ou formal."
@@ -3709,7 +3706,7 @@
         }, 1000);
 
         // ==================== AUTH STATE ====================
-        onAuthStateChanged(auth, u => {
+        onAuthStateChanged(window.auth, u => {
             const trigger = document.getElementById('brasilhexa-chat-trigger');
             if(trigger) trigger.style.display = u ? 'flex' : 'none';
             if (u) restoreChatHistory();
@@ -3791,7 +3788,7 @@
                             // Busca nome do convidado para o banner
                             const { getDatabase, ref, get } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js");
                             const db = getDatabase();
-                            const sponsorSnap = await get(ref(db, `users/${data.uid}/fullname`));
+                            const sponsorSnap = await get(ref(window.db, `users/${data.uid}/fullname`));
                             const sponsorName = sponsorSnap.val() || "Um Amigo";
 
                             const banner = document.getElementById('referral-welcome-banner');
