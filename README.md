@@ -47,8 +47,10 @@ Advanced anti-fraud measures powered by our proprietary "VAR" logic:
 ### Required Secrets
 Ensure the following Secrets are configured in your Space settings:
 - `FIREBASE_SERVICE_ACCOUNT`: Full Service Account JSON.
+- `FIREBASE_DATABASE_URL`: Your Firebase Realtime Database URL (e.g., `https://your-db.firebaseio.com`).
 - `ASAAS_API_KEY`: Your Asaas production/sandbox key.
-- `GROQ_API_KEY`: API key for the AI Assistant.
+- `GROQ_API_KEY`: API key for the AI Assistant (Agente Canarinho).
+- `ADMIN_EMAIL`: The email address allowed to access administrative functions (Default: `alegomes488@gmail.com`).
 
 ### Local Development
 ```bash

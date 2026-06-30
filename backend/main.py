@@ -23,13 +23,17 @@ os.environ['PYTHONIOENCODING'] = 'utf-8'
 if sys.stdout: sys.stdout.reconfigure(encoding='utf-8')
 if sys.stderr: sys.stderr.reconfigure(encoding='utf-8')
 
+# ─── Configurações via Variáveis de Ambiente ───
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "alegomes488@gmail.com")
+FIREBASE_DATABASE_URL = os.environ.get("FIREBASE_DATABASE_URL", "https://playearn-b001b-default-rtdb.firebaseio.com")
+
 # ─── Firebase Admin SDK ───
 cred_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
 if cred_json:
     cred_dict = json.loads(cred_json)
     cred = credentials.Certificate(cred_dict)
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
+        firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
     print("Firebase iniciado via variável de ambiente")
 else:
     for fname in ("serviceAccountKey.json", "firebase-adminsdk.json"):
@@ -37,7 +41,7 @@ else:
         if os.path.exists(fpath):
             cred = credentials.Certificate(fpath)
             if not firebase_admin._apps:
-                firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
+                firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
             print(f"Firebase iniciado com {fname}")
             break
     else:
@@ -46,12 +50,10 @@ else:
             with open(bak) as f:
                 cred = credentials.Certificate(json.load(f))
             if not firebase_admin._apps:
-                firebase_admin.initialize_app(cred, {'databaseURL': 'https://playearn-b001b-default-rtdb.firebaseio.com'})
+                firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DATABASE_URL})
             print("Firebase iniciado via .bak (dev)")
         else:
             print("AVISO: Nenhuma credencial Firebase encontrada. Endpoints que usam banco falharão.")
-
-ADMIN_EMAIL = "alegomes488@gmail.com"
 _token_cache = {}
 
 # ─── FastAPI App ───
@@ -496,9 +498,11 @@ async def approve_payment(wid: str, request: Request):
         if not wd:
             return {"status": "error", "message": "Saque não encontrado na fila pendente"}
 
-        # Get Asaas Key from config
-        config = db.reference("config").get() or {}
-        asaas_key = config.get("asaasKey") or config.get("asaas_key")
+        # Get Asaas Key (Secret > Config)
+        asaas_key = os.environ.get("ASAAS_API_KEY")
+        if not asaas_key:
+            config = db.reference("config").get() or {}
+            asaas_key = config.get("asaasKey") or config.get("asaas_key")
 
         if not asaas_key:
             return {"status": "error", "message": "Chave API Asaas não configurada"}
@@ -865,5 +869,6 @@ async def chat_with_groq(data: dict = Body(...)):
 app.mount("/", StaticFiles(directory=WWW_DIR, html=True), name="www")
 
 if __name__ == "__main__":
-    print(f"[+] Servindo site de: {WWW_DIR}")
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    port = int(os.environ.get("PORT", 7860))
+    print(f"[+] Servindo site na porta {port} de: {WWW_DIR}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
