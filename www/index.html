@@ -204,12 +204,12 @@
 
             <p class="login-subtitle">Entre para a seleção e comece a ganhar</p>
 
-            <div class="name-row" style="display: flex; gap: 10px;">
-                <div class="input-group" style="flex: 1;">
+            <div class="name-row">
+                <div class="input-group">
                     <label>Nome</label>
                     <input type="text" id="reg-fname" placeholder="Ex: João">
                 </div>
-                <div class="input-group" style="flex: 1;">
+                <div class="input-group">
                     <label>Sobrenome</label>
                     <input type="text" id="reg-lname" placeholder="Ex: Silva">
                 </div>
@@ -879,20 +879,27 @@
         wakeUpBrasilHexa();
         setInterval(wakeUpBrasilHexa, 60000); // Mantém acordado enquanto o usuário estiver no site
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDBa-yJArg3bkz9ouwqlNmPXKj_pTsl_1E",
-            authDomain: "playearn-b001b.firebaseapp.com",
-            databaseURL: "https://playearn-b001b-default-rtdb.firebaseio.com",
-            projectId: "playearn-b001b",
-            storageBucket: "playearn-b001b.appspot.com",
-            messagingSenderId: "563829659490",
-            appId: "1:563829659490:web:a2f4a40d4a3d165541fe3b"
-        };
+        async function initApp() {
+            try {
+                const response = await fetch('/api/config');
+                const firebaseConfig = await response.json();
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getDatabase(app);
-        const messaging = getMessaging(app);
+                const app = initializeApp(firebaseConfig);
+                window.auth = getAuth(app);
+                window.db = getDatabase(app);
+                window.messaging = getMessaging(app);
+
+                console.log("🔥 Firebase inicializado dinamicamente!");
+
+                // Se houver lógica que dependa do Firebase estar pronto, inicialize-a aqui ou emita um evento
+                document.dispatchEvent(new CustomEvent('firebase-ready'));
+            } catch (error) {
+                console.error("❌ Erro ao carregar configuração do Firebase:", error);
+                // Fallback ou mensagem de erro para o usuário
+            }
+        }
+
+        initApp();
 
         // Utilitário global para manipulação segura de classes
         window.safeClass = (idOrEl, method, className) => {
@@ -2262,9 +2269,6 @@
                 }
                 if(card) safeClass(card, 'add', 'scanning');
 
-                const resStart = await apiFetch(`/video/start/${auth.currentUser.uid}`, { method: 'POST' });
-                if(!resStart.ok) throw new Error();
-
                 if (typeof triggerStrategicAd === 'function') triggerStrategicAd(30000);
 
                 safeClass('video-overlay', 'remove', 'hidden');
@@ -2311,25 +2315,7 @@
                         if (statusText) statusText.innerText = '✅ CONCLUÍDO!';
                         if (subStatus) subStatus.innerText = 'Lance contabilizado! Confira suas metas.';
 
-                        try {
-                            const resComp = await apiFetch(`/video/complete/${auth.currentUser.uid}`, { method: 'POST' });
-                            if(resComp.ok) {
-                                const data = await resComp.json();
-                                if(data.milestone_reward > 0) {
-                                    showToast(`🎉 META ATINGIDA! +R$ ${data.milestone_reward.toFixed(2).replace('.', ',')}`, 'success');
-                                    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#006437', '#FFD700', '#10b981'] });
-                                } else {
-                                    showToast("LANCE VALIDADO!");
-                                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#006437', '#FFD700'] });
-                                }
-                            } else {
-                                const err = await resComp.json();
-                                showToast(err.detail || "Falha na validação.");
-                            }
-                        } catch (e) {
-                            console.warn("Erro ao reportar conclusão offline");
-                            showToast("Sessão validada com sucesso!");
-                        }
+                        await completeVideoLocal();
 
                         setTimeout(() => {
                             safeClass('video-overlay', 'add', 'hidden');
@@ -2358,6 +2344,68 @@
                 CyberUtils.isProcessing = false;
             }
         };
+
+        async function completeVideoLocal() {
+            const uid = auth.currentUser?.uid;
+            if (!uid || !_user) return;
+
+            const now = new Date();
+            const lastVideo = _user.last_video_at;
+            if (lastVideo) {
+                const diff = (now - new Date(lastVideo)) / 1000;
+                if (diff < 28) {
+                    showToast("Aguarde o processamento.", 'warning');
+                    return;
+                }
+            }
+
+            const userRef = ref(db, `users/${uid}`);
+            const currentVideos = _user.videosWatched || 0;
+            const newVideos = currentVideos + 1;
+            const currentBalance = _user.balance || 0;
+
+            const milestones = [200, 800, 1000, 2000, 10000];
+            const rewards = [0.50, 3.00, 5.00, 10.00, 50.00];
+            const claimed = Object.assign({}, _user.milestones || {});
+            let rewardTotal = 0;
+
+            for (let i = 0; i < milestones.length; i++) {
+                const mk = String(milestones[i]);
+                if (newVideos >= milestones[i] && !claimed[mk]) {
+                    rewardTotal += rewards[i];
+                    claimed[mk] = true;
+                }
+            }
+
+            const updateData = {
+                videosWatched: newVideos,
+                last_video_at: now.toISOString(),
+                balance: currentBalance + rewardTotal
+            };
+            if (rewardTotal > 0) {
+                updateData.milestones = claimed;
+            }
+
+            try {
+                await update(userRef, updateData);
+                _user.videosWatched = newVideos;
+                _user.balance = currentBalance + rewardTotal;
+                if (rewardTotal > 0) {
+                    _user.milestones = claimed;
+                }
+
+                if (rewardTotal > 0) {
+                    showToast(`🎉 META ATINGIDA! +R$ ${rewardTotal.toFixed(2).replace('.', ',')}`, 'success');
+                    confetti({ particleCount: 300, spread: 120, origin: { y: 0.5 }, colors: ['#006437', '#FFD700', '#10b981'] });
+                } else {
+                    showToast("LANCE VALIDADO!");
+                    confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#006437', '#FFD700'] });
+                }
+            } catch (e) {
+                console.warn("[Video] Erro ao salvar progresso via Web SDK:", e);
+                showToast("Erro ao validar lance. Tente novamente.");
+            }
+        }
 
         function spawnParticle() {
             const container = document.getElementById('particles-container');
