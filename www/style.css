@@ -4675,6 +4675,15 @@ body.premium-theme::before {
     .btn-saque { height: 52px; font-size: 0.85rem; }
     .referrals-empty-state { padding: 14px; }
     #w-amount-display { padding-left: 38px !important; }
+
+    .login-box input, .login-box .password-box input {
+        font-size: 0.9rem;
+        padding: 12px 14px;
+    }
+    .login-box .password-box input { padding-right: 42px !important; }
+    #password-requirements { font-size: 0.6rem; }
+    #password-requirements td { padding: 4px 8px !important; }
+    .gen-pass-btn, .copy-pass-btn { font-size: 0.6rem !important; padding: 5px 8px !important; }
 }
 
 @media (max-width: 480px) {
@@ -4688,4 +4697,15 @@ body.premium-theme::before {
     .btn-saque { height: 48px; font-size: 0.8rem; }
     .referrals-empty-state { padding: 10px; }
     #w-amount-display { padding-left: 35px !important; }
+
+    .name-row { flex-direction: column !important; gap: 0 !important; }
+    .login-box input, .login-box .password-box input {
+        font-size: 0.85rem;
+        padding: 10px 12px;
+    }
+    .login-box .password-box input { padding-right: 38px !important; }
+    .password-toggle { padding: 8px !important; right: 8px !important; }
+    #password-requirements { font-size: 0.55rem; }
+    #password-requirements td { padding: 3px 6px !important; }
+    .gen-pass-btn, .copy-pass-btn { font-size: 0.55rem !important; padding: 4px 6px !important; }
 }
