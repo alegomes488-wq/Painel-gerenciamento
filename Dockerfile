@@ -13,10 +13,7 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV PORT=7860
 
-# O backend espera encontrar a pasta 'www' no nível acima ou configurada via caminhos.
-# No main.py, definimos PROJECT_ROOT como o pai de backend/.
-# Com esta estrutura, o main.py em /app/backend encontrará /app/www.
-
+# Backend modular em backend/app; www/admin servido a partir de /app/www/admin
 WORKDIR /app/backend
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

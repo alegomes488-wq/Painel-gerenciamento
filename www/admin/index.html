@@ -1,0 +1,410 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel CyberCore IA | Painel Admin</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100;300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <script src="lib/firebase-app-check-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="premium-theme">
+    <!-- Micro Partículas de Fundo -->
+    <canvas id="micro-particles-canvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; opacity:0.6;"></canvas>
+
+    <svg style="width:0; height:0; position:absolute;" aria-hidden="true">
+        <defs>
+            <linearGradient id="grad-master" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#3b82f6" />
+                <stop offset="100%" style="stop-color:#8b5cf6" />
+            </linearGradient>
+            <filter id="glow-master">
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+        </defs>
+    </svg>
+
+    <div id="loader" class="elite-loader">
+        <div class="loader-star-container">
+            <svg viewBox="0 0 100 100" class="loader-star-svg">
+                <path d="M50 15 L62 38 L88 38 L67 55 L75 80 L50 65 L25 80 L33 55 L12 38 L38 38 Z" fill="url(#grad-master)" filter="url(#glow-master)"/>
+            </svg>
+        </div>
+        <p class="loader-brand"><span class="gradient-star" style="-webkit-text-fill-color: transparent;">BRASIL</span><span> HEXA |</span> <span style="color:var(--primary)">ADMIN</span></p>
+    </div>
+
+    <div id="hub-app" class="premium-layout" style="display:none;">
+        <aside id="sidebar" class="premium-sidebar">
+            <div class="sidebar-top">
+                <div class="brand-box" style="display: flex; align-items: center; gap: 12px;">
+                    <div class="hexa-mini-logo" style="margin: 0;">
+                        <svg viewBox="0 0 100 100" style="width:32px;height:32px;">
+                            <defs>
+                                <linearGradient id="grad-brand" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#3b82f6" />
+                                    <stop offset="100%" style="stop-color:#8b5cf6" />
+                                </linearGradient>
+                            </defs>
+                            <circle cx="50" cy="50" r="40" fill="none" stroke="url(#grad-brand)" stroke-width="4" stroke-dasharray="15 10" class="rotating-ring"/>
+                            <path d="M50 30 L55 45 L70 45 L58 55 L63 70 L50 60 L37 70 L42 55 L30 45 L45 45 Z" fill="url(#grad-brand)" />
+                        </svg>
+                    </div>
+                    <span class="sidebar-brand-title">Painel Admin</span>
+                </div>
+            </div>
+
+            <nav class="premium-nav">
+                <div class="nav-section-title">🔍 Monitoramento</div>
+                <div class="nav-group">
+                    <button class="nav-link active" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
+                        <span>🔍</span> Monitoramento
+                    </button>
+                    <div class="sub-nav" style="display: flex;">
+                        <span class="sub-link" onclick="showPanel('watch', 'website')">🌐 Site</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'android')">🤖 App</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'api')">☁️ API</span>
+                    </div>
+                </div>
+
+                <div class="nav-section-title">💰 Financeiro</div>
+                <button class="nav-link" id="btn-nav-saques" onclick="showPanel('saques')" title="Solicitações Pix">
+                    <span>💰</span> Solicitações Pix
+                </button>
+
+                <div class="nav-section-title">🧠 Inteligência</div>
+                <button class="nav-link" id="btn-nav-ia-info" onclick="showPanel('ia-info')" title="Informações IA">
+                    <span>🧠</span> Informações IA
+                </button>
+
+                <div class="nav-section-title">🛡️ Segurança</div>
+                <button class="nav-link" id="btn-nav-secops" onclick="showPanel('secops');renderSecOpsPanel()" title="SecOps Sentinel AI">
+                    <span>🛡️</span> SecOps Sentinel
+                    <span id="secops-nav-alert" style="display:none;margin-left:auto;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;"></span>
+                </button>
+
+                <div class="nav-section-title">⚙️ Sistema</div>
+                <div class="nav-group">
+                    <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
+                        <span>⚙️</span> Configurações
+                    </button>
+                </div>
+
+                <div class="sidebar-core-status" style="margin-top:auto; padding:15px 0; border-top:1px solid rgba(232,184,48,0.1); display:flex; align-items:center; justify-content:center; gap:8px;">
+                    <div id="python-core-ping" class="ai-pulse-orb" style="width:8px; height:8px; background:#52525b; border-radius:50%;"></div>
+                    <small style="font-size:9px; font-weight:700; color:#a1a1aa; letter-spacing:0.5px; text-transform:uppercase;">Sistema: <span id="python-core-status" style="color: #ef4444;">INATIVO</span></small>
+                </div>
+            </nav>
+
+            <div class="sidebar-bottom" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v4.0.0 (EXECUTIVO)</span>
+                <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
+                    <span>🚪</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="premium-main">
+            <header class="workspace-header">
+                <div class="header-left">
+                    <div style="margin-left: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="data-dot gold" style="margin-right: 0;"></span>
+                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[BRASIL HEXA] // IA EXECUTIVA</h1>
+                            <span id="system-health-badge" class="badge-ia" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); font-family: 'Fira Code', monospace;">SISTEMA ATIVO</span>
+                            <div class="data-flow cyan" style="width:40px;height:1.5px;margin:0;"></div>
+                        </div>
+                        <p class="sub-header"><span class="status-ring" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;"></span>Monitoramento de infraestrutura em tempo real</p>
+                    </div>
+                </div>
+                <div class="header-center" style="display: flex; gap: 30px; margin-left: 40px;">
+                    <div class="exec-metric">
+                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">RECEITA TOTAL</small>
+                        <span id="header-rev" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #fff; font-size: 16px;">R$ 0,00</span>
+                    </div>
+                    <div class="exec-metric">
+                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">ROI LÍQUIDO</small>
+                        <span id="header-roi" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #10b981; font-size: 16px;">+0.00%</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="admin-badge tech-corner">
+                        <div class="badge-avatar">BH</div>
+                        <div class="badge-info">
+                            <span id="user-display-name" class="glow-text">Admin</span>
+                            <small>Acesso Master</small>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="workspace-content">
+                <div id="panel-watch" class="panel-view active">
+                    <div class="panel-scanner"></div>
+                    <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;padding:25px;">
+                        <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div>
+                                    <div style="display:flex;align-items:center;gap:12px;">
+                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🖥️</div>
+                                        <div>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_VAR] // VAR CANARINHO</h3>
+                                            <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">VAR EM OPERAÇÃO</span>
+                                                <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
+                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento tático em tempo real</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="system-card premium-glass tech-border" style="padding:25px;">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                                <span style="font-size:20px;">🔗</span>
+                                <div>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">CONECTAR JOGADA AO VAR</h4>
+                                    <small style="font-size:10px;color:var(--text-secondary);">Adicione sites, apps ou APIs para análise de lances</small>
+                                </div>
+                            </div>
+                            <div style="display:grid;grid-template-columns:280px 1fr 160px;gap:15px;align-items:end;">
+                                <div>
+                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">TIPO</label>
+                                    <div style="display:flex;gap:6px;">
+                                        <span class="watch-type-btn active" data-type="website" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;background:rgba(0,243,255,0.1);color:var(--cyan);">🌐 Site</span>
+                                        <span class="watch-type-btn" data-type="android" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">🤖 App</span>
+                                        <span class="watch-type-btn" data-type="api" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">☁️ API</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">URL DO SITE / IDENTIFICADOR</label>
+                                    <div style="position:relative;">
+                                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4;font-size:12px;">🔗</span>
+                                        <input type="text" id="watch-project-url" placeholder="https://meusite.com.br" style="width:100%;padding:10px 12px 10px 36px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="btn-premium" onclick="watchConnectProject()" style="width:100%;padding:10px;border-radius:8px;font-size:11px;font-weight:800;">CONECTAR</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="system-card premium-glass tech-border" style="padding:25px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-size:14px;">📡</span>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">PROJETOS MONITORADOS</h4>
+                                </div>
+                                <div style="display:flex;gap:6px;">
+                                    <button class="watch-filter-btn active" onclick="watchFilter('all')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">TODOS</button>
+                                </div>
+                            </div>
+                            <div id="watch-projects-list" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:100px;">
+                                <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);font-size:12px;">Nenhum projeto monitorado.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="panel-users" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="premium-table-container premium-glass tech-border" style="position:relative;z-index:1;">
+                        <div class="table-header">
+                            <h3><span class="data-dot gold"></span> Registros de Usuários</h3>
+                        </div>
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>ID (UID)</th>
+                                    <th>Usuário / E-mail</th>
+                                    <th>Status Auditoria</th>
+                                    <th>Saldo Atual</th>
+                                    <th>Gestão</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="panel-saques" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="premium-table-container premium-glass tech-border" style="position:relative;z-index:1;">
+                        <div class="table-header">
+                            <h3><span class="data-dot gold"></span> Solicitações de Saque PIX</h3>
+                            <h2 id="total-pendente-display" style="color: var(--primary); font-weight: 800;">R$ 0,00</h2>
+                        </div>
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Plataforma</th>
+                                    <th>Chave PIX</th>
+                                    <th>Valor</th>
+                                    <th>Validação IA</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="withdrawals-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="panel-ia-info" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; padding:25px;">
+                        <div class="system-card premium-glass tech-border" style="padding:20px;">
+                            <h4 style="color:var(--primary); margin-bottom:15px; display:flex; align-items:center; gap:8px;">💰 Financeiro</h4>
+                            <div id="ai-financeiro-status" style="font-size:12px; color:var(--text-secondary);">
+                                Monitorando fluxos de caixa e balanços...
+                            </div>
+                        </div>
+                        <div class="system-card premium-glass tech-border" style="padding:20px;">
+                            <h4 style="color:var(--danger); margin-bottom:15px; display:flex; align-items:center; gap:8px;">🛡️ Sentinel</h4>
+                            <div id="ai-sentinel-status" style="font-size:12px; color:var(--text-secondary);">
+                                Proteção de rede e detecção de anomalias ativa...
+                            </div>
+                        </div>
+                        <div class="system-card premium-glass tech-border" style="padding:20px;">
+                            <h4 style="color:var(--warning); margin-bottom:15px; display:flex; align-items:center; gap:8px;">🔍 Auditor</h4>
+                            <div id="ai-auditor-status" style="font-size:12px; color:var(--text-secondary);">
+                                Verificando integridade das transações...
+                            </div>
+                        </div>
+                        <div class="system-card premium-glass tech-border" style="padding:20px;">
+                            <h4 style="color:var(--cyan); margin-bottom:15px; display:flex; align-items:center; gap:8px;">⚖️ Fiscal</h4>
+                            <div id="ai-fiscal-status" style="font-size:12px; color:var(--text-secondary);">
+                                Analisando conformidade tributária e regras...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- PAINEL SECOPS SENTINEL AI                           -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div id="panel-secops" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div style="position:relative;z-index:1;padding:25px;display:flex;flex-direction:column;gap:20px;">
+
+                        <!-- Header do Agente -->
+                        <div class="system-card premium-glass tech-border" style="padding:20px 25px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div style="display:flex;align-items:center;gap:16px;">
+                                    <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgba(239,68,68,0.25),rgba(239,68,68,0.05));border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;">
+                                        🛡️
+                                    </div>
+                                    <div>
+                                        <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;color:#fff;">SecOps Sentinel AI</h3>
+                                        <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+                                            <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                            <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">AGENTE ATIVO</span>
+                                            <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
+                                            <span style="font-size:10px;color:var(--text-muted);">Cyber Security Engine v1.0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;align-items:center;gap:10px;">
+                                    <span id="secops-last-refresh" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);"></span>
+                                    <button class="btn-premium" onclick="renderSecOpsPanel()" style="padding:8px 16px;font-size:11px;">🔄 Atualizar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Container principal do dashboard SecOps -->
+                        <div id="secops-panel-container" class="system-card premium-glass tech-border" style="padding:25px;min-height:400px;">
+                            <div class="secops-loading-state">
+                                <div class="secops-spinner"></div>
+                                <p>Clique em Atualizar para carregar o dashboard de segurança.</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="panel-settings" class="panel-view">
+                    <div class="panel-scanner"></div>
+                    <div class="system-card premium-glass tech-border" style="padding:30px;">
+                        <h3 style="margin-bottom:20px;">⚙️ Configurações Globais</h3>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                            <div class="p-input-group">
+                                <label>Valor CPM (USD)</label>
+                                <input type="number" id="audit-cpm" step="0.01" placeholder="0.18">
+                            </div>
+                            <div class="p-input-group">
+                                <label>WhatsApp Admin</label>
+                                <input type="text" id="audit-whatsapp" placeholder="55...">
+                            </div>
+                        </div>
+                        <button class="btn-premium" onclick="saveAuditParameters()" style="margin-top:20px; width:100%;">SALVAR CONFIGURAÇÕES</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="login-screen" class="premium-login-overlay">
+        <div class="login-window premium-glass login-glass-premium">
+            <div class="login-content">
+                <div class="login-header">
+                    <h1 class="login-title"><span class="login-admin" style="color:#a78bfa">Painel Admin</span></h1>
+                    <div class="login-badge">CONEXÃO SEGURA</div>
+                </div>
+
+                <div class="login-body">
+                    <div class="p-input-group login-input-group">
+                        <label><span class="input-icon">👤</span> E-MAIL DE ACESSO</label>
+                        <input type="email" id="login-email" placeholder="seu@email.com">
+                    </div>
+
+                    <div class="p-input-group login-input-group">
+                        <label><span class="input-icon">🔑</span> CHAVE DE ACESSO</label>
+                        <input type="password" id="login-pass" placeholder="••••••••">
+                    </div>
+
+                    <button id="btn-login" class="login-btn" onclick="login()">
+                        <span class="btn-text">AUTENTICAR NO HUB</span>
+                    </button>
+                </div>
+
+                <div class="login-footer">
+                    <div class="login-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">AGUARDANDO AUTENTICAÇÃO</span>
+                    </div>
+                    <div class="login-version">v3.0 • Agente Canarinho</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- CARREGAMENTO MODULAR (FOR├çA LIMPEZA DE CACHE v4.0.2) -->
+    <script src="js/config.js?v=4.1.0"></script>
+    <script src="js/utils.js?v=4.1.0"></script>
+    <script src="js/ui.js?v=4.1.0"></script>
+    <script src="js/auth.js?v=4.1.0"></script>
+    <script src="js/modules/users.js?v=4.1.0"></script>
+    <script src="js/modules/secops.js?v=4.1.0"></script>
+    <script src="js/modules/withdrawals.js?v=4.1.0"></script>
+    <script src="js/modules/telemetria.js?v=4.1.0"></script>
+    <script src="js/modules/status.js?v=4.1.0"></script>
+    <script src="js/modules/watch.js?v=4.1.0"></script>
+    <script src="js/modules/settings.js?v=4.1.0"></script>
+    <script src="js/modules/particles.js?v=4.1.0"></script>
+    <script src="js/main.js?v=4.1.0"></script>
+</body>
+</html>

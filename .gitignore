@@ -2,3 +2,23 @@
 __pycache__/
 *.pyc
 backend/groq_key.txt
+
+# Segredos e credenciais
+backend/.env
+.env
+firebase-secrets/
+backend/firebase-adminsdk.json.bak
+backend/firebase-adminsdk.json
+*.keystore
+*.jks
+
+# Logs e runtime
+backend.log
+logs/
+memory/faq.json
+*.tmp
+
+# Builds / dependências locais
+node_modules/
+venv/
+.venv/
