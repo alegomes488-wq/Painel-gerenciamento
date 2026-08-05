@@ -18,9 +18,9 @@ try {
     console.warn('[FIREBASE] Erro:', e.message);
 }
 
-// App Check (reCAPTCHA Enterprise) — obrigatório com o enforcement ativo no RTDB.
-// Mesma Site Key do app web "cashvideos" (projeto playearn-b001b).
-const appCheckSiteKey = '6LdQzXMtAAAAAKWOLqt2Nj7MFFIz0hPjXgtC23Mo';
+// App Check (reCAPTCHA Enterprise) — cole a nova site key abaixo.
+// Enquanto vazio, o App Check fica desativado no frontend.
+const appCheckSiteKey = '6Leds3UtAAAAAGsYCTgVeGmQQfyzmSZc_KC73Wzs';
 try {
     if (typeof firebase.appCheck !== 'undefined' && appCheckSiteKey) {
         firebase.appCheck().activate(appCheckSiteKey);
