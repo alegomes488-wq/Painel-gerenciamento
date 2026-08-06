@@ -6,7 +6,7 @@ const hubConfig = {
     projectId: "playearn-b001b",
     storageBucket: "playearn-b001b.appspot.com",
     messagingSenderId: "563829659490",
-    appId: "1:563829659490:web:a2f4a40d4a3d165541fe3b"
+    appId: "1:563829659490:web:db9c377615bb5da941fe3b"
 };
 
 if (!firebase.apps.length) firebase.initializeApp(hubConfig);
