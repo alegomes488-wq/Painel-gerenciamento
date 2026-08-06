@@ -23,7 +23,10 @@ try {
 const appCheckSiteKey = '6Leds3UtAAAAAGsYCTgVeGmQQfyzmSZc_KC73Wzs';
 try {
     if (typeof firebase.appCheck !== 'undefined' && appCheckSiteKey) {
-        firebase.appCheck().activate(appCheckSiteKey);
+        firebase.appCheck().activate(
+            appCheckSiteKey,
+            new firebase.appCheck.ReCaptchaEnterpriseProvider(appCheckSiteKey)
+        );
     }
 } catch(e) {
     console.warn('[APP CHECK] Erro:', e.message);
