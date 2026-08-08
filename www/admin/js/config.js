@@ -20,7 +20,7 @@ try {
 
 // App Check (reCAPTCHA Enterprise) — cole a nova site key abaixo.
 // Enquanto vazio, o App Check fica desativado no frontend.
-const appCheckSiteKey = '6LdQzXMtAAAAAKWOLqt2Nj7MFFIz0hPjXgtC23Mo';
+const appCheckSiteKey = '6Leds3UtAAAAAGsYCTgVeGmQQfyzmSZc_KC73Wzs';
 try {
     if (typeof firebase.appCheck !== 'undefined' && appCheckSiteKey) {
         firebase.appCheck().activate(
