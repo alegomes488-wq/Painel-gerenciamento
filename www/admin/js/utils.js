@@ -25,7 +25,14 @@ function showToast(message, type = 'info') {
     if (type === 'error') icon = '❌';
     if (type === 'success') icon = '✅';
     if (type === 'warning') icon = '⚠️';
-    toast.innerHTML = `<span class="toast-icon">${icon}</span><span class="toast-msg">${message}</span>`;
+    const iconEl = document.createElement('span');
+    iconEl.className = 'toast-icon';
+    iconEl.textContent = icon;
+    const msgEl = document.createElement('span');
+    msgEl.className = 'toast-msg';
+    msgEl.textContent = String(message ?? '');
+    toast.appendChild(iconEl);
+    toast.appendChild(msgEl);
     container.appendChild(toast);
     setTimeout(() => {
         toast.style.animation = 'toastExit 0.5s forwards';

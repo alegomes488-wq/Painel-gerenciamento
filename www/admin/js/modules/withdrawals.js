@@ -30,7 +30,7 @@ function renderWithdrawalsTable() {
 
     // Renderiza a tabela inicialmente com badges "analisando..."
     tbody.innerHTML = entries.map(([wid, w]) => {
-        const platform = w.platform || '🌐 SITE';
+        const platform = escapeHtml(w.platform || '🌐 SITE');
         return `
             <tr id="wd-row-${wid}">
                 <td>
@@ -40,16 +40,16 @@ function renderWithdrawalsTable() {
                             ${_getInitialAvatar(w.fullname)}
                         </div>
                         <div>
-                            <strong>${w.fullname || 'Usuário'}</strong>
-                            <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${w.pixType || ''}</div>
+                            <strong>${escapeHtml(w.fullname || 'Usuário')}</strong>
+                            <div style="font-size:10px;color:var(--text-secondary);margin-top:1px">${escapeHtml(w.pixType || '')}</div>
                         </div>
                     </div>
                 </td>
                 <td><span class="type-tag local">${platform}</span></td>
                 <td>
                     <code style="font-size:11px;max-width:140px;display:inline-block;overflow:hidden;
-                                 text-overflow:ellipsis;white-space:nowrap;" title="${w.pixKey}">
-                        ${w.pixKey || '—'}
+                                 text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(w.pixKey)}">
+                        ${escapeHtml(w.pixKey || '—')}
                     </code>
                 </td>
                 <td>
@@ -176,6 +176,6 @@ async function approveWithdrawal(wid) {
 // ─────────────────────────────────────────────
 function _getInitialAvatar(name) {
     if (!name) return '👤';
-    const initials = name.trim().split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    const initials = escapeHtml(name.trim().split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase());
     return `<span style="font-size:11px;font-weight:700;color:var(--primary)">${initials}</span>`;
 }

@@ -109,21 +109,23 @@ function renderWatchProjects() {
         const isDegraded = health.status === 'degraded';
         const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
 
-        const cpu = health.cpu !== undefined && health.cpu !== null ? health.cpu + '%' : '--';
-        const ram = health.ram !== undefined && health.ram !== null ? health.ram + '%' : '--';
-        const latency = health.latency_ms ? health.latency_ms + 'ms' : '--';
+        const toPct = (v) => { const n = parseFloat(v); return (isFinite(n) && n >= 0) ? n.toFixed(0) + '%' : '--'; };
+        const cpu = toPct(health.cpu);
+        const ram = toPct(health.ram);
+        const latMs = parseFloat(health.latency_ms);
+        const latency = isFinite(latMs) && latMs >= 0 ? latMs.toFixed(0) + 'ms' : '--';
         const lastReport = health.last_report ? new Date(health.last_report).toLocaleTimeString() : null;
 
         const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
-        const tech = p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A');
+        const tech = escapeHtml(p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A'));
 
         return `
             <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}; position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <div style="font-weight: 800; font-size: 13px; color: white;">${p.name || p.identifier}</div>
+                        <div style="font-weight: 800; font-size: 13px; color: white;">${escapeHtml(p.name || p.identifier)}</div>
                         <div style="font-size: 9px; color: var(--text-secondary); margin-top: 4px; text-transform: uppercase;">
-                            TYPE: ${p.type.toUpperCase()} | STACK: ${tech}
+                            TYPE: ${escapeHtml(p.type || '').toUpperCase()} | STACK: ${tech}
                         </div>
                     </div>
                     <div style="text-align: right;">
@@ -150,15 +152,25 @@ function renderWatchProjects() {
                 </div>
 
                 <div style="margin-top: 10px; display: flex; gap: 5px;">
-                     <button onclick="copyToClipboard('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
-                     <button onclick="installAgent('${p.id}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
-                     <button onclick="toggleProjectConnection('${p.id}', '${p.identifier}')" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
+                     <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
+                     <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
+                     <button data-action="toggle" data-id="${escapeHtml(p.id)}" data-identifier="${escapeHtml(p.identifier)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
             </div>
         `;
     }).join('');
+
+    container.onclick = (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        if (action === 'copy') copyToClipboard(id);
+        else if (action === 'agent') installAgent(id);
+        else if (action === 'toggle') toggleProjectConnection(id, btn.dataset.identifier);
+    };
 }
 
 function copyToClipboard(text) {
@@ -167,20 +179,48 @@ function copyToClipboard(text) {
 
 function installAgent(projectId) {
     const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
-    const cmd = `wget -qO- ${baseUrl}/api/monitor/agent-script | python3 - ${baseUrl} ${projectId}`;
-    const detail = `Para monitorar CPU/RAM do servidor, instale o agente Brasil Hexa:\n\n1️⃣ No servidor alvo (Linux com Python):\ncurl -s ${baseUrl}/api/monitor/agent-script -o agent.py\npython3 agent.py\n\n2️⃣ Ou execute direto:\n${cmd}\n\n3️⃣ Requer Python + psutil:\npip install psutil requests\n\n4️⃣ O agente reportará CPU, RAM e disco a cada 30s.`;
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
     msg.innerHTML = `
         <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 BRASIL HEXA AGENT</h3>
-        <pre style="background:rgba(0,0,0,0.4);padding:15px;border-radius:8px;font-size:11px;color:#94a3b8;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;">${detail}</pre>
+        <div style="font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:12px;">
+            O agente reporta CPU, RAM e disco do servidor a cada 30s.
+            Baixe o script (requer login), envie ao servidor Linux e execute.
+            <strong style="color:#f8fafc;">Nunca execute scripts remotamente via pipe (wget | python3 -).</strong>
+        </div>
+        <pre style="background:rgba(0,0,0,0.4);padding:15px;border-radius:8px;font-size:11px;color:#94a3b8;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;">pip install psutil
+# edite BASE_URL e PROJECT_ID no topo do agent.py
+python3 agent.py</pre>
         <div style="display:flex;gap:10px;margin-top:15px;">
-            <button onclick="copyToClipboard('${cmd}')" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">📋 COPIAR COMANDO</button>
+            <button id="agent-download-btn" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">⬇️ BAIXAR agent.py</button>
             <button onclick="this.closest('div[style]').remove()" class="btn-minimal" style="padding:8px 16px;font-size:10px;color:var(--danger);">FECHAR</button>
         </div>
     `;
     document.body.appendChild(msg);
     msg.onclick = (e) => { if (e.target === msg) msg.remove(); };
+
+    const btn = msg.querySelector('#agent-download-btn');
+    btn.onclick = async () => {
+        try {
+            const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+            const resp = await fetch(`${baseUrl}/api/monitor/agent-script`, {
+                headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            if (!resp.ok) throw new Error('Falha ao baixar (verifique se você está logado como admin)');
+            const text = await resp.text();
+            const blob = new Blob([text], { type: 'text/x-python' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'agent.py';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(a.href);
+            showToast('agent.py baixado.', 'success');
+        } catch (e) {
+            showToast('Erro ao baixar o agente: ' + e.message, 'error');
+        }
+    };
 }
 
 function toggleProjectConnection(id, identifier) {

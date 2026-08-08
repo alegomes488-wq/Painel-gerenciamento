@@ -63,7 +63,7 @@ function buildRiskBadgeHTML(analysis) {
     const score = analysis.trust_score ?? '—';
 
     return `
-        <div class="secops-risk-cell" title="${(analysis.reasons || []).join(' | ')}">
+        <div class="secops-risk-cell" title="${escapeHtml((analysis.reasons || []).join(' | '))}">
             <div class="secops-score-ring" style="--ring-color:${cfg.color}">
                 <span class="secops-score-value">${score}</span>
             </div>
@@ -104,7 +104,7 @@ async function renderSecOpsPanel() {
             <div class="secops-error-state">
                 <span style="font-size:32px;">⚠️</span>
                 <p>Não foi possível conectar ao agente SecOps.</p>
-                <small style="color:var(--text-secondary)">${e.message}</small>
+                <small style="color:var(--text-secondary)">${escapeHtml(e.message)}</small>
                 <button class="btn-premium" onclick="renderSecOpsPanel()" style="margin-top:15px;padding:8px 20px;font-size:11px;">
                     Tentar novamente
                 </button>
@@ -192,7 +192,7 @@ function _renderSecOpsDashboard(data, container) {
                 const rec = REC_CONFIG[item.recommendation] || {};
                 return `
                 <div class="secops-table-row" onclick="showRiskDetail('${item.wid}')" title="Clique para detalhes">
-                    <span class="secops-table-user">${item.fullname || 'Usuário'}</span>
+                    <span class="secops-table-user">${escapeHtml(item.fullname || 'Usuário')}</span>
                     <span class="secops-table-amount">R$ ${parseFloat(item.amount || 0).toFixed(2)}</span>
                     <span class="secops-score-mini" style="color:${cfg.color}">${item.trust_score ?? '—'}</span>
                     <span class="secops-level-badge-sm" style="color:${cfg.color}">${cfg.icon} ${cfg.label}</span>
@@ -240,7 +240,7 @@ async function runHealthAudit() {
         const audit = await resp.json();
         _renderHealthAuditResult(audit, container);
     } catch(e) {
-        container.innerHTML = `<div class="secops-audit-error">⚠️ Falha na auditoria: ${e.message}</div>`;
+        container.innerHTML = `<div class="secops-audit-error">⚠️ Falha na auditoria: ${escapeHtml(e.message)}</div>`;
     }
 }
 
@@ -258,8 +258,8 @@ function _renderHealthAuditResult(audit, container) {
             <div class="secops-audit-item">
                 <span class="secops-audit-status" style="color:${s.color}">${s.icon}</span>
                 <div>
-                    <div class="secops-audit-item-name">${c.item}</div>
-                    <div class="secops-audit-item-detail" style="color:${s.color}">${c.detail}</div>
+                    <div class="secops-audit-item-name">${escapeHtml(c.item)}</div>
+                    <div class="secops-audit-item-detail" style="color:${s.color}">${escapeHtml(c.detail)}</div>
                 </div>
             </div>`;
     }).join('');
@@ -300,7 +300,7 @@ async function showRiskDetail(wid) {
             <div class="secops-modal-header" style="border-color:${cfg.color}40">
                 <div>
                     <div class="secops-modal-title">🛡️ Análise de Risco — SecOps Sentinel</div>
-                    <div class="secops-modal-sub">${analysis.fullname || 'Usuário'} • R$ ${parseFloat(analysis.amount || 0).toFixed(2)}</div>
+                    <div class="secops-modal-sub">${escapeHtml(analysis.fullname || 'Usuário')} • R$ ${parseFloat(analysis.amount || 0).toFixed(2)}</div>
                 </div>
                 <button class="secops-modal-close" onclick="document.getElementById('secops-detail-modal').remove()">✕</button>
             </div>
@@ -327,16 +327,16 @@ async function showRiskDetail(wid) {
                 ${(analysis.reasons || []).map(r =>
                     `<div class="secops-reason-item">
                         <span class="secops-reason-dot" style="background:${cfg.color}"></span>
-                        ${r}
+                        ${escapeHtml(r)}
                     </div>`
                 ).join('')}
             </div>
 
             <div class="secops-modal-section-title">📊 Dados do Saque</div>
             <div class="secops-modal-data-grid">
-                <div class="secops-data-item"><span>Tipo PIX</span><strong>${analysis.pixType || '—'}</strong></div>
-                <div class="secops-data-item"><span>Chave PIX</span><strong class="secops-pix-key">${analysis.pixKey || '—'}</strong></div>
-                <div class="secops-data-item"><span>UID</span><strong class="secops-uid">${analysis.uid || '—'}</strong></div>
+                <div class="secops-data-item"><span>Tipo PIX</span><strong>${escapeHtml(analysis.pixType || '—')}</strong></div>
+                <div class="secops-data-item"><span>Chave PIX</span><strong class="secops-pix-key">${escapeHtml(analysis.pixKey || '—')}</strong></div>
+                <div class="secops-data-item"><span>UID</span><strong class="secops-uid">${escapeHtml(analysis.uid || '—')}</strong></div>
                 <div class="secops-data-item"><span>Avaliado em</span><strong>${analysis.evaluated_at ? new Date(analysis.evaluated_at).toLocaleString('pt-BR') : '—'}</strong></div>
             </div>
 
