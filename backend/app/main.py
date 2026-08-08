@@ -29,7 +29,7 @@ async def admin_auth_middleware(request: Request, call_next):
     if not path.startswith(("/api/", "/payments/")) or path in PUBLIC_ROUTES:
         return await call_next(request)
 
-    if path in ("/payments/webhook",) or path.startswith(("/api/auto-approve/", "/payments/auto-approve/", "/api/monitor/")):
+    if path in ("/payments/webhook", "/api/monitor/report") or path.startswith(("/api/auto-approve/", "/payments/auto-approve/")):
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization", "")

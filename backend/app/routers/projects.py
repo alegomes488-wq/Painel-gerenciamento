@@ -199,6 +199,23 @@ async def agent_script(request: Request):
     return AGENT_SCRIPT
 
 
+def _sanitize_text(value, limit=200):
+    if not isinstance(value, str):
+        value = str(value or "")
+    value = (value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+             .replace('"', "&quot;").replace("'", "&#39;"))
+    value = "".join(ch for ch in value if ch >= " " or ch in ("\n", "\t"))
+    return value[:limit]
+
+
+def _safe_float(value, lo, hi):
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    return num if lo <= num <= hi else None
+
+
 @router.post("/monitor/report")
 async def monitor_report(request: Request, payload: dict):
     project_id = payload.get("projectId") or ""
@@ -207,14 +224,18 @@ async def monitor_report(request: Request, payload: dict):
 
     try:
         db = get_db()
+        node_ref = db.reference(f"neural/nodes/{project_id}")
+        if not node_ref.get():
+            return {"status": "error", "msg": "Projeto não encontrado"}
+
         db.reference(f"neural/nodes/{project_id}/health").set({
             "status": "online",
-            "cpu": payload.get("cpu"),
-            "ram": payload.get("ram"),
-            "disk": payload.get("disk"),
-            "load": payload.get("load"),
-            "hostname": payload.get("hostname"),
-            "platform": payload.get("platform"),
+            "cpu": _safe_float(payload.get("cpu"), 0, 100),
+            "ram": _safe_float(payload.get("ram"), 0, 100),
+            "disk": _safe_float(payload.get("disk"), 0, 100),
+            "load": _safe_float(payload.get("load"), 0, 10000),
+            "hostname": _sanitize_text(payload.get("hostname")),
+            "platform": _sanitize_text(payload.get("platform")),
             "last_report": datetime.now().isoformat(),
         })
         return {"status": "success"}
