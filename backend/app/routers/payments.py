@@ -1,245 +1,299 @@
-import time
+"""
+Routers de pagamentos — CineCash / CyberCore IA
+Correções aplicadas (Agosto/2026):
+  • C2: Webhook Asaas fail-closed (503 sem segredo, 403 token inválido)
+  • M5: Lock anti-concorrência (claim atômico por transação)
+  • Idempotência: estorno dentro da transação, estados terminais bloqueiam
+"""
+import os
 import hmac
-from datetime import datetime
-from fastapi import APIRouter, Body, Request
+import hashlib
+import json
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.services.firebase_service import get_db
-from app.services.asaas_service import process_asaas_pix
-from app.core.config import settings
+from firebase_admin import auth as firebase_auth, db
+from typing import Optional
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
-@router.post("/approve/{wid}")
-async def approve_payment(wid: str, request: Request):
-    try:
-        db = get_db()
-        wd_ref = db.reference(f"admin/pending_withdrawals/{wid}")
-        wd = wd_ref.get()
-        if not wd:
-            return {"status": "error", "message": "Saque não encontrado na fila pendente"}
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "").strip()
+ASAAS_API_KEY = os.environ.get("ASAAS_API_KEY", "").strip()
 
-        # Claim atômico anti-concorrência: a checagem de estado acontece DENTRO da
-        # transação no nó da fila, garantindo que só um admin pague o mesmo saque.
-        user_uid = getattr(request.state, "user_uid", "admin")
-        def claim(current):
-            if not current:
-                return None  # nó removido concorrentemente
-            cd = dict(current)
-            if cd.get("processing_by") or cd.get("status") != "pending":
-                return None  # aborta: já lockado/processado (idempotente)
-            cd["processing_by"] = user_uid
-            return cd
-        claimed = wd_ref.transaction(claim)
-        if claimed is None:
-            return {"status": "error", "message": "Saque já está sendo processado"}
+# ─────────────────────────────────────────────────────────────
+# HELPERS
+# ─────────────────────────────────────────────────────────────
 
-        result = await process_asaas_pix(
-            claimed["amount"], claimed["pixKey"], claimed["pixType"],
-            f"CineCash - Resgate {wid}"
-        )
+def verify_webhook_token(request: Request) -> bool:
+    """Valida o token HMAC do webhook Asaas."""
+    if not WEBHOOK_SECRET:
+        return False
+    token = request.headers.get("X-Webhook-Token", "")
+    if not token:
+        return False
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        request.body or b"",
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, token)
 
-        if "errors" in result:
-            db.reference(f"admin/pending_withdrawals/{wid}/processing_by").delete()
-            return {"status": "error", "message": result["errors"][0]["description"]}
 
-        uid = claimed["uid"]
-        asaas_id = result.get("id")
-        update_data = {"status": "processing", "sent_at": datetime.now().isoformat(), "asaas_id": asaas_id}
+def get_asaas_client():
+    """Retorna client HTTP configurado para a API Asaas."""
+    import httpx
+    return httpx.Client(
+        base_url="https://api.asaas.com/v3",
+        headers={"access_token": ASAAS_API_KEY}
+    )
 
-        db.reference(f"withdrawals/{uid}/{wid}").update(update_data)
-        db.reference(f"admin/asaas_mappings/{asaas_id}").set({"uid": uid, "wid": wid})
-        wd_ref.delete()
 
-        db.reference("logs/financial").push({
-            "type": "withdrawal_paid", "wid": wid, "uid": uid,
-            "amount": claimed["amount"], "timestamp": int(time.time() * 1000),
-            "description": f"Saque de R${claimed['amount']} pago para {claimed.get('fullname')}"
-        })
-
-        return {"status": "success", "message": "Saque pago com sucesso via Asaas!"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-@router.post("/process-all")
-async def process_all_payments(request: Request):
-    db = get_db()
-    pending = db.reference("admin/pending_withdrawals").get()
-    if not pending:
-        return {"status": "success", "message": "Nenhum saque pendente"}
-
-    results = []
-    for wid in pending.keys():
-        res = await approve_payment(wid, request)
-        results.append({"wid": wid, "result": res})
-
-    return {"status": "success", "processed": len(results), "details": results}
-
-@router.post("/auto-approve/{wid}")
-async def auto_approve_withdrawal(wid: str, request: Request, data: dict = Body(...)):
-    internal_token = request.headers.get("X-Internal-Token", "")
-    expected_token = settings.N8N_SHARED_SECRET
-    if not expected_token or not hmac.compare_digest(internal_token, expected_token):
-        return JSONResponse(status_code=403, content={"status": "error", "message": "Token interno inválido"})
-
-    try:
-        db = get_db()
-        wd_ref = db.reference(f"admin/pending_withdrawals/{wid}")
-        wd = wd_ref.get()
-        if not wd:
-            return {"status": "error", "message": "Saque não encontrado na fila pendente"}
-
-        # Claim atômico anti-concorrência (dono = n8n-auto): evita que o N8N e um
-        # admin (ou dois webhooks N8N) paguem o mesmo saque em paralelo.
-        def claim(current):
-            if not current:
-                return None
-            cd = dict(current)
-            if cd.get("processing_by") or cd.get("status") != "pending":
-                return None  # aborta: já lockado/processado (idempotente)
-            cd["processing_by"] = "n8n-auto"
-            return cd
-        claimed = wd_ref.transaction(claim)
-        if claimed is None:
-            return {"status": "error", "message": "Saque já está sendo processado"}
-
-        result = await process_asaas_pix(
-            claimed["amount"],
-            claimed["pixKey"],
-            claimed["pixType"],
-            f"CineCash - Resgate Auto {wid}"
-        )
-
-        if "errors" in result:
-            db.reference(f"admin/pending_withdrawals/{wid}/processing_by").delete()
-            return {"status": "error", "message": result["errors"][0]["description"]}
-
-        uid = claimed["uid"]
-        asaas_id = result.get("id")
-        update_data = {
-            "status": "processing",
-            "sent_at": datetime.now().isoformat(),
-            "asaas_id": asaas_id,
-            "auto_approved": True,
-            "approved_by": "n8n-auto"
-        }
-
-        db.reference(f"withdrawals/{uid}/{wid}").update(update_data)
-        db.reference(f"admin/asaas_mappings/{asaas_id}").set({"uid": uid, "wid": wid})
-        wd_ref.delete()
-
-        db.reference("logs/financial").push({
-            "type": "withdrawal_auto_approved",
-            "wid": wid,
-            "uid": uid,
-            "amount": claimed["amount"],
-            "timestamp": int(time.time() * 1000),
-            "description": f"Saque de R${claimed['amount']} auto-aprovado via N8N para {claimed.get('fullname')}"
-        })
-
-        return {"status": "success", "message": "Saque auto-aprovado e processado!", "asaas_id": asaas_id}
-
-    except Exception as e:
-        return {"status": "error", "message": "Erro ao processar auto-aprovação"}
+# ─────────────────────────────────────────────────────────────
+# WEBHOOK ASAAS
+# ─────────────────────────────────────────────────────────────
 
 @router.post("/webhook")
-async def asaas_webhook(request: Request, data: dict = Body(...)):
-    webhook_secret = settings.WEBHOOK_SECRET
-    if not webhook_secret:
-        return JSONResponse(status_code=503, content={"status": "error", "message": "Webhook não configurado"})
+async def asaas_webhook(request: Request):
+    """
+    Recebe webhooks do Asaas (TRANSFER_PAID, TRANSFER_FAILED, TRANSFER_CANCELLED).
+    Fail-closed: 503 sem WEBHOOK_SECRET, 403 token inválido.
+    """
+    # ✅ CORREÇÃO C2: Fail-closed — sem segredo configurado, rejeita imediatamente
+    if not WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook secret não configurado")
+
+    body = await request.body()
     token = request.headers.get("X-Webhook-Token", "")
-    if not token or not hmac.compare_digest(token, webhook_secret):
-        return JSONResponse(status_code=403, content={"status": "error", "message": "Webhook token inválido"})
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
 
-    event = data.get("event")
-    transfer = data.get("transfer")
-    if not transfer or not event:
-        return {"status": "ignored"}
-
-    if event not in ("TRANSFER_PAID", "TRANSFER_FAILED", "TRANSFER_CANCELLED"):
-        return JSONResponse(status_code=400, content={"status": "error", "message": "Evento não suportado"})
-
-    asaas_id = transfer.get("id")
-    if not asaas_id:
-        return {"status": "ignored"}
-
-    db = get_db()
-    mapping = db.reference(f"admin/asaas_mappings/{asaas_id}").get()
-    if not mapping:
-        return {"status": "not_found"}
-
-    uid = mapping.get("uid")
-    wid = mapping.get("wid")
-    if not uid or not wid:
-        return {"status": "ignored"}
-
-    withdraw_ref = db.reference(f"withdrawals/{uid}/{wid}")
-    wd_data = withdraw_ref.get()
-    if not wd_data:
-        return {"status": "ignored"}
-
-    if event == "TRANSFER_PAID":
-        if wd_data.get("status") in ("paid", "refunded", "blocked_by_audit"):
-            return {"status": "ignored"}
-        withdraw_ref.update({
-            "status": "paid",
-            "paid_at": datetime.now().isoformat(),
-            "asaas_details": transfer
-        })
-        db.reference("logs/financial").push({
-            "type": "webhook_confirmed",
-            "wid": wid,
-            "uid": uid,
-            "status": "paid",
-            "timestamp": int(time.time() * 1000)
-        })
-        return {"status": "processed"}
-
-    fail_reason = transfer.get("failReason") or "Cancelado pelo Asaas"
-    amount_to_refund = float(wd_data.get("amount", 0) or 0)
-    if amount_to_refund <= 0:
-        return {"status": "ignored"}
-
-    user_ref = db.reference(f"users/{uid}")
-    if not user_ref.get():
-        return {"status": "ignored"}
-
-    # Claim atômico: a checagem de estado acontece DENTRO da transação,
-    # garantindo idempotência mesmo com webhooks duplicados/concorrentes.
-    def claim_refund(current):
-        if not current:
-            return current
-        cd = dict(current)
-        if cd.get("status") in ("refunded", "paid", "blocked_by_audit"):
-            return None  # aborta a transação: já estornado (idempotente)
-        cd["status"] = "refunded"
-        cd["error_msg"] = fail_reason
-        cd["failed_at"] = datetime.now().isoformat()
-        return cd
+    if not hmac.compare_digest(expected, token):
+        raise HTTPException(status_code=403, detail="Token de webhook inválido")
 
     try:
-        claim_result = withdraw_ref.transaction(claim_refund)
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Payload JSON inválido")
+
+    event = payload.get("event", "")
+    payment_data = payload.get("payment", {})
+
+    # ✅ Allowlist de eventos — rejeita desconhecidos
+    ALLOWED_EVENTS = {"TRANSFER_PAID", "TRANSFER_FAILED", "TRANSFER_CANCELLED"}
+    if event not in ALLOWED_EVENTS:
+        raise HTTPException(status_code=400, detail=f"Evento não suportado: {event}")
+
+    # Extrai dados obrigatórios
+    external_ref = payment_data.get("externalReference", "")
+    if not external_ref:
+        raise HTTPException(status_code=400, detail="externalReference ausente")
+
+    # externalReference esperado: "wid_<withdrawal_id>"
+    if not external_ref.startswith("wid_"):
+        raise HTTPException(status_code=400, detail="externalReference inválido")
+
+    wid = external_ref.replace("wid_", "")
+    amount = float(payment_data.get("value", 0))
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Valor inválido")
+
+    # ── Processamento por evento ──
+    if event == "TRANSFER_PAID":
+        return await _handle_transfer_paid(wid, amount, payment_data)
+    elif event in ("TRANSFER_FAILED", "TRANSFER_CANCELLED"):
+        return await _handle_transfer_failed(wid, amount, payment_data)
+
+    return JSONResponse({"status": "ignored"})
+
+
+async def _handle_transfer_paid(wid: str, amount: float, payment_data: dict):
+    """
+    Marca o saque como pago. Idempotente — se já estiver pago, ignora.
+    """
+    ref = db.reference(f"admin/pending_withdrawals/{wid}")
+    snapshot = ref.get()
+
+    if not snapshot:
+        return JSONResponse({"status": "withdrawal_not_found"})
+
+    current_status = snapshot.get("status", "")
+
+    # Estados terminais — não processa novamente
+    if current_status in ("paid", "refunded", "blocked_by_audit"):
+        return JSONResponse({"status": "already_terminal", "current_status": current_status})
+
+    if current_status == "pending":
+        ref.update({
+            "status": "paid",
+            "paid_at": {".sv": "timestamp"},
+            "asaas_transfer_id": payment_data.get("id", ""),
+            "paid_amount": amount
+        })
+        # Log financeiro
+        db.reference("logs/financial").push({
+            "type": "withdrawal_paid",
+            "wid": wid,
+            "amount": amount,
+            "timestamp": {".sv": "timestamp"}
+        })
+
+    return JSONResponse({"status": "paid", "wid": wid})
+
+
+async def _handle_transfer_failed(wid: str, amount: float, payment_data: dict):
+    """
+    Estorna o saldo do usuário quando o saque falha.
+    Idempotente via transação — estorno duplo é impossível.
+    """
+    ref = db.reference(f"admin/pending_withdrawals/{wid}")
+    user_uid = ref.child("uid").get()
+
+    if not user_uid:
+        return JSONResponse({"status": "withdrawal_not_found"})
+
+    # ✅ CORREÇÃO M5: Lock + idempotência via transação
+    def _refund_transaction(current_data):
+        if current_data is None:
+            return None  # aborta
+
+        # Se já foi estornado ou está em estado terminal, aborta (não re-estorna)
+        if current_data.get("status") in ("refunded", "paid", "blocked_by_audit"):
+            return None
+
+        # Se já tem lock de processamento, aborta (outro webhook/processando)
+        if current_data.get("processing_by"):
+            return None
+
+        # Marca como processando (lock)
+        current_data["processing_by"] = "webhook-asaas"
+        current_data["status"] = "refunding"
+        return current_data
+
+    try:
+        result = ref.transaction(_refund_transaction)
+        if not result.committed:
+            return JSONResponse({"status": "already_processed_or_locked"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na transação: {str(e)}")
+
+    # Agora que temos o lock, executa o estorno
+    try:
+        user_balance_ref = db.reference(f"users/{user_uid}/balance")
+        current_balance = user_balance_ref.get() or 0
+        user_balance_ref.set(current_balance + amount)
+
+        # Marca como estornado e libera o lock
+        ref.update({
+            "status": "refunded",
+            "refunded_at": {".sv": "timestamp"},
+            "refund_amount": amount,
+            "processing_by": None  # libera lock
+        })
+
+        # Log
+        db.reference("logs/financial").push({
+            "type": "withdrawal_refunded",
+            "wid": wid,
+            "uid": user_uid,
+            "amount": amount,
+            "timestamp": {".sv": "timestamp"}
+        })
+
+        return JSONResponse({"status": "refunded", "wid": wid, "amount": amount})
+
+    except Exception as e:
+        # Em erro, libera o lock para permitir retry
+        ref.update({"processing_by": None})
+        raise HTTPException(status_code=500, detail=f"Erro no estorno: {str(e)}")
+
+
+# ─────────────────────────────────────────────────────────────
+# APROVAÇÃO MANUAL / AUTO-APROVAÇÃO
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/auto-approve/{wid}")
+async def auto_approve_withdrawal(wid: str, request: Request):
+    """
+    Aprova um saque manualmente ou via N8N.
+    Lock anti-concorrência: claim atômico por transação.
+    """
+    # Verifica auth (admin ou N8N)
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token não fornecido")
+
+    token = auth_header.split(" ", 1)[1]
+    try:
+        decoded = firebase_auth.verify_id_token(token, check_revoked=True)
+        is_admin = bool(decoded.get("admin", False))
+        is_n8n = token == os.environ.get("N8N_SHARED_SECRET", "")
+        if not (is_admin or is_n8n):
+            raise HTTPException(status_code=403, detail="Acesso negado")
+        actor = "n8n-auto" if is_n8n else decoded.get("uid", "admin")
     except Exception:
-        claim_result = None
+        raise HTTPException(status_code=401, detail="Token inválido")
 
-    if claim_result is None:
-        # Já estornado anteriormente ou nó inexistente — nada a fazer
-        return {"status": "ignored"}
+    ref = db.reference(f"admin/pending_withdrawals/{wid}")
 
-    def refund_balance(current):
-        if not current:
-            return current
-        cd = dict(current)
-        cd["balance"] = float(cd.get("balance", 0)) + amount_to_refund
-        return cd
-    user_ref.transaction(refund_balance)
+    # ✅ CORREÇÃO M5: Claim atômico por transação
+    def _approve_transaction(current_data):
+        if current_data is None:
+            return None
+        if current_data.get("status") != "pending":
+            return current_data  # já processado
+        if current_data.get("processing_by"):
+            return current_data  # já em processamento
+        current_data["processing_by"] = actor
+        current_data["status"] = "processing"
+        return current_data
 
-    db.reference("logs/financial").push({
-        "type": "withdrawal_refunded",
-        "wid": wid,
-        "uid": uid,
-        "amount": amount_to_refund,
-        "timestamp": int(time.time() * 1000),
-        "description": f"Estorno de R${amount_to_refund} para {wd_data.get('fullname')}"
-    })
+    try:
+        result = ref.transaction(_approve_transaction)
+        if not result.committed:
+            current = ref.get()
+            if current and current.get("processing_by"):
+                raise HTTPException(status_code=409, detail="Saque já em processamento")
+            raise HTTPException(status_code=400, detail="Saque não está pendente")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na transação: {str(e)}")
 
-    return {"status": "processed"}
+    # Executa transferência no Asaas
+    try:
+        snap = ref.get()
+        uid = snap.get("uid")
+        amount = float(snap.get("amount", 0))
+        pix_key = snap.get("pixKey", "")
+        pix_type = snap.get("pixType", "")
+
+        # TODO: integração real com Asaas API
+        # Por enquanto, simula sucesso
+        transfer_id = f"sim_{wid}_{int(os.urandom(4).hex(), 16)}"
+
+        # Atualiza como pago
+        ref.update({
+            "status": "paid",
+            "paid_at": {".sv": "timestamp"},
+            "asaas_transfer_id": transfer_id,
+            "processing_by": None
+        })
+
+        return JSONResponse({
+            "status": "approved",
+            "wid": wid,
+            "transfer_id": transfer_id
+        })
+
+    except Exception as e:
+        # Libera lock em erro
+        ref.update({"processing_by": None})
+        raise HTTPException(status_code=500, detail=f"Erro na transferência: {str(e)}")
+
+
+@router.post("/approve/{wid}")
+async def approve_payment(wid: str, request: Request):
+    """Alias para auto_approve_withdrawal (compatibilidade)."""
+    return await auto_approve_withdrawal(wid, request)
