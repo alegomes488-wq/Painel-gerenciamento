@@ -23,25 +23,23 @@ function showPanel(id, filterType = null) {
 
         if (filterType) {
             document.querySelectorAll('.sub-link').forEach(link => {
-                if (link.onclick.toString().includes(filterType)) {
+                if (link.onclick && link.onclick.toString().includes(filterType)) {
                     safeClass(link, 'add', 'active');
                 }
             });
-            // Aqui você pode adicionar lógica para filtrar a lista de projetos baseada no filterType
             if (typeof filterWatchProjects === 'function') filterWatchProjects(filterType);
         }
     }
 
-    // 5. Atualizar o Título da Workspace
-    // Gerencia auto-refresh do SecOps
+    // 5. Gerencia auto-refresh do SecOps — SÓ inicia se usuário for admin
     if (id === 'secops') {
-        if (typeof startSecOpsAutoRefresh === 'function') startSecOpsAutoRefresh();
+        _startSecOpsIfAdmin();
     } else {
         if (typeof stopSecOpsAutoRefresh === 'function') stopSecOpsAutoRefresh();
     }
 
     const titleMap = {
-        watch:    '[SYS_VAR] // MONITORAMENTO',
+        watch:    '[SYS_CORE] // MONITORAMENTO',
         saques:   '[SYS_FINANCE] // SOLICITAÇÕES PIX',
         'ia-info':'[SYS_BRAIN] // INFORMAÇÕES IA',
         secops:   '[SYS_SECOPS] // SENTINEL AI — CYBER SECURITY',
@@ -50,6 +48,24 @@ function showPanel(id, filterType = null) {
 
     const titleEl = document.getElementById('current-panel-name');
     if (titleEl) {
-        titleEl.textContent = titleMap[id] || '[BRASIL HEXA] // IA EXECUTIVA';
+        titleEl.textContent = titleMap[id] || '[CYBERCORE IA] // IA EXECUTIVA';
+    }
+}
+
+/**
+ * Inicia o auto-refresh do SecOps apenas se o usuário for admin.
+ * Evita requisições 401 desnecessárias.
+ */
+async function _startSecOpsIfAdmin() {
+    if (!auth || !auth.currentUser) return;
+    try {
+        const tokenResult = await auth.currentUser.getIdTokenResult();
+        if (tokenResult.claims.admin && typeof startSecOpsAutoRefresh === 'function') {
+            startSecOpsAutoRefresh();
+        } else {
+            console.warn('[UI] Usuário não é admin. SecOps auto-refresh não iniciado.');
+        }
+    } catch (e) {
+        console.error('[UI] Erro ao verificar admin para SecOps:', e);
     }
 }

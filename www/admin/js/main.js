@@ -4,68 +4,137 @@
  *  Com integração ao SecOps Sentinel AI
  * ============================================================
  */
-function initRealTimeSystem() {
-    console.log("[SYSTEM] Inicializando listeners...");
 
-    if (hubDb) {
-        // ── Usuários ──
-        hubDb.ref('users').on('value', snap => {
-            rtState.users = snap.val() || {};
-            if (typeof renderUsersTable === 'function') renderUsersTable();
-        });
+// Variáveis globais do módulo Watch (declaradas explicitamente)
+let connectedProjects = [];
 
-        // ── Saques Pendentes ──
-        hubDb.ref('admin/pending_withdrawals').on('value', snap => {
-            const previous = Object.keys(rtState.pending_withdrawals || {}).length;
-            rtState.pending_withdrawals = snap.val() || {};
-            if (typeof renderWithdrawalsTable === 'function') renderWithdrawalsTable();
-
-            // Alertar SecOps se houver novos saques
-            const current = Object.keys(rtState.pending_withdrawals).length;
-            if (current > 0 && current > previous) {
-                _checkSecOpsAlert();
-            }
-
-            // Limpar alerta se a fila estiver vazia
-            if (current === 0) {
-                _setSecOpsNavAlert(false);
-            }
-        });
-
-        // ── Configurações ──
-        hubDb.ref('config').on('value', snap => {
-            rtState.config = snap.val() || {};
-            if (typeof updateStatusIndicators === 'function') updateStatusIndicators();
-        });
-
-        // ── Nós (Projetos) — sincroniza o monitoramento Watch ──
-        hubDb.ref('neural/nodes').on('value', snap => {
-            if (!rtState.neural) rtState.neural = {};
-            const nodes = snap.val() || {};
-            rtState.neural.nodes = nodes;
-            connectedProjects = Object.keys(nodes).map(k => ({ id: k, ...nodes[k] }));
-            if (typeof renderWatchProjects === 'function') renderWatchProjects();
-        });
+/**
+ * Verifica se o usuário atual tem claim admin antes de inicializar.
+ */
+async function ensureAdminBeforeInit() {
+    if (!auth || !auth.currentUser) {
+        console.warn('[SYSTEM] Usuário não autenticado. Abortando inicialização.');
+        return false;
+    }
+    try {
+        const tokenResult = await auth.currentUser.getIdTokenResult(true);
+        if (!tokenResult.claims.admin) {
+            console.warn('[SYSTEM] Usuário sem claim admin. Abortando inicialização.');
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('[SYSTEM] Erro ao verificar claim:', e);
+        return false;
     }
 }
 
+async function initRealTimeSystem() {
+    console.log("[SYSTEM] Inicializando listeners...");
+
+    // --- Firebase App Check Boot (Patch 3) ---
+    if (window.__appCheckInstance) {
+        try {
+            console.log("[AppCheck] ⏳ Aguardando token inicial...");
+            const token = await getAppCheckToken(true);
+            if (token) {
+                console.log("[AppCheck] ✅ Token inicial obtido. App pronto.");
+            } else {
+                console.warn("[AppCheck] ⚠️ Token inicial vazio.");
+            }
+        } catch (e) {
+            console.error("[AppCheck] ❌ Falha crítica no boot:", e);
+        }
+    }
+    // --- Fim Patch 3 ---
+
+    if (!hubDb) {
+        console.warn('[SYSTEM] Firebase Database não disponível.');
+        return;
+    }
+
+    // ── Usuários ──
+    hubDb.ref('users').on('value', snap => {
+        rtState.users = snap.val() || {};
+        if (typeof renderUsersTable === 'function') renderUsersTable();
+    }, err => {
+        console.error('[SYSTEM] Erro no listener users:', err.message);
+    });
+
+    // ── Saques Pendentes ──
+    hubDb.ref('admin/pending_withdrawals').on('value', snap => {
+        const previous = Object.keys(rtState.pending_withdrawals || {}).length;
+        rtState.pending_withdrawals = snap.val() || {};
+        if (typeof renderWithdrawalsTable === 'function') renderWithdrawalsTable();
+
+        // Alertar SecOps se houver novos saques
+        const current = Object.keys(rtState.pending_withdrawals).length;
+        if (current > 0 && current > previous) {
+            _checkSecOpsAlert();
+        }
+
+        // Limpar alerta se a fila estiver vazia
+        if (current === 0) {
+            _setSecOpsNavAlert(false);
+        }
+    }, err => {
+        console.error('[SYSTEM] Erro no listener pending_withdrawals:', err.message);
+    });
+
+    // ── Configurações ──
+    hubDb.ref('config').on('value', snap => {
+        rtState.config = snap.val() || {};
+        if (typeof updateStatusIndicators === 'function') updateStatusIndicators();
+    }, err => {
+        console.error('[SYSTEM] Erro no listener config:', err.message);
+    });
+
+    // ── Nós (Projetos) — sincroniza o monitoramento Watch ──
+    hubDb.ref('neural/nodes').on('value', snap => {
+        if (!rtState.neural) rtState.neural = {};
+        const nodes = snap.val() || {};
+        rtState.neural.nodes = nodes;
+        connectedProjects = Object.keys(nodes).map(k => ({ id: k, ...nodes[k] }));
+        if (typeof renderWatchProjects === 'function') renderWatchProjects();
+    }, err => {
+        console.error('[SYSTEM] Erro no listener neural/nodes:', err.message);
+    });
+}
+
 /**
- * Verifica se há saques críticos na fila e acende o alerta na sidebar
+ * Verifica se há saques críticos na fila e acende o alerta na sidebar.
+ * Só executa se o usuário for admin confirmado.
  */
 async function _checkSecOpsAlert() {
     if (!auth.currentUser) return;
+
+    // Verifica claim admin antes de fazer requisição
+    try {
+        const tokenResult = await auth.currentUser.getIdTokenResult();
+        if (!tokenResult.claims.admin) {
+            console.warn('[SECOPS] Sem claim admin. Abortando check.');
+            return;
+        }
+    } catch (e) {
+        console.error('[SECOPS] Erro ao verificar claim:', e);
+        return;
+    }
+
     try {
         const idToken = await auth.currentUser.getIdToken();
         const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/secops/summary`, {
             headers: { 'Authorization': `Bearer ${idToken}` }
         });
-        if (!resp.ok) return;
+        if (!resp.ok) {
+            console.warn('[SECOPS] API retornou', resp.status);
+            return;
+        }
         const data = await resp.json();
         const rc = data.risk_counts || {};
         const hasCritical = (rc.critical > 0 || rc.high > 0);
         _setSecOpsNavAlert(hasCritical);
     } catch (e) {
-        // Silencioso — não bloqueia a interface
+        console.error('[SECOPS] Erro na requisição:', e.message);
     }
 }
 
@@ -76,3 +145,7 @@ function _setSecOpsNavAlert(show) {
     const dot = document.getElementById('secops-nav-alert');
     if (dot) dot.style.display = show ? 'inline-block' : 'none';
 }
+
+
+// SINALIZA QUE A FUNÇÃO ESTÁ PRONTA PARA SER CHAMADA
+window.dispatchEvent(new CustomEvent('realtime-ready'));

@@ -38,17 +38,17 @@
     <div id="loader" class="elite-loader">
         <div class="loader-star-container">
             <svg viewBox="0 0 100 100" class="loader-star-svg">
-                <path d="M50 15 L62 38 L88 38 L67 55 L75 80 L50 65 L25 80 L33 55 L12 38 L38 38 Z" fill="url(#grad-master)" filter="url(#glow-master)"/>
+                <path d="M50 10 L85 30 L85 70 L50 90 L15 70 L15 30 Z" fill="url(#grad-master)" filter="url(#glow-master)" style="animation: iconPulse 3s ease-in-out infinite;"/>
             </svg>
         </div>
-        <p class="loader-brand"><span class="gradient-star" style="-webkit-text-fill-color: transparent;">BRASIL</span><span> HEXA |</span> <span style="color:var(--primary)">ADMIN</span></p>
+        <p class="loader-brand"><span class="gradient-star" style="-webkit-text-fill-color: transparent;">CYBERCORE</span><span> IA |</span> <span style="color:var(--primary)">ADMIN</span></p>
     </div>
 
     <div id="hub-app" class="premium-layout" style="display:none;">
         <aside id="sidebar" class="premium-sidebar">
             <div class="sidebar-top">
                 <div class="brand-box" style="display: flex; align-items: center; gap: 12px;">
-                    <div class="hexa-mini-logo" style="margin: 0;">
+                    <div class="core-mini-logo" style="margin: 0;">
                         <svg viewBox="0 0 100 100" style="width:32px;height:32px;">
                             <defs>
                                 <linearGradient id="grad-brand" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -68,35 +68,35 @@
                 <div class="nav-section-title">🔍 Monitoramento</div>
                 <div class="nav-group">
                     <button class="nav-link active" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
-                        <span>🔍</span> Monitoramento
+                        <span><svg width="14" height="14"><use href="icons.svg#icon-search"/></svg></span> Monitoramento
                     </button>
                     <div class="sub-nav" style="display: flex;">
-                        <span class="sub-link" onclick="showPanel('watch', 'website')">🌐 Site</span>
-                        <span class="sub-link" onclick="showPanel('watch', 'android')">🤖 App</span>
-                        <span class="sub-link" onclick="showPanel('watch', 'api')">☁️ API</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'website')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-globe"/></svg> Site</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'android')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-smartphone"/></svg> App</span>
+                        <span class="sub-link" onclick="showPanel('watch', 'api')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-cloud"/></svg> API</span>
                     </div>
                 </div>
 
                 <div class="nav-section-title">💰 Financeiro</div>
                 <button class="nav-link" id="btn-nav-saques" onclick="showPanel('saques')" title="Solicitações Pix">
-                    <span>💰</span> Solicitações Pix
+                    <span><svg width="14" height="14"><use href="icons.svg#icon-dollar"/></svg></span> Solicitações Pix
                 </button>
 
                 <div class="nav-section-title">🧠 Inteligência</div>
                 <button class="nav-link" id="btn-nav-ia-info" onclick="showPanel('ia-info')" title="Informações IA">
-                    <span>🧠</span> Informações IA
+                    <span><svg width="14" height="14"><use href="icons.svg#icon-brain"/></svg></span> Informações IA
                 </button>
 
                 <div class="nav-section-title">🛡️ Segurança</div>
                 <button class="nav-link" id="btn-nav-secops" onclick="showPanel('secops');renderSecOpsPanel()" title="SecOps Sentinel AI">
-                    <span>🛡️</span> SecOps Sentinel
+                    <span><svg width="14" height="14"><use href="icons.svg#icon-shield"/></svg></span> SecOps Sentinel
                     <span id="secops-nav-alert" style="display:none;margin-left:auto;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;"></span>
                 </button>
 
                 <div class="nav-section-title">⚙️ Sistema</div>
                 <div class="nav-group">
                     <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
-                        <span>⚙️</span> Configurações
+                        <span><svg width="14" height="14"><use href="icons.svg#icon-settings"/></svg></span> Configurações
                     </button>
                 </div>
 
@@ -107,9 +107,9 @@
             </nav>
 
             <div class="sidebar-bottom" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
-                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v4.0.0 (EXECUTIVO)</span>
+                <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v4.0.0 (PROFESSIONAL)</span>
                 <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
-                    <span>🚪</span>
+                    <span><svg width="14" height="14"><use href="icons.svg#icon-logout"/></svg></span>
                 </button>
             </div>
         </aside>
@@ -120,7 +120,7 @@
                     <div style="margin-left: 15px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span class="data-dot gold" style="margin-right: 0;"></span>
-                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[BRASIL HEXA] // IA EXECUTIVA</h1>
+                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[CYBERCORE IA] // IA EXECUTIVA</h1>
                             <span id="system-health-badge" class="badge-ia" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); font-family: 'Fira Code', monospace;">SISTEMA ATIVO</span>
                             <div class="data-flow cyan" style="width:40px;height:1.5px;margin:0;"></div>
                         </div>
@@ -158,12 +158,12 @@
                                     <div style="display:flex;align-items:center;gap:12px;">
                                         <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🖥️</div>
                                         <div>
-                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_VAR] // VAR CANARINHO</h3>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_CORE] // SENTINEL ENGINE</h3>
                                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
                                                 <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
-                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">VAR EM OPERAÇÃO</span>
+                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">SENTINEL ATIVO</span>
                                                 <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
-                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento tático em tempo real</span>
+                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento neural em tempo real</span>
                                             </div>
                                         </div>
                                     </div>
@@ -384,7 +384,7 @@
                         <span class="status-dot"></span>
                         <span class="status-text">AGUARDANDO AUTENTICAÇÃO</span>
                     </div>
-                    <div class="login-version">v3.0 • Agente Canarinho</div>
+                    <div class="login-version">v4.0 • Agente Sentinel</div>
                 </div>
             </div>
         </div>
@@ -393,18 +393,18 @@
     <div id="toast-container"></div>
 
     <!-- CARREGAMENTO MODULAR (FOR├çA LIMPEZA DE CACHE v4.0.2) -->
-    <script src="js/config.js?v=4.1.2"></script>
-    <script src="js/utils.js?v=4.1.0"></script>
-    <script src="js/ui.js?v=4.1.0"></script>
-    <script src="js/auth.js?v=4.1.0"></script>
-    <script src="js/modules/users.js?v=4.1.0"></script>
-    <script src="js/modules/secops.js?v=4.1.0"></script>
-    <script src="js/modules/withdrawals.js?v=4.1.0"></script>
-    <script src="js/modules/telemetria.js?v=4.1.0"></script>
-    <script src="js/modules/status.js?v=4.1.0"></script>
-    <script src="js/modules/watch.js?v=4.1.0"></script>
-    <script src="js/modules/settings.js?v=4.1.0"></script>
-    <script src="js/modules/particles.js?v=4.1.0"></script>
-    <script src="js/main.js?v=4.1.0"></script>
+    <script src="js/config.js?v=4.1.3"></script>
+    <script src="js/utils.js?v=4.1.3"></script>
+    <script src="js/ui.js?v=4.1.3"></script>
+    <script src="js/auth.js?v=4.1.3"></script>
+    <script src="js/modules/users.js?v=4.1.3"></script>
+    <script src="js/modules/secops.js?v=4.1.3"></script>
+    <script src="js/modules/withdrawals.js?v=4.1.3"></script>
+    <script src="js/modules/telemetria.js?v=4.1.3"></script>
+    <script src="js/modules/status.js?v=4.1.3"></script>
+    <script src="js/modules/watch.js?v=4.1.3"></script>
+    <script src="js/modules/settings.js?v=4.1.3"></script>
+    <script src="js/modules/particles.js?v=4.1.3"></script>
+    <script src="js/main.js?v=4.1.3"></script>
 </body>
 </html>

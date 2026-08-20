@@ -154,7 +154,7 @@ function renderWatchProjects() {
                 <div style="margin-top: 10px; display: flex; gap: 5px;">
                      <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
                      <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
-                     <button data-action="toggle" data-id="${escapeHtml(p.id)}" data-identifier="${escapeHtml(p.identifier)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${rtState?.config?.maintenance ? '🔌 ATIVAR' : '🔌 DESCONECTAR'}</button>
+                     <button data-action="toggle" data-id="${escapeHtml(p.id)}" data-identifier="${escapeHtml(p.identifier)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${isOnline ? '🔌 DESCONECTAR' : '🔌 ATIVAR'}</button>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
@@ -169,7 +169,7 @@ function renderWatchProjects() {
         const action = btn.dataset.action;
         if (action === 'copy') copyToClipboard(id);
         else if (action === 'agent') installAgent(id);
-        else if (action === 'toggle') toggleProjectConnection(id, btn.dataset.identifier);
+        else if (action === 'toggle') toggleProjectConnection(id, btn);
     };
 }
 
@@ -182,7 +182,7 @@ function installAgent(projectId) {
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
     msg.innerHTML = `
-        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 BRASIL HEXA AGENT</h3>
+        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 CYBERCORE AGENT</h3>
         <div style="font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:12px;">
             O agente reporta CPU, RAM e disco do servidor a cada 30s.
             Baixe o script (requer login), envie ao servidor Linux e execute.
@@ -223,15 +223,29 @@ python3 agent.py</pre>
     };
 }
 
-function toggleProjectConnection(id, identifier) {
-    const isMaint = rtState?.config?.maintenance || false;
-    if (hubDb) {
-        hubDb.ref('config').update({ maintenance: !isMaint })
-            .then(() => showToast(!isMaint ? "Manutenção ativada." : "Manutenção desativada.", "info"))
-            .catch(() => showToast("Erro ao atualizar configuração.", "error"));
-    } else {
-        showToast("Firebase indisponível.", "error");
-    }
+function toggleProjectConnection(id, btn) {
+    if (!hubDb) return showToast("Firebase indisponível.", "error");
+
+    const project = connectedProjects.find(p => p.id === id);
+    if (!project) return showToast("Projeto não encontrado.", "error");
+
+    const isOnline = (project.health?.status === 'online');
+    const newStatus = isOnline ? 'offline' : 'online';
+
+    const button = (btn instanceof HTMLElement) ? btn : document.querySelector(`button[data-action="toggle"][data-id="${id}"]`);
+    if (button) button.disabled = true;
+
+    hubDb.ref(`neural/nodes/${id}/health`).update({ status: newStatus })
+        .then(() => {
+            showToast(isOnline ? "Projeto desconectado." : "Projeto ativado.", "info");
+        })
+        .catch(err => {
+            console.error("Erro ao atualizar status:", err);
+            showToast("Erro ao alterar estado de conexão.", "error");
+        })
+        .finally(() => {
+            if (button) button.disabled = false;
+        });
 }
 
 function removeProject(id) {

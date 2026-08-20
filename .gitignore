@@ -17,6 +17,7 @@ backend.log
 logs/
 memory/faq.json
 *.tmp
+*.bak
 
 # Builds / dependências locais
 node_modules/
