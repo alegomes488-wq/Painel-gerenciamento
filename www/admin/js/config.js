@@ -33,7 +33,10 @@ try {
 }
 
 const LOCAL_BACKEND = 'http://localhost:7861';
-let BRASILHEXA_BACKEND_URL = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+const IS_LOCAL_FRONTEND = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+let BRASILHEXA_BACKEND_URL = IS_LOCAL_FRONTEND
+    ? (localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND)
+    : window.location.origin;
 
 let rtState = {
     users: {},

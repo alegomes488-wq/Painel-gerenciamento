@@ -35,7 +35,7 @@ async function watchConnectProject() {
     btn.disabled = true;
 
     try {
-        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+        const baseUrl = BRASILHEXA_BACKEND_URL;
         const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
         const resp = await fetch(`${baseUrl}/api/project/analyze`, {
             method: 'POST',
@@ -178,7 +178,7 @@ function copyToClipboard(text) {
 }
 
 function installAgent(projectId) {
-    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = BRASILHEXA_BACKEND_URL;
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
     msg.innerHTML = `
@@ -189,7 +189,7 @@ function installAgent(projectId) {
             <strong style="color:#f8fafc;">Nunca execute scripts remotamente via pipe (wget | python3 -).</strong>
         </div>
         <pre style="background:rgba(0,0,0,0.4);padding:15px;border-radius:8px;font-size:11px;color:#94a3b8;white-space:pre-wrap;line-height:1.6;max-height:300px;overflow-y:auto;">pip install psutil
-# edite BASE_URL e PROJECT_ID no topo do agent.py
+            # configure CYBERCORE_BASE_URL, CYBERCORE_PROJECT_ID e CYBERCORE_MONITOR_TOKEN
 python3 agent.py</pre>
         <div style="display:flex;gap:10px;margin-top:15px;">
             <button id="agent-download-btn" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">⬇️ BAIXAR agent.py</button>
@@ -238,7 +238,7 @@ function removeProject(id) {
     if (!confirm("Remover este projeto do painel?")) return;
     connectedProjects = connectedProjects.filter(p => p.id !== id);
     renderWatchProjects();
-    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = BRASILHEXA_BACKEND_URL;
     const headers = { 'Content-Type': 'application/json' };
     if (auth && auth.currentUser) {
         auth.currentUser.getIdToken().then(t => headers['Authorization'] = `Bearer ${t}`).catch(() => {});

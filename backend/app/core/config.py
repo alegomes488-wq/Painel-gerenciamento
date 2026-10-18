@@ -11,6 +11,19 @@ class Settings:
     ASAAS_API_KEY: str = os.environ.get("ASAAS_API_KEY")
     WEBHOOK_SECRET: str = os.environ.get("WEBHOOK_SECRET")
     N8N_SHARED_SECRET: str = os.environ.get("N8N_SHARED_SECRET")
+    MONITOR_SHARED_SECRET: str = os.environ.get("MONITOR_SHARED_SECRET")
+    APP_ENV: str = os.environ.get("APP_ENV", "development").strip().lower()
+    PAYMENTS_MODE: str = os.environ.get("PAYMENTS_MODE", "simulation").strip().lower()
+    CORS_ALLOWED_ORIGINS: tuple = tuple(
+        origin.strip()
+        for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    )
     ADMIN_PORT: int = int(os.environ.get("ADMIN_PORT", 7861))
+
+    @property
+    def real_payments_enabled(self) -> bool:
+        """Real transfers require two explicit production settings."""
+        return self.APP_ENV == "production" and self.PAYMENTS_MODE == "production"
 
 settings = Settings()

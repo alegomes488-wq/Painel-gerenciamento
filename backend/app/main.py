@@ -12,7 +12,11 @@ app = FastAPI(title=settings.PROJECT_NAME)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.CORS_ALLOWED_ORIGINS),
+    allow_origin_regex=(
+        r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+        if settings.APP_ENV != "production" else None
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,6 +29,11 @@ PUBLIC_ROUTES = {"/health", "/", "/docs", "/openapi.json", "/favicon.ico", "/fav
 
 @app.middleware("http")
 async def admin_auth_middleware(request: Request, call_next):
+    # CORS preflights never carry Firebase credentials. Let CORSMiddleware
+    # validate and answer them before applying route authentication.
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     path = request.url.path
     if not path.startswith(("/api/", "/payments/")) or path in PUBLIC_ROUTES:
         return await call_next(request)
@@ -45,8 +54,8 @@ async def admin_auth_middleware(request: Request, call_next):
         if user_data.email != settings.ADMIN_EMAIL:
             return JSONResponse(status_code=403, content={"detail": "Acesso administrativo exigido"})
         request.state.user_uid = user_uid
-    except Exception as e:
-        return JSONResponse(status_code=401, content={"detail": f"Token inválido: {str(e)}"})
+    except Exception:
+        return JSONResponse(status_code=401, content={"detail": "Token inválido"})
 
     return await call_next(request)
 
