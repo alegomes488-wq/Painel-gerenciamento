@@ -158,6 +158,228 @@ function refreshUserCounters() {
     });
 }
 
+// ─────────────────────────────────────────────────────────────
+//  Detalhe do projeto monitorado + usuários cadastrados
+// ─────────────────────────────────────────────────────────────
+let _projectDetailId = null;
+
+function _pdUserArray() {
+    return Object.entries(rtState.users || {})
+        .map(([uid, u]) => ({ uid, ...(u || {}) }))
+        .sort((a, b) => _pdUserName(a).localeCompare(_pdUserName(b), 'pt-BR'));
+}
+
+function _pdUserName(u) {
+    if (!u) return '—';
+    const full = u.fullname || [u.firstname, u.lastname].filter(Boolean).join(' ');
+    return full || u.username || u.email || '—';
+}
+
+function _pdIsBanned(u) {
+    return !!(u && (u.status === 'banido' || u.banned === true));
+}
+
+function _pdDate(u) {
+    const raw = u && (u.createdAt || u.created_at || u.registeredAt);
+    const n = Number(raw);
+    if (!isFinite(n) || n <= 0) return '—';
+    try { return new Date(n).toLocaleString('pt-BR'); } catch (_) { return '—'; }
+}
+
+function _pdMoney(v) {
+    const n = parseFloat(v);
+    return 'R$ ' + (isFinite(n) ? n : 0).toFixed(2);
+}
+
+function _pdUserStats() {
+    const users = _pdUserArray();
+    const banned = users.filter(_pdIsBanned).length;
+    const active = users.length - banned;
+    const total = users.reduce((s, u) => s + (parseFloat(u.balance) || 0), 0);
+    return `${users.length} cadastrado(s) · <b style="color:#10b981">${active} ativo(s)</b> · <b style="color:#f87171">${banned} banido(s)</b> · saldo total <b style="color:var(--cyan)">${_pdMoney(total)}</b>`;
+}
+
+function _pdFilterUsers(query) {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return _pdUserArray();
+    return _pdUserArray().filter(u =>
+        (_pdUserName(u) + ' ' + (u.email || '') + ' ' + (u.username || '') + ' ' + u.uid).toLowerCase().includes(q)
+    );
+}
+
+function _pdUserRows(query) {
+    const list = _pdFilterUsers(query);
+    if (!list.length) {
+        return `<tr><td colspan="7" class="pd-empty">Nenhum usuário encontrado${query ? ' para "' + escapeHtml(query) + '"' : ''}.</td></tr>`;
+    }
+    return list.map(u => {
+        const banned = _pdIsBanned(u);
+        const uidSafe = escapeHtml(u.uid);
+        return `<tr>
+            <td>
+                <div class="pd-user-name">${escapeHtml(_pdUserName(u))}</div>
+                <div class="pd-user-uid">${uidSafe}</div>
+            </td>
+            <td>${escapeHtml(u.email || '—')}</td>
+            <td class="pd-balance">${_pdMoney(u.balance)}</td>
+            <td>${Number(u.videosWatched || 0)}</td>
+            <td>${Number(u.referralCount || 0)}</td>
+            <td>${banned ? '<span class="status-tag offline">● Banido</span>' : '<span class="status-tag online">● Ativo</span>'}</td>
+            <td>
+                <button class="btn-table-action" onclick="toggleUserBan('${uidSafe}', ${!banned})">${banned ? 'REATIVAR' : 'BANIR'}</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function _pdRefreshUsers() {
+    const tbody = document.getElementById('pd-users-tbody');
+    if (!tbody) return;
+    const q = document.getElementById('pd-user-search')?.value || '';
+    tbody.innerHTML = _pdUserRows(q);
+    const stats = document.getElementById('pd-user-stats');
+    if (stats) stats.innerHTML = _pdUserStats();
+    const count = document.getElementById('pd-users-count');
+    if (count) count.textContent = _pdUserArray().length;
+}
+
+/** Re-renderiza a lista de usuários do modal aberto quando o RTDB muda. */
+function refreshProjectDetail() {
+    if (!_projectDetailId) return;
+    _pdRefreshUsers();
+}
+
+function openProjectDetail(projectId) {
+    const p = connectedProjects.find(x => x.id === projectId);
+    if (!p) { showToast('Projeto não encontrado.', 'error'); return; }
+
+    _projectDetailId = projectId;
+    document.getElementById('project-detail-overlay')?.remove();
+
+    const health = p.health || {};
+    const status = _effectiveStatus(p);
+    const color = status === 'online' ? '#10b981' : (status === 'degraded' ? '#fbbf24' : '#ef4444');
+    const latency = isFinite(parseFloat(health.latency_ms)) ? parseFloat(health.latency_ms).toFixed(0) + 'ms' : '—';
+    const lastReport = health.last_report ? new Date(health.last_report).toLocaleString('pt-BR') : '—';
+    const cpu = isFinite(parseFloat(health.cpu)) ? parseFloat(health.cpu).toFixed(0) + '%' : '—';
+    const ram = isFinite(parseFloat(health.ram)) ? parseFloat(health.ram).toFixed(0) + '%' : '—';
+    const tech = p.tech_stack ? p.tech_stack.join(', ') : (p.framework || '—');
+    const badge = status === 'online' ? '✓ ONLINE' : (status === 'degraded' ? '⚠ DEGRADADO' : '✗ OFFLINE');
+
+    const overlay = document.createElement('div');
+    overlay.className = 'project-detail-overlay';
+    overlay.id = 'project-detail-overlay';
+    overlay.innerHTML = `
+        <div class="project-detail-box" role="dialog" aria-modal="true" aria-label="Detalhes do projeto">
+            <div class="project-detail-header">
+                <div style="min-width:0;">
+                    <div class="project-detail-title">${escapeHtml(p.name || p.identifier || 'Projeto')}</div>
+                    <div class="project-detail-sub">${escapeHtml(p.identifier || '')}</div>
+                    <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <span class="status-tag ${status === 'online' ? 'online' : (status === 'degraded' ? 'degraded' : 'offline')}" style="color:${color};">${badge}</span>
+                        <span style="font-size:9px;color:var(--text-muted);text-transform:uppercase;">TYPE: ${escapeHtml(p.type || '—')} · STACK: ${escapeHtml(tech)}</span>
+                    </div>
+                </div>
+                <button class="project-detail-close" onclick="closeProjectDetail()" aria-label="Fechar">✕</button>
+            </div>
+
+            <div class="project-detail-body">
+                <div class="pd-info-grid">
+                    <div class="pd-info-item"><span>Latência</span><strong style="color:${color}">${latency}</strong></div>
+                    <div class="pd-info-item"><span>Último relatório</span><strong>${lastReport}</strong></div>
+                    <div class="pd-info-item"><span>CPU</span><strong>${cpu}</strong></div>
+                    <div class="pd-info-item"><span>RAM</span><strong>${ram}</strong></div>
+                    <div class="pd-info-item"><span>ID do projeto</span><strong style="font-size:10px;">${escapeHtml(p.id)}</strong></div>
+                </div>
+
+                <div class="pd-users-head">
+                    <div>
+                        <div class="pd-users-title">👤 Usuários cadastrados — <b id="pd-users-count">${_pdUserArray().length}</b></div>
+                        <div class="pd-user-stats" id="pd-user-stats">${_pdUserStats()}</div>
+                    </div>
+                    <div class="pd-users-actions">
+                        <button class="pd-btn" onclick="copyProjectUserEmails()">COPIAR E-MAILS</button>
+                        <button class="pd-btn" onclick="exportProjectUsersCsv()">EXPORTAR CSV</button>
+                    </div>
+                </div>
+
+                <div class="pd-search-row">
+                    <input id="pd-user-search" class="pd-search" type="search" autocomplete="off"
+                           placeholder="Buscar por nome, e-mail, @usuário ou UID..."
+                           oninput="_pdRefreshUsers()">
+                </div>
+
+                <div class="pd-table-wrap">
+                    <table class="pd-table">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>E-mail</th>
+                                <th>Saldo</th>
+                                <th>Vídeos</th>
+                                <th>Indicações</th>
+                                <th>Status</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pd-users-tbody">${_pdUserRows('')}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeProjectDetail(); });
+    document.addEventListener('keydown', _pdEscClose);
+    setTimeout(() => document.getElementById('pd-user-search')?.focus(), 60);
+}
+
+function closeProjectDetail() {
+    document.getElementById('project-detail-overlay')?.remove();
+    document.removeEventListener('keydown', _pdEscClose);
+    _projectDetailId = null;
+}
+
+function _pdEscClose(e) {
+    if (e.key === 'Escape') closeProjectDetail();
+}
+
+function copyProjectUserEmails() {
+    const emails = _pdUserArray().map(u => u.email).filter(Boolean);
+    if (!emails.length) { showToast('Nenhum e-mail cadastrado.', 'info'); return; }
+    copyToClipboard(emails.join(', '));
+    showToast(`${emails.length} e-mail(s) copiado(s).`, 'success');
+}
+
+function exportProjectUsersCsv() {
+    const users = _pdUserArray();
+    if (!users.length) { showToast('Nenhum usuário para exportar.', 'info'); return; }
+    const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const header = ['UID', 'Nome', 'E-mail', 'Usuário', 'Saldo', 'Vídeos', 'Indicações', 'Status', 'Cadastro', 'Provedor'];
+    const lines = users.map(u => [
+        u.uid,
+        _pdUserName(u),
+        u.email || '',
+        u.username || '',
+        (parseFloat(u.balance) || 0).toFixed(2).replace('.', ','),
+        Number(u.videosWatched || 0),
+        Number(u.referralCount || 0),
+        _pdIsBanned(u) ? 'Banido' : 'Ativo',
+        _pdDate(u),
+        u.auth_provider || 'email'
+    ].map(esc).join(';'));
+    const csv = '\uFEFF' + [header.map(esc).join(';'), ...lines].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `usuarios-${(new Date()).toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    showToast(`${users.length} usuário(s) exportado(s).`, 'success');
+}
+
 function renderWatchProjects() {
     const container = document.getElementById('watch-projects-list');
     if (!container) return;
@@ -186,7 +408,7 @@ function renderWatchProjects() {
         const tech = escapeHtml(p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A'));
 
         return `
-            <div class="project-watch-card ${statusClass}" style="border-left-color: ${color}; position: relative; overflow: hidden;">
+            <div class="project-watch-card ${statusClass}" data-project-id="${escapeHtml(p.id)}" style="border-left-color: ${color}; position: relative; overflow: hidden;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
                         <div style="font-weight: 800; font-size: 13px; color: white;">${escapeHtml(p.name || p.identifier)}</div>
@@ -207,7 +429,7 @@ function renderWatchProjects() {
                       <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
                       <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
                       ${typeof renderMaintenanceButton === 'function' ? renderMaintenanceButton() : ''}
-                      <span data-user-counter class="btn-minimal" title="Usuários cadastrados nos CineCash" style="font-size: 8px; padding: 2px 6px; margin-left: auto; color: #10b981; font-family: 'JetBrains Mono', monospace; white-space: nowrap;">👤 <b>${getUserCount()}</b> USUÁRIOS</span>
+                      <button data-action="detail" data-id="${escapeHtml(p.id)}" data-user-counter class="btn-minimal pd-user-counter-btn" title="Clique para ver os detalhes do projeto e todos os usuários cadastrados" style="font-size: 8px; padding: 2px 6px; margin-left: auto; color: #10b981; white-space: nowrap;">👤 <b>${getUserCount()}</b> USUÁRIOS</button>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
@@ -217,11 +439,17 @@ function renderWatchProjects() {
 
     container.onclick = (e) => {
         const el = e.target.closest('[data-action]');
-        if (!el) return;
+        if (!el) {
+            // Clique no corpo do card (fora dos botões) abre os detalhes.
+            const card = e.target.closest('.project-watch-card');
+            if (card && card.dataset.projectId) openProjectDetail(card.dataset.projectId);
+            return;
+        }
         const id = el.dataset.id;
         const action = el.dataset.action;
         if (action === 'copy') copyToClipboard(id);
         else if (action === 'agent') installAgent(id);
+        else if (action === 'detail') openProjectDetail(id);
         // TAREFA 5.3: manutencao e GLOBAL. `id` NAO e passado de proposito —
         // o no(config/maintenance) e o mesmo para todos os projetos, e
         // repassar o id sugeriria uma manutencao por projeto que nao existe.
