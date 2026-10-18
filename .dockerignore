@@ -70,7 +70,9 @@ node_modules/
 **/node_modules/
 npm-debug.log*
 yarn-error.log*
-www/admin/lib/
+# www/admin/lib/ foi REMOVIDO daqui: contém apenas
+# firebase-app-check-compat.js (SDK público, não é segredo). Sem ele o painel
+# recebe 404 em /lib/firebase-app-check-compat.js e o App Check não inicializa.
 
 # --- Testes (nao fazem parte da imagem de producao) ---
 tests/
