@@ -39,11 +39,12 @@ _TransactionAbort = _AbortTransaction
 VALID_TRANSITIONS = {
     "pending": {"blocked_by_audit", "processing", "paid", "refunding"},
     "processing": {"paid", "failed", "refunding"},
-    "refunding": {"refunded", "processing"},
+    "refunding": {"refunded", "processing", "rejected"},
     "blocked_by_audit": set(),
     "paid": set(),
     "failed": {"processing"},
     "refunded": set(),
+    "rejected": set(),
 }
 
 
@@ -81,7 +82,7 @@ def _release_claim(ref, actor: str = None):
         if actor and current.get("processing_by") not in (None, actor):
             raise _AbortTransaction()
         current.pop("processing_by", None)
-        if current.get("status") == "processing":
+        if current.get("status") in ("processing", "refunding"):
             current["status"] = "pending"
         return current
 
@@ -485,3 +486,153 @@ async def auto_approve_withdrawal(wid: str, request: Request):
 async def approve_payment(wid: str, request: Request):
     """Alias para auto_approve_withdrawal (compatibilidade)."""
     return await auto_approve_withdrawal(wid, request)
+
+
+@router.post("/reject/{wid}")
+async def reject_withdrawal(wid: str, request: Request):
+    """Recusa um saque pendente e devolve o valor ao saldo do usuário.
+
+    Fluxo: claim atômico (pending -> refunding) -> estorno do saldo em
+    transaction -> status final 'rejected'. Idempotente: uma segunda chamada
+    encontra o saque fora de 'pending' e não estorna de novo.
+    """
+    import hmac as _hmac
+
+    n8n_secret = os.environ.get("N8N_SHARED_SECRET", "").strip()
+    provided_n8n = request.headers.get("X-N8N-Secret", "")
+    is_n8n = bool(n8n_secret) and _hmac.compare_digest(
+        n8n_secret.encode(), (provided_n8n or "").encode()
+    )
+
+    actor = "n8n-auto"
+
+    if not is_n8n:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Token não fornecido")
+
+        token = auth_header.split(" ", 1)[1]
+        try:
+            decoded = firebase_auth.verify_id_token(token, check_revoked=True)
+            from app.dependencies import is_admin_user
+            if not is_admin_user(decoded.get("uid", ""), decoded):
+                raise HTTPException(status_code=403, detail="Acesso negado")
+            actor = decoded.get("uid", "admin")
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(status_code=401, detail="Token inválido")
+
+    reason = "Recusado pelo painel"
+    try:
+        payload = await request.json()
+        if isinstance(payload, dict) and str(payload.get("reason") or "").strip():
+            reason = str(payload["reason"]).strip()[:280]
+    except Exception:
+        pass
+
+    ref = db.reference(f"admin/pending_withdrawals/{wid}")
+
+    def _claim_reject(current):
+        if current is None:
+            raise _AbortTransaction()
+        # Registros legados podem não ter "status" — tratamos como pendente.
+        if (current.get("status") or "pending") != "pending":
+            raise _AbortTransaction()
+        if current.get("processing_by"):
+            raise _AbortTransaction()
+        current["status"] = "refunding"
+        current["processing_by"] = actor
+        current["rejected_by"] = actor
+        current["reject_reason"] = reason
+        return current
+
+    try:
+        ref.transaction(_claim_reject)
+    except _AbortTransaction:
+        current = ref.get()
+        if current and current.get("processing_by"):
+            raise HTTPException(
+                status_code=409,
+                detail="Saque em processamento — tente novamente em instantes",
+            )
+        if current and current.get("status") in ("rejected", "refunded"):
+            raise HTTPException(status_code=409, detail="Saque já recusado")
+        raise HTTPException(status_code=400, detail="Saque não está pendente")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na transação: {str(e)}")
+
+    snap = ref.get() or {}
+    uid = snap.get("uid")
+    amount = float(snap.get("amount", 0) or 0)
+
+    if not uid or amount <= 0:
+        _release_claim(ref, actor)
+        raise HTTPException(status_code=400, detail="Saque sem usuário/valor válido")
+
+    # Estorno atômico do saldo (o pedido debitou o valor no momento da criação).
+    try:
+        db.reference(f"users/{uid}/balance").transaction(
+            lambda cur: float(cur or 0) + amount
+        )
+    except Exception as e:
+        _release_claim(ref, actor)
+        raise HTTPException(status_code=500, detail=f"Erro ao devolver saldo: {str(e)}")
+
+    try:
+        ref.update({
+            "status": "rejected",
+            "rejected_at": {".sv": "timestamp"},
+            "refunded_at": {".sv": "timestamp"},
+            "refund_amount": amount,
+            "processing_by": None,
+        })
+        db.reference(f"withdrawals/{uid}/{wid}").update({
+            "status": "rejected",
+            "rejected_at": {".sv": "timestamp"},
+            "reject_reason": reason,
+            "refund_amount": amount,
+        })
+        db.reference("logs/financial").push({
+            "type": "withdrawal_rejected",
+            "wid": wid,
+            "uid": uid,
+            "amount": amount,
+            "reason": reason,
+            "actor": actor,
+            "timestamp": {".sv": "timestamp"},
+        })
+    except Exception as e:
+        # O saldo já foi devolvido; garante que o saque não volte para a fila.
+        try:
+            ref.update({"status": "rejected", "processing_by": None})
+            db.reference(f"withdrawals/{uid}/{wid}").update({
+                "status": "rejected",
+                "reject_reason": reason,
+            })
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail=f"Saque recusado e saldo devolvido, mas falhou ao registrar: {str(e)}",
+        )
+
+    try:
+        from app.dependencies import log_admin_action
+        log_admin_action(actor, "withdrawal_rejected", {
+            "wid": wid,
+            "target_uid": uid,
+            "amount": amount,
+            "reason": reason,
+        })
+    except Exception:
+        pass
+
+    return JSONResponse({
+        "status": "rejected",
+        "wid": wid,
+        "refunded": amount,
+        "reason": reason,
+    })

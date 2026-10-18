@@ -13,7 +13,12 @@ function renderWithdrawalsTable() {
     if (!tbody) return;
 
     const pendentes = rtState.pending_withdrawals || {};
-    const entries = Object.entries(pendentes);
+    // Só exibe o que ainda precisa de ação. Saques pagos/recusados/estornados
+    // permanecem no nó para auditoria, mas não devem reaparecer na fila.
+    const TERMINAL = new Set(['paid', 'refunded', 'rejected', 'blocked_by_audit']);
+    const entries = Object.entries(pendentes).filter(([, w]) => {
+        return !TERMINAL.has(String((w && w.status) || 'pending').toLowerCase());
+    });
 
     if (entries.length === 0) {
         tbody.innerHTML = `
@@ -32,7 +37,7 @@ function renderWithdrawalsTable() {
     tbody.innerHTML = entries.map(([wid, w]) => {
         const platform = escapeHtml(w.platform || '🌐 SITE');
         return `
-            <tr id="wd-row-${wid}">
+            <tr id="wd-row-${wid}" data-amount="${parseFloat(w.amount || 0)}">
                 <td>
                     <div style="display:flex;align-items:center;gap:8px;">
                         <div style="width:32px;height:32px;border-radius:8px;background:rgba(59,130,246,0.1);
@@ -72,6 +77,13 @@ function renderWithdrawalsTable() {
                             onclick="approveWithdrawal('${wid}')"
                             title="Pagar via PIX">
                             PAGAR
+                        </button>
+                        <button class="btn-table-action"
+                            id="btn-reject-${wid}"
+                            onclick="rejectWithdrawal('${wid}')"
+                            title="Recusar o saque e devolver o valor ao saldo do usuário"
+                            style="border-color:rgba(239,68,68,0.55);color:#ef4444;">
+                            RECUSAR
                         </button>
                     </div>
                 </td>
@@ -134,10 +146,12 @@ async function approveWithdrawal(wid) {
     }
 
     const btn = document.getElementById(`btn-approve-${wid}`);
+    const btnReject = document.getElementById(`btn-reject-${wid}`);
     if (btn) {
         btn.disabled = true;
         btn.textContent = '⏳';
     }
+    if (btnReject) btnReject.disabled = true;
 
     try {
         const idToken = await auth.currentUser.getIdToken();
@@ -161,7 +175,7 @@ async function approveWithdrawal(wid) {
             if (row) {
                 row.style.transition = 'opacity 0.4s';
                 row.style.opacity = '0';
-                setTimeout(() => row.remove(), 400);
+                setTimeout(() => { row.remove(); _recalcWithdrawalsTotal(); }, 400);
             }
         }
     } catch (e) {
@@ -171,7 +185,77 @@ async function approveWithdrawal(wid) {
             btn.disabled = false;
             btn.textContent = 'PAGAR';
         }
+        if (btnReject) btnReject.disabled = false;
     }
+}
+
+// ─────────────────────────────────────────────
+//  Recusa de saque — devolve o valor ao saldo do usuário
+// ─────────────────────────────────────────────
+async function rejectWithdrawal(wid) {
+    const reason = prompt('Motivo da recusa (opcional):', '');
+    if (reason === null) return; // cancelou o prompt
+    if (!confirm('Recusar este saque? O valor será devolvido ao saldo do usuário.')) return;
+
+    const btnApprove = document.getElementById(`btn-approve-${wid}`);
+    const btnReject = document.getElementById(`btn-reject-${wid}`);
+    if (btnApprove) btnApprove.disabled = true;
+    if (btnReject) {
+        btnReject.disabled = true;
+        btnReject.textContent = '⏳';
+    }
+
+    try {
+        const idToken = await auth.currentUser.getIdToken();
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/payments/reject/${wid}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${idToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: (reason || '').trim() || 'Recusado pelo painel' })
+        });
+        const data = await resp.json().catch(() => ({}));
+
+        if (!resp.ok || data.status !== 'rejected') {
+            throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+        }
+
+        _secopsCache.delete(wid);
+        showToast(
+            `Saque recusado. R$ ${Number(data.refunded || 0).toFixed(2)} devolvido ao usuário.`,
+            'success'
+        );
+
+        const row = document.getElementById(`wd-row-${wid}`);
+        if (row) {
+            row.style.transition = 'opacity 0.4s';
+            row.style.opacity = '0';
+            setTimeout(() => { row.remove(); _recalcWithdrawalsTotal(); }, 400);
+        } else {
+            _recalcWithdrawalsTotal();
+        }
+    } catch (e) {
+        showToast('Erro ao recusar saque: ' + (e.message || e), 'error');
+    } finally {
+        if (btnReject) {
+            btnReject.disabled = false;
+            btnReject.textContent = 'RECUSAR';
+        }
+        if (btnApprove) btnApprove.disabled = false;
+    }
+}
+
+/** Recalcula o total pendente a partir das linhas ainda visíveis. */
+function _recalcWithdrawalsTotal() {
+    const rows = document.querySelectorAll('#withdrawals-table-body tr[id^="wd-row-"]');
+    let total = 0;
+    rows.forEach(r => {
+        const v = parseFloat(r.dataset.amount || '0');
+        if (isFinite(v)) total += v;
+    });
+    const totalEl = document.getElementById('total-pendente-display');
+    if (totalEl) totalEl.textContent = `R$ ${total.toFixed(2)}`;
 }
 
 // ─────────────────────────────────────────────
