@@ -10,6 +10,13 @@ from app.routers import payments, secops, projects
 
 app = FastAPI(title=settings.PROJECT_NAME)
 
+print(
+    f"[CONFIG] APP_ENV={settings.APP_ENV!r} PAYMENTS_MODE={settings.PAYMENTS_MODE!r} "
+    f"real_payments_enabled={settings.real_payments_enabled} "
+    f"asaas_key_present={bool(settings.ASAAS_API_KEY)} "
+    f"webhook_secret_present={bool(settings.WEBHOOK_SECRET)}"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.CORS_ALLOWED_ORIGINS),
