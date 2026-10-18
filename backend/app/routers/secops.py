@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 from app.services.secops_agent import SecOpsSentinelAgent
 from app.services.firebase_service import get_db
+from app.dependencies import log_admin_action
 
 router = APIRouter(prefix="/api/secops", tags=["secops"])
 
@@ -34,6 +35,13 @@ async def get_risk_analysis(wid: str, request: Request):
             raise HTTPException(status_code=404, detail="Saque não encontrado para análise")
 
         analysis = SecOpsSentinelAgent.evaluate_withdrawal_risk(wid, wd_data)
+        # TAREFA 3.7(c): log de acesso à análise de risco (com actor da requisição)
+        try:
+            from app.dependencies import get_current_user
+            viewer = get_current_user(request)
+            log_admin_action(viewer.get("uid", "?"), "secops_risk_analysis", {"wid": wid})
+        except Exception:
+            log_admin_action("unknown", "secops_risk_analysis", {"wid": wid})
         return {"status": "success", "analysis": analysis}
     except HTTPException:
         raise

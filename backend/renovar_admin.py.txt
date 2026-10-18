@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Renova a permissao de administrador no Firebase Auth."""
+import sys, os, json, time
+from pathlib import Path
+
+# 1. Carrega variaveis do .env
+env_path = Path(__file__).parent / ".env"
+if env_path.exists():
+    with open(env_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+import firebase_admin
+from firebase_admin import credentials, auth
+
+# 2. Inicializa com as credenciais do projeto (mesma logica do backend)
+if not firebase_admin._apps:
+    cred = None
+    raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+    if raw:
+        try:
+            info = json.loads(raw)
+            if info.get("private_key"):
+                cred = credentials.Certificate(info)
+        except ValueError:
+            pass
+    if cred is None:
+        gac = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        candidatos = ([gac] if gac else []) + ["firebase-adminsdk.json", "serviceAccountKey.json"]
+        for p in candidatos:
+            if p and Path(p).exists():
+                cred = credentials.Certificate(str(p))
+                break
+    if cred is None:
+        sys.exit("Credencial nao encontrada. Verifique o .env ou firebase-adminsdk.json")
+    firebase_admin.initialize_app(cred)
+
+UID = "yVjmEMnlHcPgEb5kozRnJNLmHY63"
+admin_until = int(time.time()) + 365 * 24 * 3600  # 1 ano, em SEGUNDOS (igual ao backend)
+
+auth.set_custom_user_claims(UID, {"admin": True, "admin_until": admin_until})
+print("SUCESSO! Admin renovado ate:",
+      time.strftime("%d/%m/%Y %H:%M", time.localtime(admin_until)))

@@ -2,7 +2,7 @@ import httpx
 from app.core.config import settings
 from app.services.firebase_service import get_db
 
-async def process_asaas_pix(amount: float, pix_key: str, pix_type: str, description: str):
+async def process_asaas_pix(amount: float, pix_key: str, pix_type: str, description: str, external_ref: str = ""):
     asaas_key = settings.ASAAS_API_KEY
     if not asaas_key:
         config = get_db().reference("config").get() or {}
@@ -26,6 +26,8 @@ async def process_asaas_pix(amount: float, pix_key: str, pix_type: str, descript
         "pixAddressKeyType": pix_mapping.get(pix_type, "RANDOM_KEY"),
         "description": description
     }
+    if external_ref:
+        payload["externalReference"] = external_ref
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.post(url, json=payload, headers=headers, timeout=30.0)

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import re
 from datetime import datetime
 from app.services.firebase_service import get_db, get_auth
@@ -13,33 +13,33 @@ def _validate_pix_key(pix_type: str, key: str):
     if pix_type == "CPF":
         cpf = re.sub(r"\D", "", key)
         if len(cpf) != 11 or cpf == cpf[0] * 11:
-            return "CPF inválido"
+            return "CPF invÃ¡lido"
         return None
     if pix_type == "CNPJ":
         cnpj = re.sub(r"\D", "", key)
         if len(cnpj) != 14 or cnpj == cnpj[0] * 14:
-            return "CNPJ inválido"
+            return "CNPJ invÃ¡lido"
         return None
     if pix_type == "EMAIL":
         if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", key):
-            return "E-mail inválido"
+            return "E-mail invÃ¡lido"
         return None
     if pix_type == "PHONE":
         p = re.sub(r"\D", "", key)
         if not (10 <= len(p) <= 13):
-            return "Telefone inválido"
+            return "Telefone invÃ¡lido"
         return None
     if pix_type == "EVP":
         if not re.match(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", key, re.I):
-            return "Chave aleatória EVP inválida"
+            return "Chave aleatÃ³ria EVP invÃ¡lida"
         return None
-    return "Tipo de chave PIX não reconhecido"
+    return "Tipo de chave PIX nÃ£o reconhecido"
 
 
 class SecOpsSentinelAgent:
     """
     Agente Cyber Security SecOps Sentinel
-    Responsável por auditar a infraestrutura, monitorar chaves e calcular Scores de Risco para saques.
+    ResponsÃ¡vel por auditar a infraestrutura, monitorar chaves e calcular Scores de Risco para saques.
     """
 
     @staticmethod
@@ -50,7 +50,7 @@ class SecOpsSentinelAgent:
                 "trust_score": 0,
                 "risk_level": "CRITICAL",
                 "recommendation": "HIGH_RISK_BLOCK",
-                "reasons": ["Saque não encontrado no banco de dados"]
+                "reasons": ["Saque nÃ£o encontrado no banco de dados"]
             }
 
         uid = wd_data.get("uid", "")
@@ -60,14 +60,14 @@ class SecOpsSentinelAgent:
         fingerprint = wd_data.get("fingerprint", "unknown")
 
         reasons = []
-        score = 100  # Começa em 100% de confiança
+        score = 100  # ComeÃ§a em 100% de confianÃ§a
 
-        # 1. Validação de Valor
+        # 1. ValidaÃ§Ã£o de Valor
         if amount not in ALLOWED_AMOUNTS:
             score -= 40
             reasons.append(f"Valor R$ {amount:.2f} fora da tabela oficial permitida.")
 
-        # 2. Validação da Chave PIX
+        # 2. ValidaÃ§Ã£o da Chave PIX
         if pix_type not in VALID_PIX_TYPES:
             score -= 30
             reasons.append(f"Tipo de chave PIX desconhecido: {pix_type}")
@@ -75,9 +75,9 @@ class SecOpsSentinelAgent:
             pix_err = _validate_pix_key(pix_type, pix_key)
             if pix_err:
                 score -= 35
-                reasons.append(f"Chave PIX com inconsistência: {pix_err}")
+                reasons.append(f"Chave PIX com inconsistÃªncia: {pix_err}")
 
-        # 3. Consulta de Dados do Usuário no Firebase
+        # 3. Consulta de Dados do UsuÃ¡rio no Firebase
         try:
             db = get_db()
             user_ref = db.reference(f"users/{uid}").get() or {}
@@ -90,19 +90,19 @@ class SecOpsSentinelAgent:
                     user_record = auth.get_user(uid)
                     email_verified = user_record.email_verified
                 except Exception:
-                    pass
+                    pass  # nosec
 
             if not email_verified:
                 score -= 20
-                reasons.append("Conta com e-mail não verificado.")
+                reasons.append("Conta com e-mail nÃ£o verificado.")
 
-            # Checagem de Saldo em relação ao saque
+            # Checagem de Saldo em relaÃ§Ã£o ao saque
             current_balance = float(user_ref.get("balance", 0))
             if current_balance < 0:
                 score -= 50
-                reasons.append("Alerta crítico: Saldo atual do usuário está negativo!")
+                reasons.append("Alerta crÃ­tico: Saldo atual do usuÃ¡rio estÃ¡ negativo!")
 
-            # Checagem de Fingerprint Duplicado (Dispositivo compartilhado por várias contas)
+            # Checagem de Fingerprint Duplicado (Dispositivo compartilhado por vÃ¡rias contas)
             if fingerprint and fingerprint != "unknown":
                 all_users = db.reference("users").get() or {}
                 shared_accounts = 0
@@ -119,7 +119,7 @@ class SecOpsSentinelAgent:
         except Exception as e:
             reasons.append(f"Aviso ao consultar perfil no banco: {str(e)}")
 
-        # 4. Ajuste final de Score e Classificação
+        # 4. Ajuste final de Score e ClassificaÃ§Ã£o
         score = max(0, min(100, score))
 
         if score >= 85:
@@ -136,15 +136,24 @@ class SecOpsSentinelAgent:
             recommendation = "HIGH_RISK_BLOCK"
 
         if not reasons:
-            reasons.append("Nenhuma inconsistência detectada. Transação limpa.")
+            reasons.append("Nenhuma inconsistÃªncia detectada. TransaÃ§Ã£o limpa.")
+
+        # TAREFA 3.7: Masking PII â€” pixKey Ã© mascarada (apenas Ãºltimos 4) e o UID
+        # completo NÃƒO Ã© devolvido no payload pÃºblico do SecOps. fcm/viewer interno
+        # pode obter o UID completo em outro endpoint se necessÃ¡rio.
+        masked_key = ""
+        if pix_key:
+            masked_key = ("*" * max(0, len(pix_key) - 4)) + pix_key[-4:]
+        else:
+            masked_key = "****"
 
         return {
             "wid": wid,
-            "uid": uid,
+            "uid": uid[:1] + "***" if uid else uid,  # uid semi-mascarado
             "fullname": wd_data.get("fullname", "Desconhecido"),
             "amount": amount,
             "pixType": pix_type,
-            "pixKey": pix_key,
+            "pixKey": masked_key,
             "trust_score": score,
             "risk_level": risk_level,
             "recommendation": recommendation,
@@ -155,44 +164,44 @@ class SecOpsSentinelAgent:
     @staticmethod
     def audit_system_security() -> dict:
         """
-        Checkup completo de integridade das chaves API, conexões e configurações
+        Checkup completo de integridade das chaves API, conexÃµes e configuraÃ§Ãµes
         """
         checks = []
         is_secure = True
 
-        # Check 1: Service Account Firebase
-        service_account = settings.FIREBASE_SERVICE_ACCOUNT or os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+        # Check 1: Service Account Firebase (env var OU GOOGLE_APPLICATION_CREDENTIALS)
+        service_account = (
+            settings.FIREBASE_SERVICE_ACCOUNT
+            or os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+            or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        )
+        # TAREFA 4.11: nÃ£o revelar presenÃ§a/ausÃªncia nem caminhos locais de secrets.
         if service_account:
-            checks.append({"item": "Firebase Service Account", "status": "OK", "detail": "Configurado via variável de ambiente"})
+            checks.append({"item": "Firebase Service Account", "status": "OK", "detail": "Credencial configurada"})
         else:
-            from app.core.config import PROJECT_ROOT
-            fp = os.path.join(PROJECT_ROOT, "backend", "firebase-adminsdk.json")
-            if os.path.exists(fp):
-                checks.append({"item": "Firebase Service Account", "status": "WARN", "detail": "Usando arquivo local. Recomendado mover para env var."})
-            else:
-                is_secure = False
-                checks.append({"item": "Firebase Service Account", "status": "FAIL", "detail": "Não encontrada credencial de Service Account."})
+            is_secure = False
+            checks.append({"item": "Firebase Service Account", "status": "FAIL", "detail": "Credencial de Service Account nÃ£o configurada"})
 
         # Check 2: Chave Asaas API
         asaas_key = settings.ASAAS_API_KEY
         if asaas_key:
-            checks.append({"item": "Asaas API Key", "status": "OK", "detail": "Chave de integração configurada"})
+            checks.append({"item": "Asaas API Key", "status": "OK", "detail": "Chave de integraÃ§Ã£o configurada"})
         else:
-            checks.append({"item": "Asaas API Key", "status": "WARN", "detail": "Variável ASAAS_API_KEY ausente no env."})
+            checks.append({"item": "Asaas API Key", "status": "WARN", "detail": "VariÃ¡vel ASAAS_API_KEY ausente no env."})
 
         # Check 3: Webhook Secret
         webhook_sec = settings.WEBHOOK_SECRET
         if webhook_sec:
             checks.append({"item": "Asaas Webhook Secret", "status": "OK", "detail": "Segredo de assinatura HMAC ativo"})
         else:
-            checks.append({"item": "Asaas Webhook Secret", "status": "WARN", "detail": "WEBHOOK_SECRET ausente. Webhooks sem validação estrita."})
+            checks.append({"item": "Asaas Webhook Secret", "status": "WARN", "detail": "WEBHOOK_SECRET ausente. Webhooks sem validaÃ§Ã£o estrita."})
 
         # Check 4: N8N Shared Secret
         n8n_secret = settings.N8N_SHARED_SECRET
         if n8n_secret:
-            checks.append({"item": "N8N Shared Secret", "status": "OK", "detail": "Segredo de comunicação n8n ativo"})
+            checks.append({"item": "N8N Shared Secret", "status": "OK", "detail": "Segredo de comunicaÃ§Ã£o n8n ativo"})
         else:
-            checks.append({"item": "N8N Shared Secret", "status": "INFO", "detail": "Sem integração n8n para auto-aprovação externa."})
+            checks.append({"item": "N8N Shared Secret", "status": "INFO", "detail": "Sem integraÃ§Ã£o n8n para auto-aprovaÃ§Ã£o externa."})
 
         return {
             "agent": "SecOps Sentinel AI v1.0",

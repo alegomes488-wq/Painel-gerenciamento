@@ -1,0 +1,52 @@
+CYBERCORE — CENTRAL DE AGENTES
+
+INSTALAR
+1. Faça backup de index.html e styles.css.
+2. Substitua ambos pelos arquivos deste pacote.
+3. Copie agent-console.js para js/modules/agent-console.js, mantendo todos os módulos atuais.
+4. Atualize o painel com Ctrl+F5.
+
+O QUE FOI ENTREGUE
+Quatro áreas independentes: Financeiro, Sentinel, Auditor e Fiscal. Cada uma apresenta função, mensagem do módulo, monitoramento, análise, resultado, horário, evidência e histórico da sessão. Em telas a partir de 1800 pixels, os quatro cards ficam lado a lado; em telas menores, a grade se adapta para duas ou uma coluna.
+Os detalhes abrem por clique ou teclado. O resumo conta sinais recentes e análises informadas. A interface não executa tarefas, não cria agentes e não inicia pagamentos.
+
+DADOS REAIS
+O pacote anterior continha apenas HTML e CSS. Não foram fornecidos módulos atuais nem backend. Portanto, esta entrega prepara a interface e o adaptador de dados, mas NÃO conecta ou coloca os agentes em funcionamento.
+Os quatro IDs ai-financeiro-status, ai-sentinel-status, ai-auditor-status e ai-fiscal-status foram preservados. Atualizações antigas nesses elementos continuam visíveis como mensagens de módulo, mas não ativam os novos contadores ou comprovam execução.
+Para ligar os campos à execução real, integrar a resposta autenticada do backend ao método abaixo dentro do módulo correspondente. Não publique tokens, credenciais, dados PIX, documentos pessoais ou logs secretos nos campos de evidência.
+
+CONTRATO DO ADAPTADOR
+window.CyberCoreAgentConsole.update(payload)
+Retorna true quando aceita o sinal, false para sinal inválido, duplicado ou fora de ordem.
+Também aceita window.dispatchEvent(new CustomEvent('cybercore:agent-telemetry', {detail: payload})).
+
+Formato do payload (contrato; não há geração automática de exemplos):
+{
+  agent: 'financeiro' | 'sentinel' | 'auditor' | 'fiscal',
+  observedAt: data ISO 8601 com fuso, produzida pela fonte dos dados,
+  state: 'running' | 'idle' | 'error' | 'offline',
+  activity: descrição objetiva da tarefa atual,
+  monitoring: {state: 'waiting' | 'running' | 'complete' | 'error', task: descrição da coleta},
+  analysis: {state: 'waiting' | 'running' | 'complete' | 'error', task: descrição da análise},
+  result: último resultado correspondente ao sinal,
+  evidence: referência textual de evidência autorizada para exibição
+}
+
+Não substitua observedAt por Date.now() ao reexibir um resultado antigo. O horário deve representar o sinal do agente. Os horários apresentados usam o fuso do navegador.
+A cada 5 segundos, a interface reavalia a idade dos sinais. Depois de 90 segundos, o último estado permanece visível, mas é marcado como desatualizado e deixa de contar como análise em andamento.
+O histórico mantém os oito últimos sinais por agente na sessão atual; não é armazenamento permanente nem trilha de auditoria do servidor. Atualizar a página limpa esse histórico.
+Um evento JavaScript é apenas transporte dentro da página; não autentica a origem. Autenticação e validação de autorização devem continuar no backend e no módulo que recebe a resposta.
+
+LIMITES
+As funções de cada agente são descrições de escopo propostas para a interface, não capacidades verificadas no código. O agente Fiscal não representa validação jurídica ou tributária.
+Os estados globais do cabeçalho e de outros painéis continuam sob responsabilidade dos módulos existentes. A nova central não redefine seus indicadores.
+Para completar a integração, enviar js/modules/telemetria.js, js/modules/status.js, js/modules/secops.js, js/ui.js e os arquivos que atualizam os quatro IDs de agente. Um ZIP do projeto, sem credenciais, evita presumir nomes de módulos.
+
+VALIDAÇÃO
+Renderização em Chromium: 320, 390, 768, 1024, 1440 e 1900 pixels, sem transbordamento horizontal da página. Detalhes expansíveis verificados.
+Testados: sinal válido, dados inválidos, data futura, duplicatas, eventos fora de ordem, contadores, expiração após 90 segundos e exibição de conteúdo como texto, sem interpretar HTML.
+Os testes usam dados locais isolados. Nenhuma chamada de backend, operação financeira ou autenticação real foi realizada. A prévia representa a interface sem telemetria conectada.
+
+REFERÊNCIAS
+https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent
+https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html

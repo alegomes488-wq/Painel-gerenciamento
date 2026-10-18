@@ -15,9 +15,27 @@ function renderUsersTable() {
     `).join('');
 }
 
-function toggleUserBan(uid, shouldBan) {
-    const status = shouldBan ? 'banido' : 'ativo';
-    hubDb.ref(`users/${uid}/status`).set(status)
-        .then(() => showToast(`Usuário ${status}.`, 'info'))
-        .catch(() => showToast('Erro ao atualizar status.', 'error'));
+// TAREFA 2.2 (f): passou a chamar o endpoint backend /api/admin/ban em vez de
+// escrever direto no RTDB. Assim o backend revoga claim/tokens e loga auditoria.
+async function toggleUserBan(uid, shouldBan) {
+    const action = shouldBan ? 'ban' : 'unban';
+    try {
+        if (!auth?.currentUser) throw new Error('Não autenticado');
+        const idToken = await auth.currentUser.getIdToken();
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/admin/ban`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ uid, action, reason: 'Painel admin' })
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            throw new Error(data.detail || `HTTP ${resp.status}`);
+        }
+        showToast(`Usuário ${action === 'ban' ? 'banido' : 'reativado'}.`, 'info');
+    } catch (e) {
+        showToast('Erro ao atualizar status: ' + (e.message || e), 'error');
+    }
 }

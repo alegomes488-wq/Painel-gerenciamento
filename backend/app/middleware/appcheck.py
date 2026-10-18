@@ -48,7 +48,10 @@ class AppCheckMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app):
         super().__init__(app)
-        self.required = os.getenv("APP_CHECK_REQUIRED", "false").lower() == "true"
+        # TAREFA 4.1: App Check OBRIGATÓRIO por padrão em produção.
+        # Em dev/testes, desative explicitamente com APP_CHECK_REQUIRED=false.
+        raw = os.getenv("APP_CHECK_REQUIRED", "true").strip().lower()
+        self.required = raw in ("1", "true", "yes")
         self.project_id = os.getenv("FIREBASE_PROJECT_ID") or self._project_id_from_sa()
         self.app_id = os.getenv("FIREBASE_APP_ID")
         self.credentials = None
@@ -113,7 +116,13 @@ class AppCheckMiddleware(BaseHTTPMiddleware):
             return None
 
     def _verify_appcheck_token(self, token: str) -> bool | None:
-        """Valida o token. True=ok, False=token inválido, None=serviço indisponível."""
+        """Valida o token. True=ok, False=token inválido, None=serviço indisponível.
+
+        `None` significa "não deu para saber" — o chamador responde 503 e o
+        cliente pode repetir depois. `False` significa "o token é mesmo ruim" —
+        o chamador responde 401 e insistir não adianta. Confundir os dois faz o
+        frontend pedir um token novo a cada tentativa, o que piora o problema.
+        """
         if not self.project_id or not self.app_id:
             logger.error("[AppCheck] FIREBASE_PROJECT_ID ou FIREBASE_APP_ID não configurados")
             return False
@@ -135,6 +144,20 @@ class AppCheckMiddleware(BaseHTTPMiddleware):
         if resp.status_code == 200:
             logger.info("[AppCheck] Token validado com sucesso")
             return True
+
+        # TAREFA 5.5 (autorizado): 429 é limite de taxa do verifyToken, não
+        # token ruim. Antes caía no `return False` final e o dispatch devolvia
+        # 401 "App Check token invalid" — o frontend lia isso como "token ruim",
+        # pedia token novo, e a troca estourava o limite de novo. Ciclo
+        # autoalimentado, medido como `app-check/throttled`.
+        # `None` -> 503, que é o que o chamador já faz para erro de rede.
+        if resp.status_code == 429:
+            logger.warning(
+                "[AppCheck] verifyToken com limite de taxa (429) — "
+                "tratando como indisponível, não como token inválido"
+            )
+            return None
+
         if resp.status_code in (400, 401, 403):
             logger.warning(f"[AppCheck] Token inválido: {resp.status_code} - {resp.text[:200]}")
             return False
@@ -166,7 +189,14 @@ class AppCheckMiddleware(BaseHTTPMiddleware):
 
         result = self._verify_appcheck_token(appcheck_token)
         if result is None:
-            return JSONResponse(status_code=503, content={"detail": "Serviço de validação indisponível"})
+            # TAREFA 5.5: cabeçalho de espera para o cliente não repetir
+            # imediatamente. Sem isto, um 503 vira nova rajada contra o
+            # verifyToken — que é o que produz o throttling.
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Serviço de validação indisponível"},
+                headers={"Retry-After": "10"},
+            )
         if not result:
             return JSONResponse(status_code=401, content={"detail": "App Check token invalid"})
 

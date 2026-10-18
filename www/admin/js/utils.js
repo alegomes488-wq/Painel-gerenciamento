@@ -78,6 +78,23 @@ window.safeClass = (idOrEl, method, className) => {
     }
 };
 
+// Mostra/oculta a senha no campo de login (olho do toggle)
+function togglePasswordVisibility() {
+    const input = document.getElementById('login-pass');
+    const icon = document.getElementById('toggle-pass');
+    if (!input) return;
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    if (icon) {
+        icon.textContent = showing ? '👁️' : '🙈';
+        icon.style.color = showing ? 'rgba(255,255,255,0.2)' : 'var(--primary-500)';
+    }
+    // Move o cursor para o fim ao alternar
+    input.focus();
+    const len = input.value.length;
+    if (input.setSelectionRange) input.setSelectionRange(len, len);
+}
+
 function escapeHtml(text) {
     if (!text) return '';
     var d = document.createElement('div');

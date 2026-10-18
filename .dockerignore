@@ -1,0 +1,121 @@
+# ============================================================================
+# .dockerignore — Painel gerenciamento (CyberCore IA)
+# ============================================================================
+# O Dockerfile faz `COPY . .`, entao TUDO que nao estiver listado aqui entra
+# na imagem. Isso importa porque o contexto deste repositorio contem:
+#   - credenciais reais (backend/.env, firebase-adminsdk.json)
+#   - backups de auditoria (*.bak, *.bak-audit-*)
+#   - suites de teste e artefatos de auditoria
+# Sem este arquivo, uma imagem de producao carrega segredos e lixo.
+#
+# ATENCAO: este arquivo NAO substitui revogacao/rotacao de credenciais que
+# ja tenham sido commitadas por engano. Ver SECRETS-GIT-AUDIT.md.
+# ============================================================================
+
+# --- Segredos e credenciais (BLOQUEIO ABSOLUTO) ---
+segredos/
+secrets/
+.env
+.env.*
+**/.env
+**/.env.*
+# EXCECAO deliberada: o template de variaveis NAO tem segredo e e util
+# na imagem. Este `!` precisa vir DEPOIS de `.env.*`, senao seria excluido.
+!.env.example
+!**/.env.example
+firebase-secrets/
+**/firebase-adminsdk.json
+**/firebase-adminsdk.json.bak
+**/*adminsdk*.json
+*.keystore
+*.jks
+**/*.pem
+**/*.key
+**/*_rsa.pem
+backend/groq_key.txt
+
+# --- Backups de auditoria (nao podem ir para producao) ---
+*.bak
+*.bak-audit-*
+**/*.bak
+**/*.bak-audit-*
+
+# --- Git e metadados ---
+.git
+.gitignore
+.gitattributes
+.github/
+**/.git
+
+# --- Python ---
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+.venv
+backend/.venv
+
+# --- Node / frontend ---
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-error.log*
+www/admin/lib/
+
+# --- Testes (nao fazem parte da imagem de producao) ---
+tests/
+**/tests/
+**/test_*.py
+**/*_test.py
+conftest.py
+**/conftest.py
+pytest.ini
+tox.ini
+coverage.xml
+htmlcov/
+.coverage
+.coverage.*
+
+# --- Artefatos temporarios desta auditoria ---
+_preview_*.html
+_gen_preview_*.py
+_verify_*.py
+_verify_*.cjs
+_verify_*.js
+_backup_*.py
+_read_*.py
+_audit_*.py
+_sym_scan.py
+*.diff
+AUDITORIA-*.md
+*_AUDIT.md
+MAPA-DE-ENDPOINTS.md
+*.txt.bak
+
+# --- Logs e runtime ---
+logs/
+*.log
+backend.log
+*.tmp
+*.pid
+
+# --- Editores / SO ---
+.vs/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -97,8 +97,14 @@ async function renderSecOpsPanel() {
             headers: { 'Authorization': `Bearer ${idToken}` }
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        // FIX 1.2: data nunca era atribuída (faltava await resp.json()),
+        // causando ReferenceError ao passar 'data' indefinido para _renderSecOpsDashboard.
         const data = await resp.json();
         _renderSecOpsDashboard(data, container);
+        const lastRefreshEl = document.getElementById('secops-last-refresh');
+        if (lastRefreshEl) {
+            lastRefreshEl.textContent = 'Atualizado em: ' + new Date().toLocaleTimeString('pt-BR');
+        }
     } catch (e) {
         container.innerHTML = `
             <div class="secops-error-state">
@@ -279,11 +285,37 @@ function _renderHealthAuditResult(audit, container) {
         </div>`;
 }
 
+// TAREFA 3.8: busca fresh da análise de risco (ignorando cache) — usada no modal.
+async function fetchRiskAnalysisFresh(wid) {
+    // Remove do cache antes de buscar, forçando re-fetch
+    _secopsCache.delete(wid);
+    try {
+        const idToken = await auth.currentUser.getIdToken();
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/secops/risk-analysis/${wid}`, {
+            headers: { 'Authorization': `Bearer ${idToken}` },
+            cache: 'no-store'
+        });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const analysis = data?.analysis || null;
+        if (analysis) {
+            _secopsCache.set(wid, analysis);
+            setTimeout(() => _secopsCache.delete(wid), 60_000);
+        }
+        return analysis;
+    } catch (e) {
+        console.warn('[SecOps] Erro ao buscar análise (fresh):', e);
+        return null;
+    }
+}
+
 // ─────────────────────────────────────────────
 //  Modal de detalhe de risco de um saque
 // ─────────────────────────────────────────────
 async function showRiskDetail(wid) {
-    const analysis = await fetchRiskAnalysis(wid);
+    // TAREFA 3.8: busca SEMPRE fresh (bypass do cache de 60s) para que o modal
+    // mostre a análise atual e o botão "Aprovar mesmo assim" reflita o estado real.
+    const analysis = await fetchRiskAnalysisFresh(wid);
     if (!analysis) {
         showToast('Não foi possível carregar análise de risco.', 'error');
         return;

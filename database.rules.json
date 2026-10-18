@@ -1,0 +1,97 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      ".indexOn": ["referredBy"],
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || auth.token.admin == true)",
+        ".write": "auth != null && auth.token.admin == true",
+        "fcmToken": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.isString() && newData.val().length <= 4096"
+        },
+        "last_token_update": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.isNumber()"
+        },
+        "legal_acceptance": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.isString() && newData.val().length <= 10000"
+        },
+        "security": {
+          "last_login_fingerprint": {
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isString() && newData.val().length <= 512"
+          },
+          "last_login_at": {
+            ".write": "auth != null && auth.uid == $uid",
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "balance": { ".write": false },
+        "fcm_token": { ".read": false, ".write": false, ".validate": false }
+      }
+    },
+
+    "config": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": "auth != null && auth.token.admin == true",
+      "vapidKey": { ".read": true },
+      "maintenance": { ".read": true }
+    },
+
+    "withdrawals": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || auth.token.admin == true)",
+        ".write": false
+      }
+    },
+
+    "referrals": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": false
+    },
+
+    "admin": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": "auth != null && auth.token.admin == true"
+    },
+
+    "neural": {
+      "nodes": {
+        ".read": "auth != null && auth.token.admin == true",
+        "$projectId": {
+          ".read": "auth != null && auth.token.admin == true",
+          ".write": false
+        }
+      }
+    },
+
+    "status": {
+      ".read": "auth != null",
+      ".write": "auth != null && auth.token.admin == true"
+    },
+
+    "logs": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": false
+    },
+
+    "audit": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": false
+    },
+
+    "games": {
+      ".read": false,
+      ".write": false
+    },
+
+    "cinebot": {
+      ".read": "auth != null && auth.token.admin == true",
+      ".write": false
+    }
+  }
+}

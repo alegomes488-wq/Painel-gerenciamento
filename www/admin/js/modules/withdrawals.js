@@ -146,12 +146,15 @@ async function approveWithdrawal(wid) {
             headers: { 'Authorization': `Bearer ${idToken}` }
         });
         const data = await resp.json();
+        // FIX 1.3: backend retorna { status: "approved" } e erros vêm em "detail".
+        // Antes usava "success"/"message", que nunca eram enviados -> "Erro: undefined".
+        const isApproved = data.status === 'approved';
         showToast(
-            data.status === 'success' ? `✅ Pagamento aprovado!` : `❌ Erro: ${data.message}`,
-            data.status === 'success' ? 'success' : 'error'
+            isApproved ? `✅ Pagamento aprovado!` : `❌ Erro: ${data.detail || data.message || 'Falha na aprovação'}`,
+            isApproved ? 'success' : 'error'
         );
 
-        if (data.status === 'success') {
+        if (isApproved) {
             // Limpa cache e remove linha da tabela
             _secopsCache.delete(wid);
             const row = document.getElementById(`wd-row-${wid}`);

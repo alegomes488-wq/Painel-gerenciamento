@@ -1,6 +1,6 @@
-/**
+﻿/**
  * ============================================================
- *  Watch / Monitoramento Canarinho — Módulo do Painel Admin
+ *  Watch / Monitoramento Canarinho “ Módulo do Painel Admin
  *  Conecta sites, apps e APIs ao VAR via URL inserida no painel.
  *  Portado do monólito app.js (SYS_WATCH).
  * ============================================================
@@ -17,62 +17,105 @@ function filterWatchProjects(type) {
 
 function watchSelectType(el) {
     document.querySelectorAll('.watch-type-btn').forEach(b => {
-        b.style.background = 'transparent';
-        b.style.color = 'var(--text-secondary)';
+        b.classList.remove('active');
+        b.style.background = '';
+        b.style.color = '';
     });
-    el.style.background = 'rgba(0,243,255,0.1)';
-    el.style.color = 'var(--cyan)';
+    el.classList.add('active');
     watchCurrentType = el.dataset.type;
+
+    const input = document.getElementById('watch-project-url');
+    const meta = WATCH_FIELD_META[watchCurrentType];
+    if (input && meta) {
+        input.placeholder = meta.placeholder;
+        input.value = '';
+        input.focus();
+    }
+    validateWatchInput();
+}
+
+// Textos do campo de entrada conforme o tipo de projeto selecionado
+const WATCH_FIELD_META = {
+    website: { placeholder: 'https://meusite.com.br' },
+    android: { placeholder: 'Link da loja (play.google.com / apps.apple.com) ou pacote (com.empresa.app)' },
+    api: { placeholder: 'https://api.suaempresa.com/v1' },
+};
+
+// Validacao em tempo real do identificador conforme o tipo selecionado
+const WATCH_VALIDATORS = {
+    website: v => /^https:\/\/([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(:\d{1,5})?(\/.*)?$/i.test(v),
+    android: v => /^https:\/\/(play\.google\.com|apps\.apple\.com)\/.+/i.test(v) ||
+                 /^([a-z0-9]+\.){2,}[a-z0-9]+$/i.test(v),
+    api: v => /^https:\/\/([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(\/\S*)?$/i.test(v),
+};
+
+function validateWatchInput() {
+    const input = document.getElementById('watch-project-url');
+    const btn = document.getElementById('watch-connect-btn');
+    if (!input || !btn) return;
+    const value = input.value.trim();
+    const validator = WATCH_VALIDATORS[watchCurrentType] || WATCH_VALIDATORS.website;
+
+    input.classList.remove('is-valid', 'is-invalid');
+    if (!value) {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'not-allowed';
+        return;
+    }
+    const valid = validator(value);
+    btn.disabled = !valid;
+    btn.style.opacity = valid ? '1' : '0.4';
+    btn.style.cursor = valid ? 'pointer' : 'not-allowed';
+    input.classList.toggle('is-valid', valid);
+    input.classList.toggle('is-invalid', !valid);
 }
 
 async function watchConnectProject() {
     const url = document.getElementById('watch-project-url')?.value.trim();
     if (!url) return showToast("Digite a URL do projeto.", "error");
 
-    const btn = document.querySelector('.btn-premium');
+    const btn = document.getElementById('watch-connect-btn');
     const original = btn.textContent;
-    btn.textContent = '🔍 ANALISANDO...';
+    btn.textContent = 'ANALISANDO...';
     btn.disabled = true;
 
     try {
-        const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+        // TAREFA 3.1: endpoints /api/project/analyze e /api/project/save agora existem.
+        // O ID do projeto é gerado no SERVIDOR (push key), nunca aqui no cliente.
+        const baseUrl = BRASILHEXA_BACKEND_URL;
         const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+
+        // 1) Analisa (retorna nome/framework/health) “ sem gravar
         const resp = await fetch(`${baseUrl}/api/project/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({ type: watchCurrentType, identifier: url })
         });
         const data = await resp.json();
+        if (!resp.ok || data.status !== 'success') {
+            throw new Error(data.detail || data.msg || 'Falha ao conectar');
+        }
 
-        if (data.status === 'success') {
-            const projectId = 'PRJ' + Date.now().toString(36).toUpperCase();
-            const projectData = {
-                id: projectId,
-                name: data.name || url,
+        // 2) Salva “ o backend valida e gera o projectId
+        const saveResp = await fetch(`${baseUrl}/api/project/save`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({
                 type: watchCurrentType,
                 identifier: url,
-                framework: data.framework || '—',
-                addedAt: new Date().toISOString(),
-                health: data.health || { status: 'online', last_checked: new Date().toISOString() }
-            };
-
-            const saveResp = await fetch(`${baseUrl}/api/project/save`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-                body: JSON.stringify({ id: projectId, data: projectData })
-            });
-            const saveData = await saveResp.json();
-
-            if (saveData.status === 'success') {
-                showToast(`✅ ${data.name || url} conectado ao Watch!`, "success");
-                document.getElementById('watch-project-url').value = '';
-                renderWatchProjects();
-            } else {
-                showToast("Erro ao salvar projeto.", "error");
-            }
-        } else {
-            showToast(data.msg || "Falha ao conectar.", "error");
+                name: data.name || url,
+                framework: data.framework || '“'
+            })
+        });
+        const saveData = await saveResp.json();
+        if (!saveResp.ok || saveData.status !== 'success') {
+            throw new Error(saveData.detail || 'Erro ao salvar projeto');
         }
+
+        showToast(`âœ… ${data.name || url} conectado ao Watch!`, "success");
+        document.getElementById('watch-project-url').value = '';
+        // RTDB listener (main.js) re-renderiza automaticamente com o novo node
     } catch (e) {
         showToast("Erro de conexão: " + e.message, "error");
     }
@@ -92,6 +135,13 @@ function watchFilter(type) {
     renderWatchProjects();
 }
 
+// TAREFA 3.2: status efetivo = health.override (operador) tem prioridade sobre
+// health.reported (agente). Se não houver override, usa o status reportado.
+function _effectiveStatus(project) {
+    const health = project?.health || {};
+    return health.override?.status || health.status || 'offline';
+}
+
 function renderWatchProjects() {
     const container = document.getElementById('watch-projects-list');
     if (!container) return;
@@ -105,8 +155,8 @@ function renderWatchProjects() {
 
     container.innerHTML = filtered.map(p => {
         const health = p.health || {};
-        const isOnline = health.status === 'online';
-        const isDegraded = health.status === 'degraded';
+        const isOnline = _effectiveStatus(p) === 'online';
+        const isDegraded = _effectiveStatus(p) === 'degraded';
         const statusClass = isOnline ? 'online' : (isDegraded ? 'degraded' : 'offline');
 
         const toPct = (v) => { const n = parseFloat(v); return (isFinite(n) && n >= 0) ? n.toFixed(0) + '%' : '--'; };
@@ -130,31 +180,17 @@ function renderWatchProjects() {
                     </div>
                     <div style="text-align: right;">
                         <div style="font-family: 'JetBrains Mono'; font-size: 11px; color: ${color}; font-weight: 900;">
-                            ${isOnline ? '✓ ONLINE' : (isDegraded ? '⚠ DEGRADADO' : '✗ OFFLINE')}
+                            ${isOnline ? '✓ ONLINE' : (isDegraded ? 'âš  DEGRADADO' : '✗ OFFLINE')}
                         </div>
                         <div style="font-size: 9px; opacity: 0.6; margin-top: 2px;">LATENCY: ${latency}</div>
                     </div>
                 </div>
 
-                <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="mini-stat">
-                        <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px;">
-                            <span>CPU</span> <span>${cpu}</span>
-                        </div>
-                        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width: ${cpu}; background: ${color}"></div></div>
-                    </div>
-                    <div class="mini-stat">
-                        <div style="display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px;">
-                            <span>RAM</span> <span>${ram}</span>
-                        </div>
-                        <div class="mini-bar-bg"><div class="mini-bar-fill" style="width: ${ram}; background: ${color}"></div></div>
-                    </div>
-                </div>
 
-                <div style="margin-top: 10px; display: flex; gap: 5px;">
-                     <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
-                     <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
-                     <button data-action="toggle" data-id="${escapeHtml(p.id)}" data-identifier="${escapeHtml(p.identifier)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--warning);">${isOnline ? '🔌 DESCONECTAR' : '🔌 ATIVAR'}</button>
+                <div style="margin-top: 10px; display: flex; gap: 5px; align-items: center;">
+                      <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
+                      <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
+                      ${typeof renderMaintenanceButton === 'function' ? renderMaintenanceButton() : ''}
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}
@@ -163,13 +199,16 @@ function renderWatchProjects() {
     }).join('');
 
     container.onclick = (e) => {
-        const btn = e.target.closest('button[data-action]');
-        if (!btn) return;
-        const id = btn.dataset.id;
-        const action = btn.dataset.action;
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
+        const id = el.dataset.id;
+        const action = el.dataset.action;
         if (action === 'copy') copyToClipboard(id);
         else if (action === 'agent') installAgent(id);
-        else if (action === 'toggle') toggleProjectConnection(id, btn);
+        // TAREFA 5.3: manutencao e GLOBAL. `id` NAO e passado de proposito —
+        // o no(config/maintenance) e o mesmo para todos os projetos, e
+        // repassar o id sugeriria uma manutencao por projeto que nao existe.
+        else if (action === 'maintenance') toggleMaintenanceFromCard();
     };
 }
 
@@ -178,11 +217,11 @@ function copyToClipboard(text) {
 }
 
 function installAgent(projectId) {
-    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
+    const baseUrl = BRASILHEXA_BACKEND_URL;
     const msg = document.createElement('div');
     msg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0a0a0f;border:1px solid rgba(0,243,255,0.2);border-radius:12px;padding:25px;max-width:520px;width:90%;box-shadow:0 0 40px rgba(0,0,0,0.8);';
     msg.innerHTML = `
-        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">🤖 CYBERCORE AGENT</h3>
+        <h3 style="color:var(--cyan);font-size:14px;margin-bottom:12px;">ðŸ¤– CYBERCORE AGENT</h3>
         <div style="font-size:11px;color:#94a3b8;line-height:1.6;margin-bottom:12px;">
             O agente reporta CPU, RAM e disco do servidor a cada 30s.
             Baixe o script (requer login), envie ao servidor Linux e execute.
@@ -192,7 +231,7 @@ function installAgent(projectId) {
 # edite BASE_URL e PROJECT_ID no topo do agent.py
 python3 agent.py</pre>
         <div style="display:flex;gap:10px;margin-top:15px;">
-            <button id="agent-download-btn" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">⬇️ BAIXAR agent.py</button>
+            <button id="agent-download-btn" class="btn-premium" style="flex:1;padding:8px;border-radius:8px;font-size:10px;">â¬‡ï¸ BAIXAR agent.py</button>
             <button onclick="this.closest('div[style]').remove()" class="btn-minimal" style="padding:8px 16px;font-size:10px;color:var(--danger);">FECHAR</button>
         </div>
     `;
@@ -223,48 +262,42 @@ python3 agent.py</pre>
     };
 }
 
-function toggleProjectConnection(id, btn) {
-    if (!hubDb) return showToast("Firebase indisponível.", "error");
-
-    const project = connectedProjects.find(p => p.id === id);
-    if (!project) return showToast("Projeto não encontrado.", "error");
-
-    const isOnline = (project.health?.status === 'online');
-    const newStatus = isOnline ? 'offline' : 'online';
-
-    const button = (btn instanceof HTMLElement) ? btn : document.querySelector(`button[data-action="toggle"][data-id="${id}"]`);
-    if (button) button.disabled = true;
-
-    hubDb.ref(`neural/nodes/${id}/health`).update({ status: newStatus })
-        .then(() => {
-            showToast(isOnline ? "Projeto desconectado." : "Projeto ativado.", "info");
-        })
-        .catch(err => {
-            console.error("Erro ao atualizar status:", err);
-            showToast("Erro ao alterar estado de conexão.", "error");
-        })
-        .finally(() => {
-            if (button) button.disabled = false;
-        });
-}
-
 function removeProject(id) {
     if (!confirm("Remover este projeto do painel?")) return;
-    connectedProjects = connectedProjects.filter(p => p.id !== id);
-    renderWatchProjects();
-    const baseUrl = localStorage.getItem('BRASILHEXA_BACKEND_URL') || LOCAL_BACKEND;
-    const headers = { 'Content-Type': 'application/json' };
-    if (auth && auth.currentUser) {
-        auth.currentUser.getIdToken().then(t => headers['Authorization'] = `Bearer ${t}`).catch(() => {});
-    }
-    fetch(`${baseUrl}/api/project/remove`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ id })
-    })
-    .then(r => r.json())
-    .then(resp => {
-        showToast(resp.status === 'success' ? "Projeto removido." : "Erro ao remover.", resp.status === 'success' ? "info" : "error");
-    })
-    .catch(() => showToast("Erro de conexão.", "error"));
+
+    // TAREFA 3.1: remoção via endpoint backend (respeta regras write:false do RTDB)
+    const baseUrl = BRASILHEXA_BACKEND_URL;
+    const doFetch = async () => {
+        const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+        const resp = await fetch(`${baseUrl}/api/project/remove`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ id })
+        });
+        return await resp.json();
+    };
+
+doFetch()
+        .then(resp => {
+            if (resp.status === 'success') {
+                connectedProjects = connectedProjects.filter(p => p.id !== id);
+                renderWatchProjects();
+                showToast("Projeto removido.", "info");
+            } else if (resp.status === 'not_found') {
+                showToast("Projeto já removido.", "info");
+            } else {
+                showToast(resp.detail || "Erro ao remover projeto.", "error");
+            }
+        })
+        .catch(() => showToast("Erro de conexão ao remover.", "error"));
 }
+
+// ── Validação em tempo real do input de conexão ──
+(function initWatchValidation() {
+    const input = document.getElementById('watch-project-url');
+    if (input) {
+        input.addEventListener('input', validateWatchInput);
+        input.addEventListener('change', validateWatchInput);
+    }
+    if (typeof validateWatchInput === 'function') validateWatchInput();
+})();

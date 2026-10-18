@@ -3,3 +3,4 @@ uvicorn[standard]>=0.22.0
 firebase-admin>=6.0.0
 httpx>=0.24.0
 python-dotenv>=1.0.0
+sse-starlette==0.3.3

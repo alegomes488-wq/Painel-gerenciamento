@@ -13,6 +13,11 @@ sys.path.insert(0, BACKEND)
 os.environ.setdefault("WEBHOOK_SECRET", "test-webhook-secret")
 os.environ.setdefault("N8N_SHARED_SECRET", "test-n8n-secret")
 os.environ.setdefault("ASAAS_API_KEY", "test-asaas-key")
+# TAREFA 4.1: App Check é obrigatório por padrão; em testes/desenvolvimento
+# desativamos explicitamente para não exigir token real na suíte.
+os.environ.setdefault("APP_CHECK_REQUIRED", "false")
+# Suite nunca usa PIX real: forca modo simulacao (o .env local pode ter false).
+os.environ["SIMULATION_MODE"] = "true"
 
 
 class FakeTransactionResult:
@@ -102,9 +107,12 @@ def fake_db(monkeypatch):
     fdb = FakeDB()
     monkeypatch.setattr("app.routers.payments.db", fdb)
     monkeypatch.setattr("app.routers.projects.db", fdb)
+    monkeypatch.setattr("app.routers.admin.get_db", lambda: fdb)
     monkeypatch.setattr("app.routers.secops.get_db", lambda: fdb)
     monkeypatch.setattr("app.services.asaas_service.get_db", lambda: fdb)
     monkeypatch.setattr("app.services.secops_agent.get_db", lambda: fdb)
+    # TAREFA 2.1/2.2: dependencies.py usa get_db para allowlist e auditoria
+    monkeypatch.setattr("app.dependencies.get_db", lambda: fdb)
     return fdb
 
 

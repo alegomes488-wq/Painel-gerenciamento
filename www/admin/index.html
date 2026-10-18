@@ -6,11 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel CyberCore IA | Painel Admin</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@100;300;400;600;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=20261005-agentes">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -19,11 +15,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body class="premium-theme">
+    <a class="skip-link" href="#workspace-main">Pular para o conteúdo</a>
     <!-- Micro Partículas de Fundo -->
     <canvas id="micro-particles-canvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; opacity:0.6;"></canvas>
 
     <svg style="width:0; height:0; position:absolute;" aria-hidden="true">
         <defs>
+<symbol id="cc-icon-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></g></symbol>
+<symbol id="cc-icon-dollar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20m5-16H9a4 4 0 0 0 0 8h6a4 4 0 0 1 0 8H6"/></g></symbol>
+<symbol id="cc-icon-brain" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 0 0-6-1 4 4 0 0 0-3 6 4 4 0 0 0 0 6 4 4 0 0 0 6 4c1 2 3 1 3-1V5Zm0 0a3 3 0 0 1 6-1 4 4 0 0 1 3 6 4 4 0 0 1 0 6 4 4 0 0 1-6 4c-1 2-3 1-3-1M6 8l3 2m9-2-3 2M6 16l3-2m9 2-3-2"/></g></symbol>
+<symbol id="cc-icon-shield" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6l8-3Z"/><path d="m8 12 3 3 5-6"/></g></symbol>
+<symbol id="cc-icon-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3-1 3-3 1-2 3 2 2-1 4 3 2 3-1 2 4 3-1 1-3 3-1 2-3-2-2 1-4-3-2-3 1-2-4Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+<symbol id="cc-icon-logout" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H4v16h6m-1-8h12m-4-4 4 4-4 4"/></g></symbol>
+<symbol id="cc-icon-monitor" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></g></symbol>
+<symbol id="cc-icon-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m10 13 4-4m-6 6-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0m2 3 2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0)"/></g></symbol>
+<symbol id="cc-icon-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></g></symbol>
+<symbol id="cc-icon-bot" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4m-5 6h2m6 0h2m-8 4h6M1 11v5m22-5v5"/></g></symbol>
+<symbol id="cc-icon-cloud" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19a5 5 0 0 1-1-10 7 7 0 0 1 13-2 6 6 0 0 1 0 12H6Z"/></g></symbol>
+<symbol id="cc-icon-radar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="m12 12 7-7"/></g></symbol>
+<symbol id="cc-icon-scale" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18m-5 0h10M4 7h16M4 7l-3 7h6L4 7Zm16 0-3 7h6l-3-7Z"/></g></symbol>
+<symbol id="cc-icon-user" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></g></symbol>
+<symbol id="cc-icon-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5"/><path d="m12 12 9 9m-3-3 3-3m-6 0 3-3"/></g></symbol>
+<symbol id="cc-icon-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+<symbol id="cc-icon-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8a9 9 0 0 0-16 0m0-4v4h4m-4 8a9 9 0 0 0 16 0m0 4v-4h-4"/></g></symbol>
+<symbol id="cc-icon-warning" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v1"/></g></symbol>
+<symbol id="cc-icon-plus" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M4 12h16"/></g></symbol>
             <linearGradient id="grad-master" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" style="stop-color:#3b82f6" />
                 <stop offset="100%" style="stop-color:#8b5cf6" />
@@ -60,43 +76,46 @@
                             <path d="M50 30 L55 45 L70 45 L58 55 L63 70 L50 60 L37 70 L42 55 L30 45 L45 45 Z" fill="url(#grad-brand)" />
                         </svg>
                     </div>
-                    <span class="sidebar-brand-title">Painel Admin</span>
+                    <span class="sidebar-brand-title">CYBERCORE<span class="brand-caption">Console de operações</span></span>
+                        <span class="brand-core-icon" title="Núcleo ativo">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8.5" stroke="url(#grad-brand)" stroke-width="1.1" opacity="0.45" class="brand-core-ring"/>
+                                <path d="M12 12 L 12 5" stroke="var(--cyan-400)" stroke-width="0.9" stroke-linecap="round" class="brand-core-sweep"/>
+                                <circle cx="12" cy="12" r="2.6" fill="var(--cyan-400)" class="brand-core-dot"/>
+                                <circle cx="12" cy="12" r="4.4" stroke="var(--cyan-400)" stroke-width="0.6" opacity="0.35" class="brand-core-pulse-ring"/>
+                            </svg>
+                        </span>
                 </div>
             </div>
 
-            <nav class="premium-nav">
-                <div class="nav-section-title">🔍 Monitoramento</div>
+            <nav class="premium-nav" aria-label="Navegação principal">
+                <div class="nav-section-title">Monitoramento</div>
                 <div class="nav-group">
                     <button class="nav-link active" id="btn-nav-watch" onclick="showPanel('watch')" title="Monitoramento e Operações">
-                        <span><svg width="14" height="14"><use href="icons.svg#icon-search"/></svg></span> Monitoramento
+                        <span><svg width="14" height="14"><use href="#cc-icon-search"/></svg></span> Monitoramento
                     </button>
-                    <div class="sub-nav" style="display: flex;">
-                        <span class="sub-link" onclick="showPanel('watch', 'website')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-globe"/></svg> Site</span>
-                        <span class="sub-link" onclick="showPanel('watch', 'android')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-smartphone"/></svg> App</span>
-                        <span class="sub-link" onclick="showPanel('watch', 'api')"><svg width="12" height="12" style="margin-right:6px;vertical-align:middle;"><use href="icons.svg#icon-cloud"/></svg> API</span>
-                    </div>
                 </div>
 
-                <div class="nav-section-title">💰 Financeiro</div>
+                <div class="nav-section-title">Financeiro</div>
                 <button class="nav-link" id="btn-nav-saques" onclick="showPanel('saques')" title="Solicitações Pix">
-                    <span><svg width="14" height="14"><use href="icons.svg#icon-dollar"/></svg></span> Solicitações Pix
+                    <span><svg width="14" height="14"><use href="#cc-icon-dollar"/></svg></span> Solicitações Pix
                 </button>
 
-                <div class="nav-section-title">🧠 Inteligência</div>
+                <div class="nav-section-title">Inteligência</div>
                 <button class="nav-link" id="btn-nav-ia-info" onclick="showPanel('ia-info')" title="Informações IA">
-                    <span><svg width="14" height="14"><use href="icons.svg#icon-brain"/></svg></span> Informações IA
+                    <span><svg width="14" height="14"><use href="#cc-icon-brain"/></svg></span> Central de agentes
                 </button>
 
-                <div class="nav-section-title">🛡️ Segurança</div>
+                <div class="nav-section-title">Segurança</div>
                 <button class="nav-link" id="btn-nav-secops" onclick="showPanel('secops');renderSecOpsPanel()" title="SecOps Sentinel AI">
-                    <span><svg width="14" height="14"><use href="icons.svg#icon-shield"/></svg></span> SecOps Sentinel
+                    <span><svg width="14" height="14"><use href="#cc-icon-shield"/></svg></span> SecOps Sentinel
                     <span id="secops-nav-alert" style="display:none;margin-left:auto;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 6px #ef4444;"></span>
                 </button>
 
-                <div class="nav-section-title">⚙️ Sistema</div>
+                <div class="nav-section-title">Sistema</div>
                 <div class="nav-group">
                     <button class="nav-link" id="btn-nav-settings" onclick="showPanel('settings')" title="Configurações Globais">
-                        <span><svg width="14" height="14"><use href="icons.svg#icon-settings"/></svg></span> Configurações
+                        <span><svg width="14" height="14"><use href="#cc-icon-settings"/></svg></span> Configurações
                     </button>
                 </div>
 
@@ -108,33 +127,24 @@
 
             <div class="sidebar-bottom" style="padding:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size: 10px; opacity: 0.4; font-family: var(--font-mono);">v4.0.0 (PROFESSIONAL)</span>
-                <button class="btn-logout-minimal" onclick="logout()" title="Sair" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
-                    <span><svg width="14" height="14"><use href="icons.svg#icon-logout"/></svg></span>
+                <button class="btn-logout-minimal" onclick="logout()" title="Sair" aria-label="Sair da conta" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:14px; padding:4px;">
+                    <span><svg width="14" height="14"><use href="#cc-icon-logout"/></svg></span>
                 </button>
             </div>
         </aside>
 
-        <main class="premium-main">
+        <main id="workspace-main" class="premium-main" tabindex="-1">
             <header class="workspace-header">
                 <div class="header-left">
-                    <div style="margin-left: 15px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span class="data-dot gold" style="margin-right: 0;"></span>
-                            <h1 id="current-panel-name" style="font-size: 28px; font-weight: 900; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; color: var(--primary); text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);">[CYBERCORE IA] // IA EXECUTIVA</h1>
-                            <span id="system-health-badge" class="badge-ia" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); font-family: 'Fira Code', monospace;">SISTEMA ATIVO</span>
-                            <div class="data-flow cyan" style="width:40px;height:1.5px;margin:0;"></div>
+                    <div class="workspace-heading">
+                        <p class="workspace-eyebrow">WORKSPACE / VISÃO GERAL</p>
+                        <div class="workspace-title-row">
+                            <span class="data-dot gold"></span>
+                            <h1 id="current-panel-name">Monitoramento</h1>
+                            <span id="system-health-badge" class="badge-ia">SISTEMA ATIVO</span>
+                            <div class="data-flow cyan"></div>
                         </div>
-                        <p class="sub-header"><span class="status-ring" style="display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:middle;"></span>Monitoramento de infraestrutura em tempo real</p>
-                    </div>
-                </div>
-                <div class="header-center" style="display: flex; gap: 30px; margin-left: 40px;">
-                    <div class="exec-metric">
-                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">RECEITA TOTAL</small>
-                        <span id="header-rev" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #fff; font-size: 16px;">R$ 0,00</span>
-                    </div>
-                    <div class="exec-metric">
-                        <small style="display: block; font-size: 9px; color: var(--text-secondary); letter-spacing: 1px;">ROI LÍQUIDO</small>
-                        <span id="header-roi" style="font-family: 'JetBrains Mono'; font-weight: 800; color: #10b981; font-size: 16px;">+0.00%</span>
+                        <p class="sub-header"><span class="status-ring"></span>Monitoramento de infraestrutura em tempo real</p>
                     </div>
                 </div>
                 <div class="header-right">
@@ -149,21 +159,24 @@
             </header>
 
             <div class="workspace-content">
+                <div id="simulation-banner" style="display:none;background:rgba(245,158,11,0.12);border-bottom:1px solid rgba(245,158,11,0.3);color:#fbbf24;font-family:var(--font-mono);font-size:11px;font-weight:700;text-align:center;padding:8px 16px;letter-spacing:0.5px;">
+                    <svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-warning"/></svg> MODO SIMULAÇÃO — Nenhum PIX real será enviado
+                </div>
                 <div id="panel-watch" class="panel-view active">
                     <div class="panel-scanner"></div>
-                    <div style="position:relative;z-index:1;display:flex;flex-direction:column;gap:20px;padding:25px;">
+                    <div class="watch-workspace">
                         <div class="system-card premium-glass tech-border" style="padding:25px 30px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;">
                                 <div>
                                     <div style="display:flex;align-items:center;gap:12px;">
-                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">🖥️</div>
+                                        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,243,255,0.2),rgba(0,243,255,0.05));border:1px solid rgba(0,243,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-monitor"/></svg></div>
                                         <div>
-                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> [SYS_CORE] // SENTINEL ENGINE</h3>
+                                            <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;display:flex;align-items:center;gap:10px;"><span class="data-dot cyan"></span> Sentinel Engine</h3>
                                             <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-                                                <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
-                                                <span style="font-size:11px;color:var(--text-secondary);font-weight:600;">SENTINEL ATIVO</span>
+                                                <span id="sentinel-dot" style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;"></span>
+                                                <span id="sentinel-label" style="font-size:11px;color:var(--text-secondary);font-weight:600;">SENTINEL ATIVO</span>
                                                 <span style="width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,0.1);"></span>
-                                                <span style="font-size:10px;color:var(--text-muted);">Monitoramento neural em tempo real</span>
+                                                <span id="sentinel-sub" style="font-size:10px;color:var(--text-muted);">Monitoramento neural em tempo real</span>
                                             </div>
                                         </div>
                                     </div>
@@ -173,30 +186,30 @@
 
                         <div class="system-card premium-glass tech-border" style="padding:25px;">
                             <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-                                <span style="font-size:20px;">🔗</span>
+                                <span style="font-size:20px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-link"/></svg></span>
                                 <div>
-                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">CONECTAR JOGADA AO VAR</h4>
-                                    <small style="font-size:10px;color:var(--text-secondary);">Adicione sites, apps ou APIs para análise de lances</small>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">Conectar projeto</h4>
+                                    <small style="font-size:10px;color:var(--text-secondary);">Centralize o acompanhamento dos seus sites, aplicativos e APIs.</small>
                                 </div>
                             </div>
-                            <div style="display:grid;grid-template-columns:280px 1fr 160px;gap:15px;align-items:end;">
+                            <div class="connect-project-grid">
                                 <div>
-                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">TIPO</label>
-                                    <div style="display:flex;gap:6px;">
-                                        <span class="watch-type-btn active" data-type="website" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;background:rgba(0,243,255,0.1);color:var(--cyan);">🌐 Site</span>
-                                        <span class="watch-type-btn" data-type="android" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">🤖 App</span>
-                                        <span class="watch-type-btn" data-type="api" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);">☁️ API</span>
+                                    <span class="field-label" id="project-type-label">Tipo de projeto</span>
+                                    <div class="project-type-options" role="group" aria-labelledby="project-type-label">
+                                        <button type="button" class="watch-type-btn active" data-type="website" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;background:rgba(0,243,255,0.1);color:var(--cyan);"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-globe"/></svg> Site</button>
+                                        <button type="button" class="watch-type-btn" data-type="android" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-bot"/></svg> App</button>
+                                        <button type="button" class="watch-type-btn" data-type="api" onclick="watchSelectType(this)" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);font-size:11px;cursor:pointer;color:var(--text-secondary);"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-cloud"/></svg> API</button>
                                     </div>
                                 </div>
                                 <div>
-                                    <label style="font-size:9px;letter-spacing:1px;color:var(--text-secondary);display:block;margin-bottom:6px;">URL DO SITE / IDENTIFICADOR</label>
+                                    <label class="field-label" for="watch-project-url">URL ou identificador</label>
                                     <div style="position:relative;">
-                                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4;font-size:12px;">🔗</span>
-                                        <input type="text" id="watch-project-url" placeholder="https://meusite.com.br" style="width:100%;padding:10px 12px 10px 36px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;">
+                                        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:0.4;font-size:12px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-link"/></svg></span>
+                                        <input type="text" id="watch-project-url" autocomplete="off" spellcheck="false" placeholder="https://meusite.com.br" style="width:100%;padding:10px 12px 10px 36px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.06);color:#fff;font-size:12px;outline:none;">
                                     </div>
                                 </div>
                                 <div>
-                                    <button class="btn-premium" onclick="watchConnectProject()" style="width:100%;padding:10px;border-radius:8px;font-size:11px;font-weight:800;">CONECTAR</button>
+                                    <button id="watch-connect-btn" class="btn-premium" onclick="watchConnectProject()" style="width:100%;padding:10px;border-radius:8px;font-size:11px;font-weight:800;" disabled>Conectar projeto</button>
                                 </div>
                             </div>
                         </div>
@@ -204,15 +217,15 @@
                         <div class="system-card premium-glass tech-border" style="padding:25px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;">
                                 <div style="display:flex;align-items:center;gap:8px;">
-                                    <span style="font-size:14px;">📡</span>
-                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">PROJETOS MONITORADOS</h4>
+                                    <span style="font-size:14px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-radar"/></svg></span>
+                                    <h4 style="font-size:13px;font-weight:800;color:#fff;margin:0;">Projetos monitorados</h4>
                                 </div>
                                 <div style="display:flex;gap:6px;">
-                                    <button class="watch-filter-btn active" onclick="watchFilter('all')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">TODOS</button>
+                                    <button class="watch-filter-btn active" onclick="watchFilter('all')" style="padding:4px 10px;border-radius:4px;border:1px solid rgba(255,255,255,0.06);font-size:9px;cursor:pointer;color:var(--text-secondary);">Todos</button>
                                 </div>
                             </div>
                             <div id="watch-projects-list" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;min-height:100px;">
-                                <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-secondary);font-size:12px;">Nenhum projeto monitorado.</div>
+                                <div class="projects-empty"><span class="empty-orbit" aria-hidden="true"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-plus"/></svg></span><strong>Seu próximo projeto começa aqui</strong><p>Insira uma URL acima para começar o monitoramento.</p></div>
                             </div>
                         </div>
                     </div>
@@ -263,48 +276,89 @@
                 </div>
 
                 <div id="panel-ia-info" class="panel-view">
-                    <div class="panel-scanner"></div>
-                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; padding:25px;">
-                        <div class="system-card premium-glass tech-border" style="padding:20px;">
-                            <h4 style="color:var(--primary); margin-bottom:15px; display:flex; align-items:center; gap:8px;">💰 Financeiro</h4>
-                            <div id="ai-financeiro-status" style="font-size:12px; color:var(--text-secondary);">
-                                Monitorando fluxos de caixa e balanços...
-                            </div>
-                        </div>
-                        <div class="system-card premium-glass tech-border" style="padding:20px;">
-                            <h4 style="color:var(--danger); margin-bottom:15px; display:flex; align-items:center; gap:8px;">🛡️ Sentinel</h4>
-                            <div id="ai-sentinel-status" style="font-size:12px; color:var(--text-secondary);">
-                                Proteção de rede e detecção de anomalias ativa...
-                            </div>
-                        </div>
-                        <div class="system-card premium-glass tech-border" style="padding:20px;">
-                            <h4 style="color:var(--warning); margin-bottom:15px; display:flex; align-items:center; gap:8px;">🔍 Auditor</h4>
-                            <div id="ai-auditor-status" style="font-size:12px; color:var(--text-secondary);">
-                                Verificando integridade das transações...
-                            </div>
-                        </div>
-                        <div class="system-card premium-glass tech-border" style="padding:20px;">
-                            <h4 style="color:var(--cyan); margin-bottom:15px; display:flex; align-items:center; gap:8px;">⚖️ Fiscal</h4>
-                            <div id="ai-fiscal-status" style="font-size:12px; color:var(--text-secondary);">
-                                Analisando conformidade tributária e regras...
-                            </div>
-                        </div>
-                    </div>
-                </div>
+ <div class="agent-console">
+   <header class="agent-console-intro"><div><p class="agent-eyebrow">INTELIGÊNCIA OPERACIONAL</p><h2>Central de agentes</h2><p>Acompanhe o que cada agente observa, analisa e entrega.</p></div><span class="agent-view-label"><span></span>Visão simultânea</span></header>
+   <div class="agent-overview" aria-label="Resumo da telemetria dos agentes">
+     <div><span>Agentes no painel</span><strong>04</strong><small>Áreas de atuação distintas</small></div>
+     <div><span>Com sinal recente</span><strong id="agent-count-reporting">00</strong><small>Recebido há até 90 segundos</small></div>
+     <div><span>Análises em andamento</span><strong id="agent-count-analyzing">00</strong><small>Execuções informadas pelos agentes</small></div>
+     <div><span>Sem sinal recente</span><strong id="agent-count-pending">04</strong><small>Sem dados ou sinal desatualizado</small></div>
+   </div>
+   <div class="agent-telemetry-notice" role="status" id="agent-telemetry-notice">Aguardando telemetria dos agentes. Esta tela não inicia execuções; os estados serão atualizados quando os módulos enviarem dados.</div>
+   <div class="agent-console-grid">
+ <article class="agent-console-card tone-blue" data-agent="financeiro" aria-labelledby="agent-financeiro-title">
+   <header class="agent-card-heading">
+     <div class="agent-identity"><span class="agent-emblem"><svg class="ui-icon" width="24" height="24" aria-hidden="true"><use href="#cc-icon-dollar"/></svg></span><div><h3 id="agent-financeiro-title">Financeiro</h3><p>Fluxo de caixa e pagamentos</p></div></div>
+     <span class="agent-state" data-field="state" data-state="pending">Sem telemetria</span>
+   </header>
+   <div class="agent-current"><span class="agent-field-label">Atividade informada pelo módulo</span><div id="ai-financeiro-status" class="agent-module-message">Aguardando informação do agente.</div><small>Mensagem do módulo; confira o horário e as evidências abaixo.</small></div>
+   <div class="agent-workstreams">
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">01</span><h4>Monitoramento</h4><span class="stream-state" data-field="monitor-state">Aguardando</span></div><p class="agent-purpose">Entradas, saídas e solicitações de pagamento.</p><div class="agent-live-task" data-field="monitor-task">Nenhuma coleta informada.</div></section>
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">02</span><h4>Análise</h4><span class="stream-state" data-field="analysis-state">Aguardando</span></div><p class="agent-purpose">Comparar movimentações e sinalizar divergências.</p><div class="agent-live-task" data-field="analysis-task">Nenhuma análise informada.</div></section>
+   </div>
+   <section class="agent-result"><span class="agent-field-label">Último resultado recebido</span><p data-field="result">Ainda não há resultado para exibir.</p></section>
+   <footer class="agent-card-footer"><span>Último sinal <time data-field="updated">—</time></span><span class="agent-freshness" data-field="freshness">Sem horário confirmado</span></footer>
+   <details class="agent-details"><summary>Ver escopo, evidências e histórico <span aria-hidden="true">+</span></summary><div class="agent-details-body"><h4>Fonte esperada</h4><p>Movimentações e pagamentos autorizados pelo backend.</p><h4>Evidência recebida</h4><p data-field="evidence">Nenhuma evidência recebida.</p><h4>Histórico de sinais</h4><ol class="agent-event-list" data-field="history"><li>Nenhum sinal recebido nesta sessão.</li></ol></div></details>
+ </article>
+ <article class="agent-console-card tone-rose" data-agent="sentinel" aria-labelledby="agent-sentinel-title">
+   <header class="agent-card-heading">
+     <div class="agent-identity"><span class="agent-emblem"><svg class="ui-icon" width="24" height="24" aria-hidden="true"><use href="#cc-icon-shield"/></svg></span><div><h3 id="agent-sentinel-title">Sentinel</h3><p>Segurança e disponibilidade</p></div></div>
+     <span class="agent-state" data-field="state" data-state="pending">Sem telemetria</span>
+   </header>
+   <div class="agent-current"><span class="agent-field-label">Atividade informada pelo módulo</span><div id="ai-sentinel-status" class="agent-module-message">Aguardando informação do agente.</div><small>Mensagem do módulo; confira o horário e as evidências abaixo.</small></div>
+   <div class="agent-workstreams">
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">01</span><h4>Monitoramento</h4><span class="stream-state" data-field="monitor-state">Aguardando</span></div><p class="agent-purpose">Disponibilidade dos serviços e eventos de segurança.</p><div class="agent-live-task" data-field="monitor-task">Nenhuma coleta informada.</div></section>
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">02</span><h4>Análise</h4><span class="stream-state" data-field="analysis-state">Aguardando</span></div><p class="agent-purpose">Identificar anomalias e explicar o risco observado.</p><div class="agent-live-task" data-field="analysis-task">Nenhuma análise informada.</div></section>
+   </div>
+   <section class="agent-result"><span class="agent-field-label">Último resultado recebido</span><p data-field="result">Ainda não há resultado para exibir.</p></section>
+   <footer class="agent-card-footer"><span>Último sinal <time data-field="updated">—</time></span><span class="agent-freshness" data-field="freshness">Sem horário confirmado</span></footer>
+   <details class="agent-details"><summary>Ver escopo, evidências e histórico <span aria-hidden="true">+</span></summary><div class="agent-details-body"><h4>Fonte esperada</h4><p>Eventos de segurança, disponibilidade e logs permitidos.</p><h4>Evidência recebida</h4><p data-field="evidence">Nenhuma evidência recebida.</p><h4>Histórico de sinais</h4><ol class="agent-event-list" data-field="history"><li>Nenhum sinal recebido nesta sessão.</li></ol></div></details>
+ </article>
+ <article class="agent-console-card tone-amber" data-agent="auditor" aria-labelledby="agent-auditor-title">
+   <header class="agent-card-heading">
+     <div class="agent-identity"><span class="agent-emblem"><svg class="ui-icon" width="24" height="24" aria-hidden="true"><use href="#cc-icon-search"/></svg></span><div><h3 id="agent-auditor-title">Auditor</h3><p>Integridade das operações</p></div></div>
+     <span class="agent-state" data-field="state" data-state="pending">Sem telemetria</span>
+   </header>
+   <div class="agent-current"><span class="agent-field-label">Atividade informada pelo módulo</span><div id="ai-auditor-status" class="agent-module-message">Aguardando informação do agente.</div><small>Mensagem do módulo; confira o horário e as evidências abaixo.</small></div>
+   <div class="agent-workstreams">
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">01</span><h4>Monitoramento</h4><span class="stream-state" data-field="monitor-state">Aguardando</span></div><p class="agent-purpose">Registros de operações e trilhas de auditoria.</p><div class="agent-live-task" data-field="monitor-task">Nenhuma coleta informada.</div></section>
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">02</span><h4>Análise</h4><span class="stream-state" data-field="analysis-state">Aguardando</span></div><p class="agent-purpose">Conferir consistência, duplicidades e regras das operações.</p><div class="agent-live-task" data-field="analysis-task">Nenhuma análise informada.</div></section>
+   </div>
+   <section class="agent-result"><span class="agent-field-label">Último resultado recebido</span><p data-field="result">Ainda não há resultado para exibir.</p></section>
+   <footer class="agent-card-footer"><span>Último sinal <time data-field="updated">—</time></span><span class="agent-freshness" data-field="freshness">Sem horário confirmado</span></footer>
+   <details class="agent-details"><summary>Ver escopo, evidências e histórico <span aria-hidden="true">+</span></summary><div class="agent-details-body"><h4>Fonte esperada</h4><p>Registros auditáveis e regras configuradas no projeto.</p><h4>Evidência recebida</h4><p data-field="evidence">Nenhuma evidência recebida.</p><h4>Histórico de sinais</h4><ol class="agent-event-list" data-field="history"><li>Nenhum sinal recebido nesta sessão.</li></ol></div></details>
+ </article>
+ <article class="agent-console-card tone-teal" data-agent="fiscal" aria-labelledby="agent-fiscal-title">
+   <header class="agent-card-heading">
+     <div class="agent-identity"><span class="agent-emblem"><svg class="ui-icon" width="24" height="24" aria-hidden="true"><use href="#cc-icon-scale"/></svg></span><div><h3 id="agent-fiscal-title">Fiscal</h3><p>Regras e conformidade</p></div></div>
+     <span class="agent-state" data-field="state" data-state="pending">Sem telemetria</span>
+   </header>
+   <div class="agent-current"><span class="agent-field-label">Atividade informada pelo módulo</span><div id="ai-fiscal-status" class="agent-module-message">Aguardando informação do agente.</div><small>Mensagem do módulo; confira o horário e as evidências abaixo.</small></div>
+   <div class="agent-workstreams">
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">01</span><h4>Monitoramento</h4><span class="stream-state" data-field="monitor-state">Aguardando</span></div><p class="agent-purpose">Documentos e regras disponibilizados para conferência.</p><div class="agent-live-task" data-field="monitor-task">Nenhuma coleta informada.</div></section>
+     <section class="agent-stream"><div class="agent-stream-title"><span class="stream-symbol" aria-hidden="true">02</span><h4>Análise</h4><span class="stream-state" data-field="analysis-state">Aguardando</span></div><p class="agent-purpose">Apontar pendências com a regra e a evidência correspondentes.</p><div class="agent-live-task" data-field="analysis-task">Nenhuma análise informada.</div></section>
+   </div>
+   <section class="agent-result"><span class="agent-field-label">Último resultado recebido</span><p data-field="result">Ainda não há resultado para exibir.</p></section>
+   <footer class="agent-card-footer"><span>Último sinal <time data-field="updated">—</time></span><span class="agent-freshness" data-field="freshness">Sem horário confirmado</span></footer>
+   <details class="agent-details"><summary>Ver escopo, evidências e histórico <span aria-hidden="true">+</span></summary><div class="agent-details-body"><h4>Fonte esperada</h4><p>Documentos e regras fornecidos; não representa parecer tributário.</p><h4>Evidência recebida</h4><p data-field="evidence">Nenhuma evidência recebida.</p><h4>Histórico de sinais</h4><ol class="agent-event-list" data-field="history"><li>Nenhum sinal recebido nesta sessão.</li></ol></div></details>
+ </article></div>
+   <p class="agent-console-footnote">Os horários correspondem aos sinais enviados pelos agentes. Ausência de dados não significa ausência de problemas.</p>
+ </div>
+</div>
 
                 <!-- ═══════════════════════════════════════════════════ -->
                 <!-- PAINEL SECOPS SENTINEL AI                           -->
                 <!-- ═══════════════════════════════════════════════════ -->
                 <div id="panel-secops" class="panel-view">
                     <div class="panel-scanner"></div>
-                    <div style="position:relative;z-index:1;padding:25px;display:flex;flex-direction:column;gap:20px;">
+                    <div class="secops-workspace">
 
                         <!-- Header do Agente -->
                         <div class="system-card premium-glass tech-border" style="padding:20px 25px;">
                             <div style="display:flex;align-items:center;justify-content:space-between;">
                                 <div style="display:flex;align-items:center;gap:16px;">
                                     <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,rgba(239,68,68,0.25),rgba(239,68,68,0.05));border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;">
-                                        🛡️
+                                        <svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-shield"/></svg>
                                     </div>
                                     <div>
                                         <h3 style="font-size:18px;font-weight:900;letter-spacing:-0.5px;margin:0;color:#fff;">SecOps Sentinel AI</h3>
@@ -318,7 +372,7 @@
                                 </div>
                                 <div style="display:flex;align-items:center;gap:10px;">
                                     <span id="secops-last-refresh" style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono);"></span>
-                                    <button class="btn-premium" onclick="renderSecOpsPanel()" style="padding:8px 16px;font-size:11px;">🔄 Atualizar</button>
+                                    <button class="btn-premium" onclick="renderSecOpsPanel()" style="padding:8px 16px;font-size:11px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-refresh"/></svg> Atualizar</button>
                                 </div>
                             </div>
                         </div>
@@ -337,19 +391,20 @@
                 <div id="panel-settings" class="panel-view">
                     <div class="panel-scanner"></div>
                     <div class="system-card premium-glass tech-border" style="padding:30px;">
-                        <h3 style="margin-bottom:20px;">⚙️ Configurações Globais</h3>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                        <h3 style="margin-bottom:20px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-settings"/></svg> Configurações Globais</h3>
+                        <div class="settings-fields">
                             <div class="p-input-group">
-                                <label>Valor CPM (USD)</label>
+                                <label for="audit-cpm">Valor CPM (USD)</label>
                                 <input type="number" id="audit-cpm" step="0.01" placeholder="0.18">
                             </div>
                             <div class="p-input-group">
-                                <label>WhatsApp Admin</label>
+                                <label for="audit-whatsapp">WhatsApp Admin</label>
                                 <input type="text" id="audit-whatsapp" placeholder="55...">
                             </div>
                         </div>
                         <button class="btn-premium" onclick="saveAuditParameters()" style="margin-top:20px; width:100%;">SALVAR CONFIGURAÇÕES</button>
                     </div>
+
                 </div>
             </div>
         </main>
@@ -365,13 +420,16 @@
 
                 <div class="login-body">
                     <div class="p-input-group login-input-group">
-                        <label><span class="input-icon">👤</span> E-MAIL DE ACESSO</label>
-                        <input type="email" id="login-email" placeholder="seu@email.com">
+                        <label for="login-email"><span class="input-icon"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-user"/></svg></span> E-MAIL DE ACESSO</label>
+                        <input type="email" id="login-email" autocomplete="username" placeholder="seu@email.com">
                     </div>
 
                     <div class="p-input-group login-input-group">
-                        <label><span class="input-icon">🔑</span> CHAVE DE ACESSO</label>
-                        <input type="password" id="login-pass" placeholder="••••••••">
+                        <label for="login-pass"><span class="input-icon"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-key"/></svg></span> CHAVE DE ACESSO</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="login-pass" autocomplete="current-password" placeholder="••••••••">
+                            <button type="button" aria-label="Mostrar ou ocultar senha" class="toggle-pass" id="toggle-pass" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar senha" style="font-size:14px;"><svg class="ui-icon" width="18" height="18" aria-hidden="true"><use href="#cc-icon-eye"/></svg></button>
+                        </div>
                     </div>
 
                     <button id="btn-login" class="login-btn" onclick="login()">
@@ -392,19 +450,28 @@
 
     <div id="toast-container"></div>
 
-    <!-- CARREGAMENTO MODULAR (FOR├çA LIMPEZA DE CACHE v4.0.2) -->
-    <script src="js/config.js?v=4.1.3"></script>
-    <script src="js/utils.js?v=4.1.3"></script>
-    <script src="js/ui.js?v=4.1.3"></script>
-    <script src="js/auth.js?v=4.1.3"></script>
-    <script src="js/modules/users.js?v=4.1.3"></script>
-    <script src="js/modules/secops.js?v=4.1.3"></script>
-    <script src="js/modules/withdrawals.js?v=4.1.3"></script>
-    <script src="js/modules/telemetria.js?v=4.1.3"></script>
-    <script src="js/modules/status.js?v=4.1.3"></script>
-    <script src="js/modules/watch.js?v=4.1.3"></script>
-    <script src="js/modules/settings.js?v=4.1.3"></script>
-    <script src="js/modules/particles.js?v=4.1.3"></script>
-    <script src="js/main.js?v=4.1.3"></script>
+    <!-- TAREFA 4.7: banner de countdown de sessão inativa (idle timeout) -->
+    <div id="idle-countdown" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10001;background:rgba(239,68,68,0.9);color:#fff;text-align:center;padding:10px;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.5px;"></div>
+
+    <!-- CARREGAMENTO MODULAR (v4.2.0).
+         Ordem importa: config.js (hubDb/auth) -> utils.js (showToast) ->
+         maintenance.js (depende dos dois e precede auth.js, para que
+         stopMaintenanceListener() ja exista quando logout() for chamado). -->
+    <script src="js/config.js?v=4.2.0"></script>
+    <script src="js/utils.js?v=4.2.0"></script>
+    <script src="js/modules/maintenance.js?v=4.2.1"></script>
+    <script src="js/ui.js?v=4.2.0"></script>
+    <script src="js/auth.js?v=4.2.0"></script>
+    <script src="js/modules/users.js?v=4.2.0"></script>
+    <script src="js/modules/secops.js?v=4.2.0"></script>
+    <script src="js/modules/withdrawals.js?v=4.2.0"></script>
+    <script src="js/modules/telemetria.js?v=4.2.0"></script>
+    <script src="js/modules/status.js?v=4.2.0"></script>
+    <script src="js/modules/watch.js?v=4.2.1"></script>
+    <script src="js/modules/settings.js?v=4.2.0"></script>
+    <script src="js/modules/particles.js?v=4.2.0"></script>
+    <script src="js/main.js?v=4.2.0"></script>
+    <script src="js/modules/agent-console.js?v=20261005"></script>
+    <script src="js/modules/telemetry-client.js?v=1.0.0"></script>
 </body>
 </html>

@@ -68,3 +68,35 @@ def test_auto_approve_with_empty_secret_blocks(app_env, fake_db, fake_auth, clie
     r3 = client.post("/payments/auto-approve/W3", json={},
                      headers={"Authorization": "Bearer "})
     assert r3.status_code == 401
+
+
+# ─────────────────────────────────────────────
+# TAREFA 2.4: N8N via header X-N8N-Secret (timing-safe), sem Firebase token
+# ─────────────────────────────────────────────
+def test_auto_approve_n8n_header_success(app_env, fake_db, fake_auth, client):
+    """N8N envia X-N8N-Secret correto => 200, sem precisar de Bearer/ID token."""
+    _seed(fake_db, "W5")
+    r = client.post(
+        "/payments/auto-approve/W5",
+        headers={"X-N8N-Secret": "test-n8n-secret"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "approved"
+    assert fake_db.reference("admin/pending_withdrawals/W5").get()["status"] == "paid"
+
+
+def test_auto_approve_n8n_header_wrong_401(app_env, fake_db, fake_auth, client):
+    """N8N com segredo errado => 401 (sem token de admin válido)."""
+    _seed(fake_db, "W6")
+    r = client.post(
+        "/payments/auto-approve/W6",
+        headers={"X-N8N-Secret": "segredo-errado"},
+    )
+    assert r.status_code == 401
+
+
+def test_auto_approve_no_secret_no_token_401(app_env, fake_db, fake_auth, client):
+    """Sem X-N8N-Secret e sem Authorization => 401."""
+    _seed(fake_db, "W7")
+    r = client.post("/payments/auto-approve/W7", json={})
+    assert r.status_code == 401

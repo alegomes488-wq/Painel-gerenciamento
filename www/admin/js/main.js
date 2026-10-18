@@ -5,9 +5,6 @@
  * ============================================================
  */
 
-// Variáveis globais do módulo Watch (declaradas explicitamente)
-let connectedProjects = [];
-
 /**
  * Verifica se o usuário atual tem claim admin antes de inicializar.
  */
@@ -48,9 +45,17 @@ async function initRealTimeSystem() {
     }
     // --- Fim Patch 3 ---
 
-    if (!hubDb) {
+if (!hubDb) {
         console.warn('[SYSTEM] Firebase Database não disponível.');
         return;
+    }
+
+    // ── Health check do backend (tempo real) ──
+    // TAREFA: checkPythonCoreStatus estava definida mas nunca era chamada — o badge
+    // "Sistema" e o card SENTINEL ficavam estáticos. Agora é chamado no boot e a cada 15s.
+    if (typeof checkPythonCoreStatus === 'function') {
+        checkPythonCoreStatus();
+        setInterval(checkPythonCoreStatus, 15000);
     }
 
     // ── Usuários ──
@@ -89,13 +94,24 @@ async function initRealTimeSystem() {
         console.error('[SYSTEM] Erro no listener config:', err.message);
     });
 
-    // ── Nós (Projetos) — sincroniza o monitoramento Watch ──
+    // ── TAREFA 5.1: Manutenção global (fonte de verdade = RTDB config/maintenance)
+    // Registrado aqui, dentro de initRealTimeSystem, que só roda após login admin
+    // confirmado — o listener nunca fica ativo para visitante deslogado.
+    // initMaintenanceListener() é idempotente: protege contra registro duplo.
+    if (typeof initMaintenanceListener === 'function') {
+        initMaintenanceListener();
+    }
+
+// ── Nós (Projetos) — sincroniza o monitoramento Watch ──
     hubDb.ref('neural/nodes').on('value', snap => {
         if (!rtState.neural) rtState.neural = {};
         const nodes = snap.val() || {};
         rtState.neural.nodes = nodes;
         connectedProjects = Object.keys(nodes).map(k => ({ id: k, ...nodes[k] }));
         if (typeof renderWatchProjects === 'function') renderWatchProjects();
+        // Atualiza o card SENTINEL com a contagem real de projetos online
+        const online = connectedProjects.filter(p => (p.health ? (p.health.override ? p.health.override.status : p.health.status) : 'offline') === 'online').length;
+        if (typeof updateSentinel === 'function') updateSentinel(null, online, connectedProjects.length);
     }, err => {
         console.error('[SYSTEM] Erro no listener neural/nodes:', err.message);
     });

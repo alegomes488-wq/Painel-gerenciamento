@@ -4,11 +4,21 @@ __pycache__/
 backend/groq_key.txt
 
 # Segredos e credenciais
+segredos/
+secrets/
 backend/.env
 .env
 firebase-secrets/
 backend/firebase-adminsdk.json.bak
 backend/firebase-adminsdk.json
+# TAREFA 6.1: as regras acima sao ancoradas na raiz do repo, entao NAO cobriam
+# as copias aninhadas. `www/admin/backend/` (copia byte-identica de `backend/`)
+# continha uma chave Admin SDK com private_key real e estava PRONTA para
+# `git add .`. O padrao sem barra casa em qualquer nivel.
+**/firebase-adminsdk.json
+**/firebase-adminsdk.json.bak
+# Copia do backend dentro da raiz estatica do painel (contem .env e a chave).
+www/admin/backend/
 *.keystore
 *.jks
 
@@ -18,8 +28,14 @@ logs/
 memory/faq.json
 *.tmp
 *.bak
+# Backups de auditoria (nao cobertos por *.bak — sufixo .bak-audit-AAAAmmdd)
+*.bak-audit-*
 
 # Builds / dependências locais
 node_modules/
 venv/
 .venv/
+
+# Estado local do editor/agente
+.opencode/
+Segredos/
