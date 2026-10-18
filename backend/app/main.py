@@ -28,10 +28,23 @@ async def _stop_telemetry_worker():
     from app.services.telemetry_worker import stop_telemetry_worker
     await stop_telemetry_worker()
 
-_cors_origins = settings.ALLOWED_ORIGINS or ["*"]
+print(
+    f"[CONFIG] APP_ENV={settings.APP_ENV!r} PAYMENTS_MODE={settings.PAYMENTS_MODE!r} "
+    f"real_payments_enabled={settings.real_payments_enabled} "
+    f"asaas_key_present={bool(settings.ASAAS_API_KEY)} "
+    f"webhook_secret_present={bool(settings.WEBHOOK_SECRET)}"
+)
+
+# CORS: origens de CORS_ALLOWED_ORIGINS têm prioridade; senão ALLOWED_ORIGINS;
+# senão ["*"]. O regex de localhost só é liberado fora de produção.
+_cors_origins = list(settings.CORS_ALLOWED_ORIGINS) or (settings.ALLOWED_ORIGINS or ["*"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
+    allow_origin_regex=(
+        r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+        if settings.APP_ENV != "production" else None
+    ),
     allow_credentials=(_cors_origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,6 +69,11 @@ async def rate_limit_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def admin_auth_middleware(request: Request, call_next):
+    # CORS preflights never carry Firebase credentials. Let CORSMiddleware
+    # validate and answer them before applying route authentication.
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     path = request.url.path
 
     # ✅ CORREÇÃO 1: Ignorar Preflight CORS (OPTIONS)
@@ -93,10 +111,10 @@ async def admin_auth_middleware(request: Request, call_next):
             request.state.user_admin = True
         else:
             return JSONResponse(status_code=403, content={"detail": "Acesso administrativo exigido"})
-
     except Exception as e:
-        print(f"[AUTH ERROR] {str(e)}")  # Log para debug no terminal
-        return JSONResponse(status_code=401, content={"detail": f"Token inválido: {str(e)}"})
+        # Log no servidor sem vazar detalhe/token ao cliente.
+        print(f"[AUTH ERROR] {type(e).__name__}")
+        return JSONResponse(status_code=401, content={"detail": "Token inválido"})
 
     return await call_next(request)
 

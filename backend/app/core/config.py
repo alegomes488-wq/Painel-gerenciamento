@@ -4,13 +4,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ─────────────────────────────────────────────────────────────
+# Consolidação 2026-10-18: fonte única de verdade para "pagamento real".
+#   real quando APP_ENV=production E PAYMENTS_MODE=production.
+# SIMULATION_MODE continua existindo (compatibilidade com o painel), mas quando
+# NÃO é definido explicitamente ele é derivado de real_payments_enabled — antes
+# ele assumia "true" e, com PAYMENTS_MODE=production no Space, o painel pagava
+# de mentira sem aviso.
+# ─────────────────────────────────────────────────────────────
+
+_APP_ENV = os.environ.get("APP_ENV", "development").strip().lower()
+_PAYMENTS_MODE = os.environ.get("PAYMENTS_MODE", "simulation").strip().lower()
+_REAL_PAYMENTS = _APP_ENV == "production" and _PAYMENTS_MODE == "production"
+_SIM_EXPLICIT = os.environ.get("SIMULATION_MODE")
+SIMULATION_MODE = (not _REAL_PAYMENTS) if _SIM_EXPLICIT is None else (_SIM_EXPLICIT.lower() in ("1", "true", "yes"))
+
+# ─────────────────────────────────────────────────────────────
 # TAREFA 4.2: Validação de schema de env vars no startup.
 # Levanta RuntimeError com mensagem clara se essencial faltar.
 # ─────────────────────────────────────────────────────────────
 
 def _validate_env():
     missing = []
-    simulation = os.environ.get("SIMULATION_MODE", "true").lower() in ("1", "true", "yes")
+    simulation = SIMULATION_MODE
     appcheck_on = os.environ.get("APP_CHECK_REQUIRED", "true").lower() in ("1", "true", "yes")
 
     # Service Account do Firebase é obrigatória quando o App Check está ativo,
@@ -57,10 +72,23 @@ class Settings:
     # TAREFA 3.3: Modo de simulação explícito. Quando SIMULATION_MODE=true, o backend
     # NUNCA chama a API real do Asaas — gera transfer_id simulado prefixado com SIM_.
     # Em produção, defina SIMULATION_MODE=false + ASAAS_API_KEY real.
-    SIMULATION_MODE: bool = os.environ.get("SIMULATION_MODE", "true").lower() in ("1", "true", "yes")
+    SIMULATION_MODE: bool = SIMULATION_MODE
     WEBHOOK_SECRET: str = os.environ.get("WEBHOOK_SECRET")
     N8N_SHARED_SECRET: str = os.environ.get("N8N_SHARED_SECRET")
+    MONITOR_SHARED_SECRET: str = os.environ.get("MONITOR_SHARED_SECRET")
+    APP_ENV: str = _APP_ENV
+    PAYMENTS_MODE: str = _PAYMENTS_MODE
+    CORS_ALLOWED_ORIGINS: tuple = tuple(
+        origin.strip()
+        for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    )
     ADMIN_PORT: int = int(os.environ.get("BACKEND_PORT", os.environ.get("ADMIN_PORT", 7861)))
     ALLOWED_ORIGINS: list = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
+    @property
+    def real_payments_enabled(self) -> bool:
+        """Real transfers require two explicit production settings."""
+        return self.APP_ENV == "production" and self.PAYMENTS_MODE == "production"
 
 settings = Settings()

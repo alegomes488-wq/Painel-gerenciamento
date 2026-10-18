@@ -16,6 +16,20 @@ from typing import Optional
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
+
+class _AbortTransaction(Exception):
+    """Aborta uma transaction do RTDB SEM apagar o nó.
+
+    No SDK Python do firebase-admin, ``Reference.transaction(fn)`` grava o valor
+    retornado por ``fn`` — ou seja, retornar ``None`` APAGA o dado (não aborta) e
+    ainda devolve ``None`` (não existe ``.committed``). Para abortar com segurança
+    levantamos esta exceção, que propaga antes de qualquer escrita.
+    """
+
+
+# Alias retrocompatível (o hardening usava este nome).
+_TransactionAbort = _AbortTransaction
+
 # TAREFA 3.13: State machine de saques â€” valida transiÃ§Ãµes em toda mudanÃ§a de status.
 #   pending -> [blocked_by_audit, processing]
 #   processing -> [paid, failed]
@@ -37,6 +51,47 @@ def _valid_transition(from_status: str, to_status: str) -> bool:
     """Retorna True se a transiÃ§Ã£o de estado Ã© permitida pela state machine."""
     allowed = VALID_TRANSITIONS.get(from_status, set())
     return to_status in allowed
+
+
+def _claim_withdrawal(ref, actor: str):
+    """Claim atômico do saque (pending -> processing).
+
+    Levanta ``_AbortTransaction`` se o saque não existe, não está pendente ou já
+    tem lock de outro ator — sem apagar/alterar o nó.
+    """
+    def _claim(current):
+        if current is None:
+            raise _AbortTransaction()
+        if not _valid_transition(current.get("status"), "processing"):
+            raise _AbortTransaction()
+        if current.get("processing_by"):
+            raise _AbortTransaction()
+        current["processing_by"] = actor
+        current["status"] = "processing"
+        return current
+
+    return ref.transaction(_claim)
+
+
+def _release_claim(ref, actor: str = None):
+    """Libera o lock e devolve o saque para 'pending' (permite retry)."""
+    def _release(current):
+        if current is None:
+            raise _AbortTransaction()
+        if actor and current.get("processing_by") not in (None, actor):
+            raise _AbortTransaction()
+        current.pop("processing_by", None)
+        if current.get("status") == "processing":
+            current["status"] = "pending"
+        return current
+
+    try:
+        ref.transaction(_release)
+    except _AbortTransaction:
+        pass
+    except Exception:
+        pass  # best-effort: nunca mascara o erro original
+
 
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "").strip()
 ASAAS_API_KEY = os.environ.get("ASAAS_API_KEY", "").strip()
@@ -129,16 +184,17 @@ async def asaas_webhook(request: Request):
 
         def _dedup_transaction(current):
             if current is not None:
-                return None  # jÃ¡ processado -> aborta transaction, nÃ£o reprocessa
+                # já processado -> aborta SEM apagar o registro de dedup
+                raise _AbortTransaction()
             return {".sv": "timestamp"}
 
         try:
-            dedup_result = dedup_ref.transaction(_dedup_transaction)
-            if not dedup_result.committed:
-                # Duplicata â€” idempotente: retorna 200 sem reprocessar
-                return JSONResponse({"status": "duplicate_ignored", "event_id": event_id})
+            dedup_ref.transaction(_dedup_transaction)
+        except _AbortTransaction:
+            # Duplicata — idempotente: retorna 200 sem reprocessar
+            return JSONResponse({"status": "duplicate_ignored", "event_id": event_id})
         except Exception:
-            # Em falha do dedup, ainda processa (best-effort) para nÃ£o perder pagamento
+            # Em falha do dedup, ainda processa (best-effort) para não perder pagamento
             pass  # nosec
 
     # Extrai dados obrigatÃ³rios
@@ -217,15 +273,15 @@ async def _handle_transfer_failed(wid: str, amount: float, payment_data: dict):
     # TAREFA 3.13: valida transiÃ§Ã£o imediata (pending/processing -> refunding)
     def _refund_transaction(current_data):
         if current_data is None:
-            return None  # aborta
+            raise _AbortTransaction()  # aborta sem apagar o nó
 
-        # Se jÃ¡ foi estornado ou estÃ¡ em estado terminal, aborta (nÃ£o re-estorna)
+        # Se já foi estornado ou está em estado terminal, aborta (não re-estorna)
         if not _valid_transition(current_data.get("status"), "refunding"):
-            return None
+            raise _AbortTransaction()
 
-        # Se jÃ¡ tem lock de processamento, aborta (outro webhook/processando)
+        # Se já tem lock de processamento, aborta (outro webhook/processando)
         if current_data.get("processing_by"):
-            return None
+            raise _AbortTransaction()
 
         # Marca como processando (lock)
         current_data["processing_by"] = "webhook-asaas"
@@ -233,11 +289,11 @@ async def _handle_transfer_failed(wid: str, amount: float, payment_data: dict):
         return current_data
 
     try:
-        result = ref.transaction(_refund_transaction)
-        if not result.committed:
-            return JSONResponse({"status": "already_processed_or_locked"})
+        ref.transaction(_refund_transaction)
+    except _AbortTransaction:
+        return JSONResponse({"status": "already_processed_or_locked"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na transaÃ§Ã£o: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro na transação: {str(e)}")
 
     # Agora que temos o lock, executa o estorno
     try:
@@ -265,8 +321,8 @@ async def _handle_transfer_failed(wid: str, amount: float, payment_data: dict):
         return JSONResponse({"status": "refunded", "wid": wid, "amount": amount})
 
     except Exception as e:
-        # Em erro, libera o lock para permitir retry
-        ref.update({"processing_by": None})
+        # Em erro, libera o lock e volta para 'processing' para permitir retry
+        ref.update({"processing_by": None, "status": "processing"})
         raise HTTPException(status_code=500, detail=f"Erro no estorno: {str(e)}")
 
 
@@ -316,30 +372,15 @@ async def auto_approve_withdrawal(wid: str, request: Request):
 
     # âœ… CORREÃ‡ÃƒO M5: Claim atÃ´mico por transaÃ§Ã£o
     # TAREFA 3.13: valida transiÃ§Ã£o via state machine (pending -> processing)
-    def _approve_transaction(current_data):
-        if current_data is None:
-            return None
-        current_status = current_data.get("status")
-        # TransiÃ§Ã£o invÃ¡lida -> aborta (deixa como estÃ¡)
-        if not _valid_transition(current_status, "processing"):
-            return current_data  # jÃ¡ processado / terminal
-        if current_data.get("processing_by"):
-            return current_data  # jÃ¡ em processamento
-        current_data["processing_by"] = actor
-        current_data["status"] = "processing"
-        return current_data
-
     try:
-        result = ref.transaction(_approve_transaction)
-        if not result.committed:
-            current = ref.get()
-            if current and current.get("processing_by"):
-                raise HTTPException(status_code=409, detail="Saque jÃ¡ em processamento")
-            raise HTTPException(status_code=400, detail="Saque nÃ£o estÃ¡ pendente")
-    except HTTPException:
-        raise
+        _claim_withdrawal(ref, actor)
+    except _AbortTransaction:
+        current = ref.get()
+        if current and current.get("processing_by"):
+            raise HTTPException(status_code=409, detail="Saque já em processamento")
+        raise HTTPException(status_code=400, detail="Saque não está pendente")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na transaÃ§Ã£o: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro na transação: {str(e)}")
 
     # Executa transferÃªncia no Asaas
     try:
@@ -366,10 +407,42 @@ async def auto_approve_withdrawal(wid: str, request: Request):
                 external_ref=f"wid_{wid}",
             )
             if asaas_resp and asaas_resp.get("errors"):
-                # Falha no PIX real: libera lock e mantÃ©m pendente (NUNCA marca paid)
-                ref.update({"processing_by": None})
+                # Falha no PIX real: libera lock e mantem pendente (NUNCA marca paid)
+                _release_claim(ref, actor)
                 raise HTTPException(status_code=502, detail=asaas_resp["errors"][0].get("description", "Erro no Asaas"))
             transfer_id = asaas_resp.get("id", f"T{int(os.urandom(4).hex(), 16)}")
+
+        is_sim = bool(_settings.SIMULATION_MODE or not _settings.ASAAS_API_KEY)
+
+        # ── Contrato com o site CineCash ──────────────────────────────
+        # O webhook do site resolve o saque por admin/asaas_mappings/{asaas_id}
+        # e marca withdrawals/{uid}/{wid} como paid/refunded. Sem esse mapping,
+        # o saque do usuário ficaria "processing" para sempre.
+        try:
+            if is_sim:
+                # Não haverá webhook em simulação: finaliza o saque do usuário aqui.
+                if uid:
+                    db.reference(f"withdrawals/{uid}/{wid}").update({
+                        "status": "paid",
+                        "paid_at": {".sv": "timestamp"},
+                        "asaas_id": transfer_id,
+                        "simulated": True,
+                    })
+            else:
+                db.reference(f"admin/asaas_mappings/{transfer_id}").set({
+                    "uid": uid,
+                    "wid": wid,
+                    "amount": amount,
+                    "simulated": False,
+                    "created_at": {".sv": "timestamp"},
+                })
+                if uid:
+                    db.reference(f"withdrawals/{uid}/{wid}").update({
+                        "status": "processing",
+                        "asaas_id": transfer_id,
+                    })
+        except Exception as _map_err:
+            print(f"[APPROVE] Falha ao gravar mapping do saque {wid}: {type(_map_err).__name__}")
 
         # Atualiza como pago
         ref.update({
@@ -377,7 +450,7 @@ async def auto_approve_withdrawal(wid: str, request: Request):
             "paid_at": {".sv": "timestamp"},
             "asaas_transfer_id": transfer_id,
             "processing_by": None,
-            "simulation": bool(_settings.SIMULATION_MODE or not _settings.ASAAS_API_KEY),
+            "simulation": is_sim,
         })
 
         # TAREFA 3.6: log de auditoria da aprovaÃ§Ã£o (JSON estruturado)
@@ -399,9 +472,12 @@ async def auto_approve_withdrawal(wid: str, request: Request):
             "transfer_id": transfer_id
         })
 
+    except HTTPException:
+        # Erros de negócio (ex.: 502 do Asaas) sobem como estão — não viram 500.
+        raise
     except Exception as e:
         # Libera lock em erro
-        ref.update({"processing_by": None})
+        _release_claim(ref, actor)
         raise HTTPException(status_code=500, detail=f"Erro na transferÃªncia: {str(e)}")
 
 

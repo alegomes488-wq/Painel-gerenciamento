@@ -62,6 +62,7 @@ if (!hubDb) {
     hubDb.ref('users').on('value', snap => {
         rtState.users = snap.val() || {};
         if (typeof renderUsersTable === 'function') renderUsersTable();
+        if (typeof refreshUserCounters === 'function') refreshUserCounters();
     }, err => {
         console.error('[SYSTEM] Erro no listener users:', err.message);
     });

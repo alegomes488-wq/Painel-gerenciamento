@@ -142,6 +142,22 @@ function _effectiveStatus(project) {
     return health.override?.status || health.status || 'offline';
 }
 
+function getUserCount() {
+    return Object.keys(rtState.users || {}).length;
+}
+
+/**
+ * Contador de usuários cadastrados exibido no card do projeto monitorado,
+ * ao lado dos botões de ação/manutenção. Chamado sempre que o nó `users`
+ * muda (main.js) e a cada render da lista de projetos.
+ */
+function refreshUserCounters() {
+    const n = getUserCount();
+    document.querySelectorAll('[data-user-counter]').forEach(el => {
+        el.innerHTML = `👤 <b>${n}</b> USUÁRIOS`;
+    });
+}
+
 function renderWatchProjects() {
     const container = document.getElementById('watch-projects-list');
     if (!container) return;
@@ -191,6 +207,7 @@ function renderWatchProjects() {
                       <button data-action="copy" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px;">ID</button>
                       <button data-action="agent" data-id="${escapeHtml(p.id)}" class="btn-minimal" style="font-size: 8px; padding: 2px 6px; color: var(--cyan);">AGENT</button>
                       ${typeof renderMaintenanceButton === 'function' ? renderMaintenanceButton() : ''}
+                      <span data-user-counter class="btn-minimal" title="Usuários cadastrados nos CineCash" style="font-size: 8px; padding: 2px 6px; margin-left: auto; color: #10b981; font-family: 'JetBrains Mono', monospace; white-space: nowrap;">👤 <b>${getUserCount()}</b> USUÁRIOS</span>
                 </div>
 
                 ${isOnline ? '<div class="pulse-ring"></div>' : ''}

@@ -11,6 +11,10 @@ import re
 import html
 import time
 import secrets
+import ipaddress
+import socket
+from urllib.parse import urljoin, urlparse
+from datetime import datetime
 import httpx
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -39,6 +43,115 @@ def clamp_number(value, min_val: float, max_val: float) -> float:
     except (TypeError, ValueError):
         return min_val
     return max(min(num, max_val), min_val)
+
+
+# ─────────────────────────────────────────────────────────────
+# SSRF GUARD — o painel busca URLs fornecidas pelo usuário. Cada salto de
+# redirecionamento é revalidado e endereços privados/loopback/metadata são
+# bloqueados. (Portado do hardening 2026-10-18.)
+# ─────────────────────────────────────────────────────────────
+
+TRUSTED_HEADERS = ("x-powered-by", "server", "x-aspnet-version", "x-nginx-version")
+REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+MAX_REDIRECTS = 5
+BLOCKED_METADATA_HOSTS = {
+    "metadata",
+    "metadata.google.internal",
+    "instance-data",
+    "instance-data.ec2.internal",
+}
+
+
+class UnsafeTargetError(ValueError):
+    pass
+
+
+def _normalize_url(raw: str) -> str:
+    raw = raw.strip()
+    if not raw.startswith(("http://", "https://")):
+        raw = "https://" + raw
+    return raw
+
+
+def _validate_public_url(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise UnsafeTargetError("URL HTTP(S) inválida")
+    if parsed.username or parsed.password:
+        raise UnsafeTargetError("Credenciais na URL não são permitidas")
+
+    hostname = parsed.hostname.rstrip(".").lower()
+    if hostname in BLOCKED_METADATA_HOSTS or hostname.endswith(".internal"):
+        raise UnsafeTargetError("Destino interno bloqueado")
+
+    try:
+        addresses = [ipaddress.ip_address(hostname)]
+    except ValueError:
+        try:
+            addresses = {
+                ipaddress.ip_address(item[4][0])
+                for item in socket.getaddrinfo(hostname, parsed.port or 443, type=socket.SOCK_STREAM)
+            }
+        except (socket.gaierror, UnicodeError) as exc:
+            raise UnsafeTargetError("Host não resolvido") from exc
+
+    if not addresses or any(not address.is_global for address in addresses):
+        raise UnsafeTargetError("Endereço privado, local ou reservado bloqueado")
+    return url
+
+
+def _detect_framework(headers: dict, body: str) -> str:
+    for h in TRUSTED_HEADERS:
+        value = headers.get(h, "").lower()
+        if "nginx" in value:
+            return "nginx"
+        if "asp.net" in value:
+            return "ASP.NET"
+        if "express" in value:
+            return "Express.js"
+    low = body.lower()
+    if "_next/" in low or "nextdata" in low:
+        return "Next.js"
+    if "__nuxt" in low:
+        return "Nuxt.js"
+    if "ng-version" in low or "angular.io" in low:
+        return "Angular"
+    if "reactroot" in low or "react-dom" in low:
+        return "React"
+    if "django" in low or "csrfmiddlewaretoken" in low:
+        return "Django"
+    if "flask" in low or "werkzeug" in low:
+        return "Flask"
+    return "Desconhecido"
+
+
+async def _probe(identifier: str, probe_type: str = "website") -> dict:
+    start = time.perf_counter()
+    current_url = _validate_public_url(_normalize_url(identifier))
+    async with httpx.AsyncClient(timeout=12.0, follow_redirects=False) as client:
+        for redirect_count in range(MAX_REDIRECTS + 1):
+            # Revalida CADA salto: redirecionamento nunca herda confiança.
+            _validate_public_url(current_url)
+            resp = await client.get(current_url, headers={"User-Agent": "CyberCore-Monitor/1.0"})
+            if resp.status_code not in REDIRECT_STATUSES:
+                break
+            location = resp.headers.get("location")
+            if not location or redirect_count == MAX_REDIRECTS:
+                raise UnsafeTargetError("Cadeia de redirecionamento inválida")
+            current_url = urljoin(str(resp.url), location)
+        else:
+            raise UnsafeTargetError("Redirecionamentos excessivos")
+
+    latency_ms = int((time.perf_counter() - start) * 1000)
+    headers = {k.lower(): v for k, v in resp.headers.items()}
+    framework = _detect_framework(headers, resp.text[:200_000])
+    status = "degraded" if resp.status_code >= 500 else "online"
+    return {
+        "status": status,
+        "http_status": resp.status_code,
+        "latency_ms": latency_ms,
+        "framework": framework,
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -282,12 +395,12 @@ async def analyze_project(request: Request):
     real_status = "offline"
     real_latency = 0
     try:
-        test_url = identifier if identifier.startswith(("http://", "https://")) else f"https://{identifier}"
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            start = time.time()
-            resp = await client.head(test_url, follow_redirects=True)
-            real_latency = int((time.time() - start) * 1000)
-            real_status = "online" if resp.status_code < 400 else "degraded"
+        probe = await _probe(identifier, ptype)
+        real_status = probe["status"]
+        real_latency = probe["latency_ms"]
+        framework = probe["framework"]
+    except UnsafeTargetError as e:
+        raise HTTPException(status_code=400, detail=f"Destino não permitido: {e}")
     except Exception:
         pass
 
