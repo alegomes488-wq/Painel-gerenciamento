@@ -58,6 +58,9 @@ if (!hubDb) {
         setInterval(checkPythonCoreStatus, 15000);
     }
 
+    // Copiloto flutuante (Cyber Core IA) — ativo em todos os painéis.
+    if (typeof hubWidgetStart === 'function') hubWidgetStart();
+
     // ── Usuários ──
     hubDb.ref('users').on('value', snap => {
         rtState.users = snap.val() || {};
@@ -92,6 +95,7 @@ if (!hubDb) {
     hubDb.ref('config').on('value', snap => {
         rtState.config = snap.val() || {};
         if (typeof updateStatusIndicators === 'function') updateStatusIndicators();
+        if (typeof loadConfigUI === 'function') loadConfigUI();
     }, err => {
         console.error('[SYSTEM] Erro no listener config:', err.message);
     });

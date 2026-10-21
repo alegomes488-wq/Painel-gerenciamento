@@ -48,8 +48,9 @@ def test_approve_aborted_transaction_400(app_env, fake_db, fake_auth, client):
 
 def test_approve_happy_path_sets_paid(app_env, fake_db, fake_auth, client):
     """Admin válido aprova saque pendente => status paid."""
+    fake_db.reference("users/U1").set({"email_verified": True, "balance": 100.0})
     fake_db.reference("admin/pending_withdrawals/W11").set({
-        "uid": "U1", "amount": 10.0, "pixKey": "000.000.000-00",
+        "uid": "U1", "amount": 10.0, "pixKey": "123.456.789-00",
         "pixType": "CPF", "status": "pending", "fullname": "T",
     })
     r = client.post("/payments/approve/W11", json={},

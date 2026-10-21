@@ -9,6 +9,7 @@ import os
 import hmac
 import hashlib
 import json
+import asyncio
 from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from firebase_admin import auth as firebase_auth, db
@@ -92,6 +93,30 @@ def _release_claim(ref, actor: str = None):
         pass
     except Exception:
         pass  # best-effort: nunca mascara o erro original
+
+
+# ─── Política de risco obrigatória antes do pagamento ──────────────────────
+# A análise deixa de ser apenas visual: o backend reavalia o saque e só segue
+# para o Asaas quando a recomendação permite. MEDIUM/HIGH (MANUAL_REVIEW) exigem
+# override explícito do admin via header; HIGH_RISK_BLOCK é sempre recusado.
+RISK_OVERRIDE_HEADER = "X-Risk-Override"
+RISK_OVERRIDE_VALUE = "confirm"
+
+
+def _risk_block_detail(analysis: dict, allow_override: bool) -> dict:
+    return {
+        "code": "risk_blocked",
+        "message": "Pagamento bloqueado pela análise de risco do SecOps Sentinel.",
+        "risk_level": analysis.get("risk_level"),
+        "trust_score": analysis.get("trust_score"),
+        "recommendation": analysis.get("recommendation"),
+        "reasons": analysis.get("reasons", []),
+        "requires_override": allow_override,
+    }
+
+
+def _risk_override_requested(request: Request) -> bool:
+    return request.headers.get(RISK_OVERRIDE_HEADER, "").strip().lower() == RISK_OVERRIDE_VALUE
 
 
 WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "").strip()
@@ -386,6 +411,70 @@ async def auto_approve_withdrawal(wid: str, request: Request):
     # Executa transferÃªncia no Asaas
     try:
         snap = ref.get()
+        if not snap:
+            _release_claim(ref, actor)
+            raise HTTPException(status_code=404, detail="Saque não encontrado")
+
+        # ── Validação obrigatória de requisitos ANTES do pagamento ──────────
+        # Reavalia sempre com dados frescos. Fail-closed: se a análise não puder
+        # ser executada, o saque volta para 'pending' e o pagamento não ocorre.
+        try:
+            from app.services.secops_agent import SecOpsSentinelAgent
+            analysis = await asyncio.to_thread(
+                SecOpsSentinelAgent.evaluate_withdrawal_risk, wid, snap
+            )
+        except Exception as _risk_err:
+            _release_claim(ref, actor)
+            print(f"[APPROVE] Análise de risco indisponível para {wid}: {type(_risk_err).__name__}")
+            raise HTTPException(
+                status_code=503,
+                detail="Análise de risco indisponível. Pagamento bloqueado por segurança.",
+            )
+
+        recommendation = analysis.get("recommendation", "HIGH_RISK_BLOCK")
+        override = _risk_override_requested(request)
+
+        # N8N só auto-aprova risco LOW. Admin pode liberar MEDIUM/HIGH com
+        # override explícito. CRITICAL (HIGH_RISK_BLOCK) nunca passa.
+        allowed = recommendation == "AUTO_APPROVE"
+        if recommendation == "MANUAL_REVIEW" and override and not is_n8n:
+            allowed = True
+
+        if not allowed:
+            _release_claim(ref, actor)
+            try:
+                from app.dependencies import log_admin_action
+                log_admin_action(actor, "withdrawal_risk_blocked", {
+                    "wid": wid,
+                    "risk_level": analysis.get("risk_level"),
+                    "trust_score": analysis.get("trust_score"),
+                    "recommendation": recommendation,
+                    "override_requested": override,
+                    "source": "n8n" if is_n8n else "panel",
+                })
+            except Exception:
+                pass  # nosec
+            status_code = 403 if recommendation == "HIGH_RISK_BLOCK" else 409
+            raise HTTPException(
+                status_code=status_code,
+                detail=_risk_block_detail(
+                    analysis,
+                    allow_override=(recommendation == "MANUAL_REVIEW" and not is_n8n),
+                ),
+            )
+
+        if recommendation == "MANUAL_REVIEW" and override:
+            try:
+                from app.dependencies import log_admin_action
+                log_admin_action(actor, "withdrawal_risk_override", {
+                    "wid": wid,
+                    "risk_level": analysis.get("risk_level"),
+                    "trust_score": analysis.get("trust_score"),
+                    "reasons": analysis.get("reasons", []),
+                })
+            except Exception:
+                pass  # nosec
+
         uid = snap.get("uid")
         amount = float(snap.get("amount", 0))
         pix_key = snap.get("pixKey", "")

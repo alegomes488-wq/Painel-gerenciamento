@@ -1,5 +1,5 @@
 # Telemetria para Painel Cyber Core IA
-import json, asyncio
+import json, asyncio, re
 from datetime import datetime
 from typing import Dict, Optional
 from fastapi import APIRouter, Request, HTTPException, Body
@@ -13,13 +13,39 @@ router = APIRouter(prefix='/api/telemetry', tags=['telemetry'])
 _event_buffer = []
 _max_buffer = 100
 _sse_clients: Dict[str, asyncio.Queue] = {}
+_metric_key = re.compile(r'^[a-z][a-z0-9_]{0,23}$')
 
 
 def _agora_iso():
     return datetime.utcnow().isoformat() + 'Z'
 
 
-def _enqueue_event(agent, state, monitoring=None, analysis=None, activity='', result='', evidence='', observed_at=None):
+def _sanitize_metrics(metrics):
+    if not isinstance(metrics, list):
+        return []
+    result = []
+    for item in metrics[:6]:
+        if not isinstance(item, dict):
+            continue
+        key = item.get('key')
+        if not isinstance(key, str) or not _metric_key.match(key):
+            continue
+        label = item.get('label') if isinstance(item.get('label'), str) else key
+        value = item.get('value')
+        if isinstance(value, bool):
+            value = 'Sim' if value else 'Não'
+        elif isinstance(value, (int, float)):
+            value = str(value)
+        elif not isinstance(value, str):
+            continue
+        label = label.strip()[:32] or key
+        value = value.strip()[:40]
+        if value:
+            result.append({'key': key, 'label': label, 'value': value})
+    return result
+
+
+def _enqueue_event(agent, state, monitoring=None, analysis=None, activity='', result='', evidence='', observed_at=None, metrics=None):
     event = {
         'agent': agent,
         'state': state,
@@ -29,6 +55,7 @@ def _enqueue_event(agent, state, monitoring=None, analysis=None, activity='', re
         'activity': activity or '',
         'result': result or '',
         'evidence': evidence or '',
+        'metrics': _sanitize_metrics(metrics),
     }
     _event_buffer.insert(0, event)
     if len(_event_buffer) > _max_buffer:
@@ -50,12 +77,13 @@ async def registrar_evento_agente(
     activity: str = Body('', embed=True),
     result: str = Body('', embed=True),
     evidence: str = Body('', embed=True),
+    metrics: Optional[list] = Body(None, embed=True),
 ):
     if agent not in ('financeiro', 'sentinel', 'auditor', 'fiscal'):
         raise HTTPException(400, 'Agente invalido')
     if state not in ('running', 'idle', 'error', 'offline'):
         raise HTTPException(400, 'Estado invalido')
-    ev = _enqueue_event(agent, state, monitoring, analysis, activity, result, evidence)
+    ev = _enqueue_event(agent, state, monitoring, analysis, activity, result, evidence, metrics=metrics)
     return JSONResponse({'status': 'ok', 'event': ev})
 
 

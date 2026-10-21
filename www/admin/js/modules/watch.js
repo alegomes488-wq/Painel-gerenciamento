@@ -383,6 +383,7 @@ function exportProjectUsersCsv() {
 function renderWatchProjects() {
     const container = document.getElementById('watch-projects-list');
     if (!container) return;
+    if (typeof watchStartAiTicker === 'function') watchStartAiTicker();
 
     const filtered = currentWatchFilter === null || currentWatchFilter === 'all' ? connectedProjects : connectedProjects.filter(p => p.type === currentWatchFilter);
 
@@ -406,6 +407,7 @@ function renderWatchProjects() {
 
         const color = isOnline ? '#10b981' : (isDegraded ? '#fbbf24' : '#ef4444');
         const tech = escapeHtml(p.tech_stack ? p.tech_stack.join(', ') : (p.framework || 'N/A'));
+        const typeLabel = ({ website: 'WEB', android: 'APK', ios: 'iOS', api: 'API' })[p.type] || (p.type || 'N/A').toUpperCase();
 
         return `
             <div class="project-watch-card ${statusClass}" data-project-id="${escapeHtml(p.id)}" style="border-left-color: ${color}; position: relative; overflow: hidden;">
@@ -422,6 +424,14 @@ function renderWatchProjects() {
                         </div>
                         <div style="font-size: 9px; opacity: 0.6; margin-top: 2px;">LATENCY: ${latency}</div>
                     </div>
+                </div>
+
+                <div class="project-chip-row">
+                    <span class="project-chip" style="color:${color};border-color:${color}55;">${escapeHtml(typeLabel)}</span>
+                    <span class="project-chip">CPU <b>${cpu}</b></span>
+                    <span class="project-chip">RAM <b>${ram}</b></span>
+                    ${isFinite(latMs) ? `<span class="project-chip">LAT <b>${latency}</b></span>` : ''}
+                    ${lastReport ? `<span class="project-chip muted">${escapeHtml(lastReport)}</span>` : ''}
                 </div>
 
 
@@ -546,3 +556,49 @@ doFetch()
     }
     if (typeof validateWatchInput === 'function') validateWatchInput();
 })();
+
+// ── Ticker de IA no card "Projetos monitorados" ─────────────
+let _watchAiTickerTimer = null;
+let _watchAiTickerRotateTimer = null;
+let _watchAiTickerMsgs = [];
+let _watchAiTickerIdx = 0;
+
+function watchStartAiTicker() {
+    if (_watchAiTickerTimer) return;
+    _watchAiTickerRefresh();
+    _watchAiTickerTimer = setInterval(_watchAiTickerRefresh, 90_000);
+}
+
+async function _watchAiTickerRefresh() {
+    if (!auth || !auth.currentUser) return;
+    try {
+        const idToken = await auth.currentUser.getIdToken();
+        const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/api/hub/overview`, {
+            headers: { 'Authorization': `Bearer ${idToken}` },
+        });
+        if (!resp.ok) return;
+        const overview = await resp.json();
+        const correlations = overview.correlations || [];
+        _watchAiTickerMsgs = correlations.length
+            ? correlations.map(c => `${c.title || 'Alerta'}: ${c.message || ''}`)
+            : ['Nenhum alerta crítico. WAF e integridade do APK operando normalmente.'];
+        _watchAiTickerIdx = 0;
+        _watchAiTickerShow();
+        if (!_watchAiTickerRotateTimer) {
+            _watchAiTickerRotateTimer = setInterval(() => {
+                if (_watchAiTickerMsgs.length < 2) return;
+                _watchAiTickerIdx = (_watchAiTickerIdx + 1) % _watchAiTickerMsgs.length;
+                _watchAiTickerShow();
+            }, 8000);
+        }
+    } catch (e) { /* silencioso: ticker é informativo */ }
+}
+
+function _watchAiTickerShow() {
+    const el = document.querySelector('#watch-ai-ticker .hub-ai-ticker-text');
+    if (!el || !_watchAiTickerMsgs.length) return;
+    el.textContent = 'Cyber Core IA: ' + _watchAiTickerMsgs[_watchAiTickerIdx];
+    el.classList.remove('ticker-in');
+    void el.offsetWidth;
+    el.classList.add('ticker-in');
+}

@@ -131,16 +131,31 @@ function renderWithdrawalsTable() {
 //  Aprovação de saque com confirmação de risco
 // ─────────────────────────────────────────────
 async function approveWithdrawal(wid) {
-    // Verifica score de risco antes de confirmar
-    const analysis = _secopsCache.get(wid);
-    if (analysis && analysis.risk_level === 'CRITICAL') {
-        const proceed = confirm(
-            `⚠️ ALERTA DE SEGURANÇA — SecOps Sentinel\n\n` +
-            `Trust Score: ${analysis.trust_score}/100 (CRÍTICO)\n` +
-            `${(analysis.reasons || []).join('\n')}\n\n` +
-            `Tem CERTEZA que deseja pagar mesmo assim?`
+    // Reavalia o risco com dados frescos antes de qualquer pagamento.
+    let analysis = _secopsCache.get(wid);
+    if (typeof fetchRiskAnalysisFresh === 'function') {
+        analysis = (await fetchRiskAnalysisFresh(wid)) || analysis;
+    }
+
+    // Bloqueio absoluto: o backend também recusa este caso.
+    if (analysis && analysis.recommendation === 'HIGH_RISK_BLOCK') {
+        showToast(
+            `🚫 Pagamento bloqueado — risco ${analysis.risk_level} (score ${analysis.trust_score}/100).`,
+            'error'
         );
-        if (!proceed) return;
+        return;
+    }
+
+    // MEDIUM/HIGH exigem confirmação explícita do admin (override no backend).
+    let override = false;
+    if (analysis && analysis.recommendation === 'MANUAL_REVIEW') {
+        override = confirm(
+            `⚠️ REVISÃO MANUAL — SecOps Sentinel\n\n` +
+            `Trust Score: ${analysis.trust_score}/100 (${analysis.risk_level})\n` +
+            `${(analysis.reasons || []).join('\n')}\n\n` +
+            `Validou todos os requisitos? Confirmar pagamento mesmo assim?`
+        );
+        if (!override) return;
     } else if (!confirm("Confirmar pagamento via Asaas PIX?")) {
         return;
     }
@@ -155,16 +170,29 @@ async function approveWithdrawal(wid) {
 
     try {
         const idToken = await auth.currentUser.getIdToken();
+        const headers = { 'Authorization': `Bearer ${idToken}` };
+        if (override) headers['X-Risk-Override'] = 'confirm';
         const resp = await fetch(`${BRASILHEXA_BACKEND_URL}/payments/approve/${wid}`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${idToken}` }
+            headers
         });
-        const data = await resp.json();
+        const data = await resp.json().catch(() => ({}));
         // FIX 1.3: backend retorna { status: "approved" } e erros vêm em "detail".
         // Antes usava "success"/"message", que nunca eram enviados -> "Erro: undefined".
         const isApproved = data.status === 'approved';
+        let errorMessage = 'Falha na aprovação';
+        if (typeof data.detail === 'string') {
+            errorMessage = data.detail;
+        } else if (data.detail && typeof data.detail === 'object') {
+            errorMessage = data.detail.message || data.detail.code || errorMessage;
+            if (Array.isArray(data.detail.reasons) && data.detail.reasons.length) {
+                errorMessage += ' ' + data.detail.reasons.join(' ');
+            }
+        } else if (data.message) {
+            errorMessage = data.message;
+        }
         showToast(
-            isApproved ? `✅ Pagamento aprovado!` : `❌ Erro: ${data.detail || data.message || 'Falha na aprovação'}`,
+            isApproved ? `✅ Pagamento aprovado!` : `❌ ${errorMessage}`,
             isApproved ? 'success' : 'error'
         );
 

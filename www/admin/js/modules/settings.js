@@ -17,6 +17,22 @@ function updateStatusIndicators() {
     }
 }
 
+function loadConfigUI() {
+    try {
+        const cfg = rtState.config || {};
+        const cpmEl = document.getElementById('audit-cpm');
+        const waEl = document.getElementById('audit-whatsapp');
+        if (cpmEl && cfg.cpm !== undefined && cfg.cpm !== null) {
+            cpmEl.value = Number(cfg.cpm).toFixed(2);
+        }
+        if (waEl && cfg.adminWhatsapp !== undefined && cfg.adminWhatsapp !== null) {
+            waEl.value = cfg.adminWhatsapp;
+        }
+    } catch (e) {
+        console.warn('[Settings] Erro ao carregar config UI:', e);
+    }
+}
+
 async function saveAuditParameters() {
     const cpm = parseFloat(document.getElementById('audit-cpm')?.value || 0);
     const wa = document.getElementById('audit-whatsapp')?.value.trim();

@@ -1,4 +1,5 @@
 import os
+import time
 from fastapi import FastAPI, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,8 +7,9 @@ from fastapi.responses import FileResponse
 from app.core.config import settings
 from app.services.firebase_service import get_auth
 from app.middleware.appcheck import AppCheckMiddleware
+from app.middleware import hub_metrics
 from app.dependencies import is_admin_user, get_current_user, log_admin_action
-from app.routers import payments, secops, projects, admin, telemetry
+from app.routers import payments, secops, projects, admin, telemetry, hub
 from app.routers.projects import project_router
 from app.core.security import rate_limiter
 # TAREFA 6.1: guarda de entrega de arquivos estáticos (bloqueia dotfiles e
@@ -68,6 +70,23 @@ async def rate_limit_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
+async def hub_metrics_middleware(request: Request, call_next):
+    # Painel HUB: coleta latência/status de /api/* para a seção "api".
+    # O próprio /api/hub é excluído (evita ingestão virar métrica de API).
+    if not hub_metrics.ENABLED or not request.url.path.startswith("/api/"):
+        return await call_next(request)
+    start = time.perf_counter()
+    response = await call_next(request)
+    hub_metrics.record(
+        request.method,
+        request.url.path,
+        response.status_code,
+        (time.perf_counter() - start) * 1000.0,
+    )
+    return response
+
+
+@app.middleware("http")
 async def admin_auth_middleware(request: Request, call_next):
     # CORS preflights never carry Firebase credentials. Let CORSMiddleware
     # validate and answer them before applying route authentication.
@@ -87,7 +106,9 @@ async def admin_auth_middleware(request: Request, call_next):
         return await call_next(request)
 
     # Excluir rotas específicas que não exigem o header de admin
-    if path in ("/payments/webhook", "/api/monitor/report", "/api/telemetry/stream") or path.startswith(("/api/auto-approve/", "/payments/auto-approve/")):
+    # (/api/hub/events e /api/hub/agent/* usam autenticação própria HMAC
+    #  X-Hub-Agent-Secret)
+    if path in ("/payments/webhook", "/api/monitor/report", "/api/telemetry/stream", "/api/hub/events") or path.startswith(("/api/auto-approve/", "/payments/auto-approve/", "/api/hub/agent/")):
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization", "")
@@ -136,11 +157,26 @@ async def favicon():
         return FileResponse(file_path)
     return JSONResponse(status_code=404, content={"detail": "Not Found"})
 
+
+@app.get("/hub-web-agent.js", include_in_schema=False)
+async def hub_web_agent_script():
+    # Agente de coleta web do HUB servido pelo backend para o site incluir via
+    # <script src="https://<backend>/hub-web-agent.js" data-backend="..." data-token="...">.
+    file_path = os.path.join(PROJECT_ROOT, "agents", "hub-web-agent.js")
+    if os.path.exists(file_path):
+        return FileResponse(
+            file_path,
+            media_type="application/javascript",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
 app.include_router(payments.router)
 app.include_router(secops.router)
 app.include_router(projects.router)
 app.include_router(admin.router)
 app.include_router(telemetry.router)
+app.include_router(hub.router)
 app.include_router(project_router)
 
 

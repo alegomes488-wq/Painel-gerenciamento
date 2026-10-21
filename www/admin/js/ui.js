@@ -38,7 +38,22 @@ function showPanel(id, filterType = null) {
         if (typeof stopSecOpsAutoRefresh === 'function') stopSecOpsAutoRefresh();
     }
 
+    // 5.2 Painel HUB — renderiza e inicia auto-refresh (falha graciosamente se não admin)
+    if (id === 'hub') {
+        if (typeof startHubPanel === 'function') startHubPanel();
+    } else {
+        if (typeof stopHubAutoRefresh === 'function') stopHubAutoRefresh();
+    }
+
+    // 5.3 Copiloto flutuante — disponível em qualquer painel (idempotente).
+    if (typeof hubWidgetStart === 'function') hubWidgetStart();
+
+    if (id === 'settings' && typeof loadConfigUI === 'function') {
+        loadConfigUI();
+    }
+
     const titleMap = {
+        hub:      '[SYS_HUB] // PAINEL HUB — DESEMPENHO / ACOMPANHAMENTO / SEGURANÇA',
         watch:    '[SYS_CORE] // MONITORAMENTO',
         saques:   '[SYS_FINANCE] // SOLICITAÇÕES PIX',
         'ia-info':'[SYS_BRAIN] // INFORMAÇÕES IA',

@@ -17,8 +17,9 @@ def test_python_compare_digest_empty_is_true():
 
 
 def _seed(fdb, wid):
+    fdb.reference("users/U1").set({"email_verified": True, "balance": 100.0})
     fdb.reference(f"admin/pending_withdrawals/{wid}").set({
-        "uid": "U1", "amount": 10.0, "pixKey": "000.000.000-00",
+        "uid": "U1", "amount": 10.0, "pixKey": "123.456.789-00",
         "pixType": "CPF", "status": "pending", "fullname": "Test",
     })
 
@@ -100,3 +101,65 @@ def test_auto_approve_no_secret_no_token_401(app_env, fake_db, fake_auth, client
     _seed(fake_db, "W7")
     r = client.post("/payments/auto-approve/W7", json={})
     assert r.status_code == 401
+
+
+# ─────────────────────────────────────────────
+# Política de risco obrigatória antes do pagamento
+# ─────────────────────────────────────────────
+def _seed_critical(fdb, wid):
+    fdb.reference(f"admin/pending_withdrawals/{wid}").set({
+        "uid": "U_CRIT", "amount": 7.5, "pixKey": "000.000.000-00",
+        "pixType": "CPF", "status": "pending", "fullname": "Crit",
+    })
+
+
+def _seed_medium(fdb, wid):
+    """CPF válido, mas conta sem e-mail verificado => score 80 (MEDIUM)."""
+    fdb.reference(f"admin/pending_withdrawals/{wid}").set({
+        "uid": "U_MED", "amount": 10.0, "pixKey": "123.456.789-00",
+        "pixType": "CPF", "status": "pending", "fullname": "Med",
+    })
+
+
+def test_auto_approve_critical_blocked_always(app_env, fake_db, fake_auth, client):
+    """Risco CRITICAL nunca é pago, nem com override do admin."""
+    _seed_critical(fake_db, "W_CRIT")
+    r = client.post("/payments/auto-approve/W_CRIT", json={},
+                    headers={"Authorization": "Bearer valid-admin",
+                             "X-Risk-Override": "confirm"})
+    assert r.status_code == 403, r.text
+    detail = r.json()["detail"]
+    assert detail["code"] == "risk_blocked"
+    assert detail["recommendation"] == "HIGH_RISK_BLOCK"
+    assert detail["requires_override"] is False
+    assert fake_db.reference("admin/pending_withdrawals/W_CRIT").get()["status"] == "pending"
+
+
+def test_auto_approve_medium_requires_override(app_env, fake_db, fake_auth, client):
+    """MEDIUM/HIGH exige override explícito; sem header o pagamento é recusado."""
+    _seed_medium(fake_db, "W_MED1")
+    r = client.post("/payments/auto-approve/W_MED1", json={},
+                    headers={"Authorization": "Bearer valid-admin"})
+    assert r.status_code == 409, r.text
+    detail = r.json()["detail"]
+    assert detail["recommendation"] == "MANUAL_REVIEW"
+    assert detail["requires_override"] is True
+    assert fake_db.reference("admin/pending_withdrawals/W_MED1").get()["status"] == "pending"
+
+    _seed_medium(fake_db, "W_MED2")
+    r2 = client.post("/payments/auto-approve/W_MED2", json={},
+                     headers={"Authorization": "Bearer valid-admin",
+                              "X-Risk-Override": "confirm"})
+    assert r2.status_code == 200, r2.text
+    assert fake_db.reference("admin/pending_withdrawals/W_MED2").get()["status"] == "paid"
+
+
+def test_auto_approve_n8n_cannot_override_medium(app_env, fake_db, fake_auth, client):
+    """N8N só auto-aprova AUTO_APPROVE (LOW); override não vale para automação."""
+    _seed_medium(fake_db, "W_MED_N8N")
+    r = client.post(
+        "/payments/auto-approve/W_MED_N8N",
+        headers={"X-N8N-Secret": "test-n8n-secret", "X-Risk-Override": "confirm"},
+    )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["requires_override"] is False

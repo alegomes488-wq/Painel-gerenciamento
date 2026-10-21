@@ -16,6 +16,10 @@ os.environ.setdefault("ASAAS_API_KEY", "test-asaas-key")
 # TAREFA 4.1: App Check é obrigatório por padrão; em testes/desenvolvimento
 # desativamos explicitamente para não exigir token real na suíte.
 os.environ.setdefault("APP_CHECK_REQUIRED", "false")
+# Painel HUB: canal de ingestão HMAC (POST /api/hub/events) ativo em testes.
+os.environ.setdefault("HUB_AGENT_SECRET", "test-hub-secret")
+# Painel HUB: token web restrito (navegador) — seção "web" apenas.
+os.environ.setdefault("HUB_WEB_TOKEN", "test-hub-web-token")
 # Suite nunca usa PIX real: forca modo simulacao (o .env local pode ter false).
 os.environ["SIMULATION_MODE"] = "true"
 
@@ -111,6 +115,8 @@ def fake_db(monkeypatch):
     monkeypatch.setattr("app.routers.secops.get_db", lambda: fdb)
     monkeypatch.setattr("app.services.asaas_service.get_db", lambda: fdb)
     monkeypatch.setattr("app.services.secops_agent.get_db", lambda: fdb)
+    # Painel HUB: serviço de dados lê/escreve no RTDB via get_db
+    monkeypatch.setattr("app.services.hub_service.get_db", lambda: fdb)
     # TAREFA 2.1/2.2: dependencies.py usa get_db para allowlist e auditoria
     monkeypatch.setattr("app.dependencies.get_db", lambda: fdb)
     return fdb

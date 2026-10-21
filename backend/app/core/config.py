@@ -76,6 +76,12 @@ class Settings:
     WEBHOOK_SECRET: str = os.environ.get("WEBHOOK_SECRET")
     N8N_SHARED_SECRET: str = os.environ.get("N8N_SHARED_SECRET")
     MONITOR_SHARED_SECRET: str = os.environ.get("MONITOR_SHARED_SECRET")
+    # HUB: segredo HMAC do canal de ingestão de métricas (site/app/APK -> painel HUB).
+    # Sem ele, POST /api/hub/events responde 503 (fail-closed).
+    HUB_AGENT_SECRET: str = os.environ.get("HUB_AGENT_SECRET")
+    # HUB: token estático do agente WEB no navegador (anti-spoofing: restrito à
+    # seção "web"). Sem ele, agentes web não conseguem enviar Core Web Vitals.
+    HUB_WEB_TOKEN: str = os.environ.get("HUB_WEB_TOKEN")
     APP_ENV: str = _APP_ENV
     PAYMENTS_MODE: str = _PAYMENTS_MODE
     CORS_ALLOWED_ORIGINS: tuple = tuple(
