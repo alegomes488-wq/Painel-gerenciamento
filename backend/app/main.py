@@ -70,7 +70,20 @@ async def rate_limit_middleware(request: Request, call_next):
 
 
 @app.middleware("http")
-async def hub_metrics_middleware(request: Request, call_next):
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    # HF/infra às vezes injeta X-Frame-Options: DENY; não bloqueia o app direto,
+    # mas quebra previews. Permitimos mesmo-origem (ou removemos) para evitar tela branca.
+    if response.headers.get("X-Frame-Options", "").upper() == "DENY":
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    elif "X-Frame-Options" not in response.headers:
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
+
+@app.middleware("http")
     # Painel HUB: coleta latência/status de /api/* para a seção "api".
     # O próprio /api/hub é excluído (evita ingestão virar métrica de API).
     if not hub_metrics.ENABLED or not request.url.path.startswith("/api/"):
